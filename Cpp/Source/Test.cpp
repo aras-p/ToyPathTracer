@@ -3,7 +3,7 @@
 #include <algorithm>
 #include "enkiTS/TaskScheduler_c.h"
 
-const int kSphereCount = 8;
+const int kSphereCount = 9;
 static Sphere s_Spheres[kSphereCount] =
 {
     {float3(0,-100.5,-1), 100},
@@ -14,12 +14,14 @@ static Sphere s_Spheres[kSphereCount] =
     {float3(0,0,1), 0.5f},
     {float3(-2,0,1), 0.5f},
     {float3(0.5f,1,0.5f), 0.5f},
+    {float3(-1.5f,1.5f,0.f), 0.3f},
 };
 
 struct Material
 {
     enum Type { Lambert, Metal, Dielectric };
     float3 albedo;
+    float3 emissive;
     float roughness;
     float ri;
     Type type;
@@ -27,14 +29,15 @@ struct Material
 
 static Material s_SphereMats[kSphereCount] =
 {
-    { float3(0.8f, 0.8f, 0.8f), 0, 0, Material::Lambert },
-    { float3(0.8f, 0.4f, 0.4f), 0, 0, Material::Lambert },
-    { float3(0.4f, 0.8f, 0.4f), 0, 0, Material::Lambert },
-    { float3(0.4f, 0.4f, 0.8f), 0, 0, Material::Metal },
-    { float3(0.4f, 0.8f, 0.4f), 0, 0, Material::Metal },
-    { float3(0.4f, 0.8f, 0.4f), 0.2f, 0, Material::Metal },
-    { float3(0.4f, 0.8f, 0.4f), 0.6f, 0, Material::Metal },
-    { float3(0.4f, 0.8f, 0.4f), 0, 1.5f, Material::Dielectric },
+    { float3(0.8f, 0.8f, 0.8f), float3(0,0,0), 0, 0, Material::Lambert },
+    { float3(0.8f, 0.4f, 0.4f), float3(0,0,0), 0, 0, Material::Lambert },
+    { float3(0.4f, 0.8f, 0.4f), float3(0,0,0), 0, 0, Material::Lambert },
+    { float3(0.4f, 0.4f, 0.8f), float3(0,0,0), 0, 0, Material::Metal },
+    { float3(0.4f, 0.8f, 0.4f), float3(0,0,0), 0, 0, Material::Metal },
+    { float3(0.4f, 0.8f, 0.4f), float3(0,0,0), 0.2f, 0, Material::Metal },
+    { float3(0.4f, 0.8f, 0.4f), float3(0,0,0), 0.6f, 0, Material::Metal },
+    { float3(0.4f, 0.8f, 0.4f), float3(0,0,0), 0, 1.5f, Material::Dielectric },
+    { float3(0.8f, 0.6f, 0.2f), float3(60,50,30), 0, 0, Material::Lambert },
 };
 
 const float kMinT = 0.001f;
@@ -127,13 +130,14 @@ static float3 Trace(const Ray& r, int depth)
     {
         Ray scattered;
         float3 attenuation;
-        if (depth < kMaxDepth && Scatter(s_SphereMats[id], r, rec, attenuation, scattered))
+        const Material& mat = s_SphereMats[id];
+        if (depth < kMaxDepth && Scatter(mat, r, rec, attenuation, scattered))
         {
-            return attenuation * Trace(scattered, depth+1);
+            return mat.emissive + attenuation * Trace(scattered, depth+1);
         }
         else
         {
-            return float3(0,0,0);
+            return mat.emissive;
         }
     }
     else
@@ -141,7 +145,7 @@ static float3 Trace(const Ray& r, int depth)
         // sky
         float3 unitDir = normalize(r.dir);
         float t = 0.5f*(unitDir.y + 1.0f);
-        return (1.0f-t)*float3(1.0f, 1.0f, 1.0f) + t*float3(0.5f, 0.7f, 1.0f);
+        return ((1.0f-t)*float3(1.0f, 1.0f, 1.0f) + t*float3(0.5f, 0.7f, 1.0f)) * 0.3f;
     }
 }
 
