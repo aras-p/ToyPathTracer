@@ -89,11 +89,14 @@ struct Hit
 
 struct Sphere
 {
-    Sphere() : radius(1.0f) {}
-    Sphere(float3 center_, float radius_) : center(center_), radius(radius_) {}
+    Sphere() : radius(1.0f), invRadius(0.0f) {}
+    Sphere(float3 center_, float radius_) : center(center_), radius(radius_), invRadius(0.0f) {}
+    
+    void UpdateDerivedData() { invRadius = 1.0f/radius; }
     
     float3 center;
     float radius;
+    float invRadius;
 };
 
 

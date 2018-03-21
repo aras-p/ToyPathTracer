@@ -227,6 +227,12 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
 {
     JobData& data = *(JobData*)data_;
     float* backbuffer = data.backbuffer + start * data.screenWidth * 4;
+    float invWidth = 1.0f / data.screenWidth;
+    float invHeight = 1.0f / data.screenHeight;
+    float lerpFac = float(data.frameCount) / float(data.frameCount+1);
+#if DO_ANIMATE
+    lerpFac *= DO_ANIMATE_SMOOTHING;
+#endif
     for (uint32_t y = start; y < end; ++y)
     {
         for (int x = 0; x < data.screenWidth; ++x)
@@ -234,8 +240,8 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
             float3 col(0, 0, 0);
             for (int s = 0; s < DO_SAMPLES_PER_PIXEL; s++)
             {
-                float u = float(x + RandomFloat01()) / float(data.screenWidth);
-                float v = float(y + RandomFloat01()) / float(data.screenHeight);
+                float u = float(x + RandomFloat01()) * invWidth;
+                float v = float(y + RandomFloat01()) * invHeight;
                 Ray r = data.cam->GetRay(u, v);
                 col += Trace(r, 0);
             }
@@ -243,10 +249,6 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
             col = float3(sqrtf(col.x), sqrtf(col.y), sqrtf(col.z));
             
             float3 prev(backbuffer[0], backbuffer[1], backbuffer[2]);
-            float lerpFac = float(data.frameCount) / float(data.frameCount+1);
-#if DO_ANIMATE
-            lerpFac *= DO_ANIMATE_SMOOTHING;
-#endif
             col = prev * lerpFac + col * (1-lerpFac);
             backbuffer[0] = col.x;
             backbuffer[1] = col.y;
@@ -266,6 +268,9 @@ void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, flo
     float3 lookat(0,0,0);
     float distToFocus = 3;
     float aperture = 0.05f;
+    
+    for (int i = 0; i < kSphereCount; ++i)
+        s_Spheres[i].UpdateDerivedData();
     
     Camera cam(lookfrom, lookat, float3(0,1,0), 60, float(screenWidth)/float(screenHeight), aperture, distToFocus);
 

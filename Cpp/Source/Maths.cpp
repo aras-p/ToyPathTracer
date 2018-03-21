@@ -41,28 +41,29 @@ float3 RandomInUnitSphere()
 
 bool HitSphere(const Ray& r, const Sphere& s, float tMin, float tMax, Hit& outHit)
 {
+    assert(s.invRadius == 1.0f/s.radius);
+    AssertUnit(r.dir);
     float3 oc = r.orig - s.center;
-    float a = dot(r.dir, r.dir);
     float b = dot(oc, r.dir);
     float c = dot(oc, oc) - s.radius*s.radius;
-    float discr = b*b - a*c;
+    float discr = b*b - c;
     if (discr > 0)
     {
         float discrSq = sqrtf(discr);
         
-        float t = (-b - discrSq) / a;
+        float t = (-b - discrSq);
         if (t < tMax && t > tMin)
         {
             outHit.pos = r.pointAt(t);
-            outHit.normal = (outHit.pos - s.center) * (1.f / s.radius);
+            outHit.normal = (outHit.pos - s.center) * s.invRadius;
             outHit.t = t;
             return true;
         }
-        t = (-b + discrSq) / a;
+        t = (-b + discrSq);
         if (t < tMax && t > tMin)
         {
             outHit.pos = r.pointAt(t);
-            outHit.normal = (outHit.pos - s.center) * (1.f / s.radius);
+            outHit.normal = (outHit.pos - s.center) * s.invRadius;
             outHit.t = t;
             return true;
         }
