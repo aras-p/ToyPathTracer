@@ -77,7 +77,7 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
         else
         {
             outwardN = rec.normal;
-            nint = 1.0 / mat.ri;
+            nint = 1.0f / mat.ri;
             cosine = -dot(rdir, rec.normal);
         }
         if (refract(rdir, outwardN, nint, refr))
@@ -105,7 +105,7 @@ bool HitWorld(const Ray& r, float tMin, float tMax, Hit& outHit, int& outID)
 {
     Hit tmpHit;
     bool anything = false;
-    double closest = tMax;
+    float closest = tMax;
     for (int i = 0; i < kSphereCount; ++i)
     {
         if (HitSphere(r, s_Spheres[i], tMin, closest, tmpHit))
@@ -140,8 +140,8 @@ static float3 Trace(const Ray& r, int depth)
     {
         // sky
         float3 unitDir = normalize(r.dir);
-        float t = 0.5*(unitDir.y + 1.0);
-        return (1.0-t)*float3(1.0, 1.0, 1.0) + t*float3(0.5, 0.7, 1.0);
+        float t = 0.5f*(unitDir.y + 1.0f);
+        return (1.0f-t)*float3(1.0f, 1.0f, 1.0f) + t*float3(0.5f, 0.7f, 1.0f);
     }
 }
 
@@ -171,7 +171,7 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
 {
     JobData& data = *(JobData*)data_;
     float* backbuffer = data.backbuffer + start * data.screenWidth * 4;
-    for (int y = start; y < end; ++y)
+    for (uint32_t y = start; y < end; ++y)
     {
         for (int x = 0; x < data.screenWidth; ++x)
         {

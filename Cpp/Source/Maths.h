@@ -46,7 +46,7 @@ inline bool refract(const float3& v, const float3& n, float nint, float3& outRef
     float discr = 1.0f - nint*nint*(1-dt*dt);
     if (discr > 0)
     {
-        outRefracted = nint * (uv - n*dt) - n*sqrt(discr);
+        outRefracted = nint * (uv - n*dt) - n*sqrtf(discr);
         return true;
     }
     return false;
@@ -101,8 +101,8 @@ struct Camera
     Camera(const float3& lookFrom, const float3& lookAt, const float3& vup, float vfov, float aspect, float aperture, float focusDist)
     {
         lensRadius = aperture / 2;
-        float theta = vfov*M_PI/180;
-        float halfHeight = tan(theta/2);
+        float theta = vfov*3.1515926f/180;
+        float halfHeight = tanf(theta/2);
         float halfWidth = aspect * halfHeight;
         origin = lookFrom;
         w = normalize(lookFrom - lookAt);
