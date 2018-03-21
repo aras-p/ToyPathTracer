@@ -23,6 +23,11 @@ struct float3
     float x, y, z;
 };
 
+inline void AssertUnit(const float3& v)
+{
+    assert(fabsf(v.sqLength() - 1.0f) < 0.01f);
+}
+
 inline float3 operator+(const float3& a, const float3& b) { return float3(a.x+b.x,a.y+b.y,a.z+b.z); }
 inline float3 operator-(const float3& a, const float3& b) { return float3(a.x-b.x,a.y-b.y,a.z-b.z); }
 inline float3 operator*(const float3& a, const float3& b) { return float3(a.x*b.x,a.y*b.y,a.z*b.z); }
@@ -44,12 +49,12 @@ inline float3 reflect(const float3& v, const float3& n)
 }
 inline bool refract(const float3& v, const float3& n, float nint, float3& outRefracted)
 {
-    float3 uv = normalize(v);
-    float dt = dot(uv, n);
+    AssertUnit(v);
+    float dt = dot(v, n);
     float discr = 1.0f - nint*nint*(1-dt*dt);
     if (discr > 0)
     {
-        outRefracted = nint * (uv - n*dt) - n*sqrtf(discr);
+        outRefracted = nint * (v - n*dt) - n*sqrtf(discr);
         return true;
     }
     return false;
@@ -60,12 +65,6 @@ inline float schlick(float cosine, float ri)
     r0 = r0*r0;
     return r0 + (1-r0)*powf(1-cosine, 5);
 }
-
-inline void AssertUnit(const float3& v)
-{
-    assert(fabsf(v.sqLength() - 1.0f) < 0.01f);
-}
-
 
 struct Ray
 {
