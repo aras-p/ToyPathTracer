@@ -105,7 +105,7 @@ static const NSUInteger kMaxBuffersInFlight = 3;
     {
         uint64_t ns = (frameTime * _clock_timebase.numer) / _clock_timebase.denom;
         float s = (float)(ns * 1.0e-9) / frameCounter;
-        printf("%.2fms (%.1f FPS)\n", s * 1000.0f, 1.f / s);
+        printf("%.2fms (%.1f FPS) frames %i\n", s * 1000.0f, 1.f / s, totalCounter);
         frameCounter = 0;
         frameTime = 0;
     }

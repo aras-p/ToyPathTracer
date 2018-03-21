@@ -1,6 +1,9 @@
 #pragma once
 
 #include <math.h>
+#include <assert.h>
+
+#define kPI 3.1415926f
 
 struct float3
 {
@@ -58,10 +61,16 @@ inline float schlick(float cosine, float ri)
     return r0 + (1-r0)*powf(1-cosine, 5);
 }
 
+inline void AssertUnit(const float3& v)
+{
+    assert(fabsf(v.sqLength() - 1.0f) < 0.01f);
+}
+
+
 struct Ray
 {
     Ray() {}
-    Ray(const float3& orig_, const float3& dir_) : orig(orig_), dir(dir_) {}
+    Ray(const float3& orig_, const float3& dir_) : orig(orig_), dir(dir_) { AssertUnit(dir); }
 
     float3 pointAt(float t) const { return orig + dir * t; }
     
@@ -101,7 +110,7 @@ struct Camera
     Camera(const float3& lookFrom, const float3& lookAt, const float3& vup, float vfov, float aspect, float aperture, float focusDist)
     {
         lensRadius = aperture / 2;
-        float theta = vfov*3.1515926f/180;
+        float theta = vfov*kPI/180;
         float halfHeight = tanf(theta/2);
         float halfWidth = aspect * halfHeight;
         origin = lookFrom;
@@ -117,7 +126,7 @@ struct Camera
     {
         float3 rd = lensRadius * RandomInUnitDisk();
         float3 offset = u * rd.x + v * rd.y;
-        return Ray(origin + offset, lowerLeftCorner + s*horizontal + t*vertical - origin - offset);
+        return Ray(origin + offset, normalize(lowerLeftCorner + s*horizontal + t*vertical - origin - offset));
     }
     
     float3 origin;
