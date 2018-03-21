@@ -5,11 +5,10 @@
 
 #define DO_SAMPLES_PER_PIXEL 1
 #define DO_ANIMATE 0
-#define DO_ANIMATE_SMOOTHING 0.99f
+#define DO_ANIMATE_SMOOTHING 0.5f
 #define DO_LIGHT_SAMPLING 1
 
-const int kSphereCount = 9;
-static Sphere s_Spheres[kSphereCount] =
+static Sphere s_Spheres[] =
 {
     {float3(0,-100.5,-1), 100},
     {float3(2,0,-1), 0.5f},
@@ -21,6 +20,7 @@ static Sphere s_Spheres[kSphereCount] =
     {float3(0.5f,1,0.5f), 0.5f},
     {float3(-1.5f,1.5f,0.f), 0.3f},
 };
+const int kSphereCount = sizeof(s_Spheres) / sizeof(s_Spheres[0]);
 
 struct Material
 {
@@ -41,8 +41,8 @@ static Material s_SphereMats[kSphereCount] =
     { float3(0.4f, 0.8f, 0.4f), float3(0,0,0), 0, 0, Material::Metal },
     { float3(0.4f, 0.8f, 0.4f), float3(0,0,0), 0.2f, 0, Material::Metal },
     { float3(0.4f, 0.8f, 0.4f), float3(0,0,0), 0.6f, 0, Material::Metal },
-    { float3(0.4f, 0.8f, 0.4f), float3(0,0,0), 0, 1.5f, Material::Dielectric },
-    { float3(0.8f, 0.6f, 0.2f), float3(60,50,30), 0, 0, Material::Lambert },
+    { float3(0.4f, 0.4f, 0.4f), float3(0,0,0), 0, 1.5f, Material::Dielectric },
+    { float3(0.8f, 0.6f, 0.2f), float3(30,25,15), 0, 0, Material::Lambert },
 };
 
 const float kMinT = 0.001f;
@@ -247,9 +247,6 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
 #if DO_ANIMATE
             lerpFac *= DO_ANIMATE_SMOOTHING;
 #endif
-            //lerpFac *= 0.9f;
-            //lerpFac = 0.9f;
-            //lerpFac = 0;
             col = prev * lerpFac + col * (1-lerpFac);
             backbuffer[0] = col.x;
             backbuffer[1] = col.y;
@@ -263,6 +260,7 @@ void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, flo
 {
 #if DO_ANIMATE
     s_Spheres[1].center.y = cosf(time)+1.0f;
+    s_Spheres[8].center.z = sinf(time)*0.3f;
 #endif
     float3 lookfrom(0,2,3);
     float3 lookat(0,0,0);
