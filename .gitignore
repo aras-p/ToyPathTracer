@@ -1,0 +1,13 @@
+Cs/Unity/Library/
+Cs/Unity/Temp/
+.vs
+bin
+obj
+*.exe
+*.pdb
+Cs/Unity/Unity.sln
+Cs/Unity/*.csproj
+Cpp/Windows/x64/
+project.xcworkspace
+xcschememanagement.plist
+xcuserdata
