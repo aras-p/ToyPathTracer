@@ -6,11 +6,10 @@
 
 using static float3;
 using static MathUtil;
-using System.Threading.Tasks;
-using System.Threading;
 using UnityEngine;
 using Debug = System.Diagnostics.Debug;
 using Unity.Collections;
+using Unity.Jobs;
 
 struct Material
 {
@@ -31,7 +30,7 @@ class Test
 {
     const int DO_SAMPLES_PER_PIXEL = 1;
 
-    Sphere[] s_Spheres = {
+    static Sphere[] s_Spheres = {
         new Sphere(new float3(0,-100.5f,-1), 100),
         new Sphere(new float3(2,0,-1), 0.5f),
         new Sphere(new float3(0,0,-1), 0.5f),
@@ -43,7 +42,7 @@ class Test
         new Sphere(new float3(-1.5f,1.5f,0f), 0.3f),
     };
 
-    Material[] s_SphereMats = {
+    static Material[] s_SphereMats = {
         new Material(Material.Type.Lambert,     new float3(0.8f, 0.8f, 0.8f), new float3(0,0,0), 0, 0),
         new Material(Material.Type.Lambert,     new float3(0.8f, 0.4f, 0.4f), new float3(0,0,0), 0, 0),
         new Material(Material.Type.Lambert,     new float3(0.4f, 0.8f, 0.4f), new float3(0,0,0), 0, 0),
@@ -60,7 +59,7 @@ class Test
     const int kMaxDepth = 10;
 
 
-    bool HitWorld(Ray r, float tMin, float tMax, ref Hit outHit, ref int outID)
+    static bool HitWorld(Ray r, float tMin, float tMax, ref Hit outHit, ref int outID)
     {
         Hit tmpHit = default(Hit);
         bool anything = false;
@@ -78,7 +77,7 @@ class Test
         return anything;
     }
 
-    bool Scatter(Material mat, Ray r_in, Hit rec, out float3 attenuation, out Ray scattered, out float3 outLightE, ref int inoutRayCount)
+    static bool Scatter(Material mat, Ray r_in, Hit rec, out float3 attenuation, out Ray scattered, out float3 outLightE, ref int inoutRayCount)
     {
         outLightE = new float3(0, 0, 0);
         if (mat.type == Material.Type.Lambert)
@@ -183,7 +182,7 @@ class Test
         return true;
     }
 
-    float3 Trace(Ray r, int depth, ref int inoutRayCount)
+    static float3 Trace(Ray r, int depth, ref int inoutRayCount)
     {
         Hit rec = default(Hit);
         int id = 0;
@@ -212,18 +211,24 @@ class Test
         }
     }
 
-    int TraceRowJob(int y, int screenWidth, int screenHeight, int frameCount, NativeArray<Color> backbuffer, ref Camera cam)
+    struct TraceRowJob : IJobParallelFor
     {
-        int backbufferIdx = y * screenWidth;
-        float invWidth = 1.0f / screenWidth;
-        float invHeight = 1.0f / screenHeight;
-        float lerpFac = (float)frameCount / (float)(frameCount + 1);
-#if DO_ANIMATE
-        lerpFac *= DO_ANIMATE_SMOOTHING;
-#endif
-        int rayCount = 0;
-        //for (uint32_t y = start; y < end; ++y)
+        public int screenWidth, screenHeight, frameCount;
+        [NativeDisableParallelForRestriction] public NativeArray<Color> backbuffer;
+        public Camera cam;
+
+        [NativeDisableParallelForRestriction] public NativeArray<int> rayCounter;
+
+        public void Execute(int y)
         {
+            int backbufferIdx = y * screenWidth;
+            float invWidth = 1.0f / screenWidth;
+            float invHeight = 1.0f / screenHeight;
+            float lerpFac = (float)frameCount / (float)(frameCount + 1);
+#if DO_ANIMATE
+            lerpFac *= DO_ANIMATE_SMOOTHING;
+#endif
+            int rayCount = 0;
             for (int x = 0; x < screenWidth; ++x)
             {
                 float3 col = new float3(0, 0, 0);
@@ -242,8 +247,8 @@ class Test
                 backbuffer[backbufferIdx] = new Color(col.x, col.y, col.z, 1);
                 backbufferIdx++;
             }
+            rayCounter[0] += rayCount; //@TODO: how to do atomics add?
         }
-        return rayCount;
     }
 
 
@@ -265,10 +270,17 @@ class Test
         Camera cam = new Camera(lookfrom, lookat, new float3(0, 1, 0), 60, (float)screenWidth / (float)screenHeight, aperture, distToFocus);
 
 #if DO_THREADED
-        Parallel.For<int>(0, screenHeight,
-                          () => 0,
-                          (j, loop, counter) => { return counter + TraceRowJob(j, screenWidth, screenHeight, frameCount, backbuffer, ref cam); },
-                          (x) => Interlocked.Add(ref rayCount, x));
+        TraceRowJob job;
+        job.screenWidth = screenWidth;
+        job.screenHeight = screenHeight;
+        job.frameCount = frameCount;
+        job.backbuffer = backbuffer;
+        job.cam = cam;
+        job.rayCounter = new NativeArray<int>(1, Allocator.Temp);
+        var fence = job.Schedule(screenHeight, 4);
+        fence.Complete();
+        rayCount = job.rayCounter[0];
+        job.rayCounter.Dispose();
 #else
         for (int y = 0; y < screenHeight; ++y)
             rayCount += TraceRowJob(y, screenWidth, screenHeight, frameCount, backbuffer, ref cam);
