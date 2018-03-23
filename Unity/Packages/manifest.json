@@ -1,4 +1,6 @@
 {
-	"dependencies": {
-	}
+    "dependencies": {
+    	"com.unity.burst": "0.2.3"
+    },
+    "registry": "https://staging-packages.unity.com"
 }

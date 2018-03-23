@@ -1,4 +1,3 @@
-using System;
 using UnityEngine;
 using Debug = System.Diagnostics.Debug;
 
@@ -58,38 +57,37 @@ public class MathUtil
         return r0 + (1 - r0) * Mathf.Pow(1 - cosine, 5);
     }
 
-    [ThreadStatic] static uint s_RndState;
-    static uint XorShift32()
+    static uint XorShift32(ref uint state)
     {
-        uint x = s_RndState + 1; // avoid zero seed
+        uint x = state;
         x ^= x << 13;
         x ^= x >> 17;
         x ^= x << 15;
-        s_RndState = x;
+        state = x;
         return x;
     }
 
-    public static float RandomFloat01()
+    public static float RandomFloat01(ref uint state)
     {
-        return (XorShift32() & 0xFFFFFF) / 16777216.0f;
+        return (XorShift32(ref state) & 0xFFFFFF) / 16777216.0f;
     }
 
-    public static float3 RandomInUnitDisk()
+    public static float3 RandomInUnitDisk(ref uint state)
     {
         float3 p;
         do
         {
-            p = 2.0f * new float3(RandomFloat01(), RandomFloat01(), 0) - new float3(1, 1, 0);
+            p = 2.0f * new float3(RandomFloat01(ref state), RandomFloat01(ref state), 0) - new float3(1, 1, 0);
         } while (p.SqLength >= 1.0);
         return p;
     }
 
-    public static float3 RandomInUnitSphere()
+    public static float3 RandomInUnitSphere(ref uint state)
     {
         float3 p;
         do
         {
-            p = 2.0f * new float3(RandomFloat01(), RandomFloat01(), RandomFloat01()) - new float3(1, 1, 1);
+            p = 2.0f * new float3(RandomFloat01(ref state), RandomFloat01(ref state), RandomFloat01(ref state)) - new float3(1, 1, 1);
         } while (p.SqLength >= 1.0);
         return p;
     }
@@ -179,9 +177,9 @@ struct Camera
         vertical = 2*halfHeight * focusDist*v;
     }
 
-    public Ray GetRay(float s, float t)
+    public Ray GetRay(float s, float t, ref uint state)
     {
-        float3 rd = lensRadius * MathUtil.RandomInUnitDisk();
+        float3 rd = lensRadius * MathUtil.RandomInUnitDisk(ref state);
         float3 offset = u * rd.x + v * rd.y;
         return new Ray(origin + offset, float3.Normalize(lowerLeftCorner + s*horizontal + t*vertical - origin - offset));
     }
