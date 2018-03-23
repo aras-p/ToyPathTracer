@@ -1,6 +1,5 @@
 
-//#define DO_ANIMATE
-//#define DO_ANIMATE_SMOOTHING 0.0f
+#define DO_ANIMATE
 #define DO_LIGHT_SAMPLING
 #define DO_THREADED
 
@@ -28,7 +27,9 @@ struct Material
 
 class Test
 {
-    const int DO_SAMPLES_PER_PIXEL = 1;
+    const int DO_SAMPLES_PER_PIXEL = 4;
+    const float DO_ANIMATE_SMOOTHING = 0.5f;
+
 
     Sphere[] s_Spheres = {
         new Sphere(new float3(0,-100.5f,-1), 100),
@@ -252,8 +253,8 @@ class Test
     {
         int rayCount = 0;
 #if DO_ANIMATE
-        s_Spheres[1].center.y = cosf(time)+1.0f;
-        s_Spheres[8].center.z = sinf(time)*0.3f;
+        s_Spheres[1].center.y = MathF.Cos(time)+1.0f;
+        s_Spheres[8].center.z = MathF.Sin(time)*0.3f;
 #endif
         float3 lookfrom = new float3(0, 2, 3);
         float3 lookat = new float3(0, 0, 0);
