@@ -1,3 +1,4 @@
+using System;
 using UnityEngine;
 using Debug = System.Diagnostics.Debug;
 
@@ -57,10 +58,10 @@ public class MathUtil
         return r0 + (1 - r0) * Mathf.Pow(1 - cosine, 5);
     }
 
-    static uint s_RndState = 1;
+    [ThreadStatic] static uint s_RndState;
     static uint XorShift32()
     {
-        uint x = s_RndState;
+        uint x = s_RndState + 1; // avoid zero seed
         x ^= x << 13;
         x ^= x >> 17;
         x ^= x << 15;

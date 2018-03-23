@@ -2,11 +2,11 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-static uint32_t s_RndState = 1;
+static thread_local uint32_t s_RndState = 1;
 
 static uint32_t XorShift32()
 {
-    uint32_t x = s_RndState;
+    uint32_t x = s_RndState + 1; // avoid zero seed
     x ^= x << 13;
     x ^= x >> 17;
     x ^= x << 15;
