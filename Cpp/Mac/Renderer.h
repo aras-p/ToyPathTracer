@@ -2,6 +2,6 @@
 
 @interface Renderer : NSObject <MTKViewDelegate>
 
--(nonnull instancetype)initWithMetalKitView:(nonnull MTKView *)view;
+-(nonnull instancetype)initWithMetalKitView:(nonnull MTKView *)view withLabel:(nonnull NSTextField*) label;
 
 @end

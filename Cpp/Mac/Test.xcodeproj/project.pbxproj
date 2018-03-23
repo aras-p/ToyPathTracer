@@ -13,6 +13,7 @@
 		2B2D97BB20519C7100520EC1 /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 2B2D97BA20519C7100520EC1 /* Shaders.metal */; };
 		2B2D97C120519C7100520EC1 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 2B2D97BF20519C7100520EC1 /* Main.storyboard */; };
 		2B2D97C420519C7100520EC1 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B2D97C320519C7100520EC1 /* main.m */; };
+		2BB9041E2064EB6D00C0A0EA /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2BB9041D2064EB6D00C0A0EA /* MetalKit.framework */; };
 		2BE32DCA205BEDA6003C05B4 /* Test.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2BE32DC7205BEDA6003C05B4 /* Test.cpp */; };
 		2BE32DD2205BFC31003C05B4 /* TaskScheduler_c.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2BE32DCE205BFC31003C05B4 /* TaskScheduler_c.cpp */; };
 		2BE32DD3205BFC31003C05B4 /* TaskScheduler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2BE32DD0205BFC31003C05B4 /* TaskScheduler.cpp */; };
@@ -32,6 +33,7 @@
 		2B2D97C220519C7100520EC1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		2B2D97C320519C7100520EC1 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		2B2D97C520519C7100520EC1 /* Test.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Test.entitlements; sourceTree = "<group>"; };
+		2BB9041D2064EB6D00C0A0EA /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
 		2BE32DC7205BEDA6003C05B4 /* Test.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Test.cpp; path = ../Source/Test.cpp; sourceTree = "<group>"; };
 		2BE32DC8205BEDA6003C05B4 /* Test.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Test.h; path = ../Source/Test.h; sourceTree = "<group>"; };
 		2BE32DCB205BFC31003C05B4 /* TaskScheduler_c.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = TaskScheduler_c.h; path = ../Source/enkiTS/TaskScheduler_c.h; sourceTree = "<group>"; };
@@ -50,6 +52,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				2BB9041E2064EB6D00C0A0EA /* MetalKit.framework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -72,6 +75,7 @@
 				2BE32DC8205BEDA6003C05B4 /* Test.h */,
 				2B2D97B020519C7100520EC1 /* Mac */,
 				2B2D97AF20519C7100520EC1 /* Products */,
+				2BB9041C2064EB6D00C0A0EA /* Frameworks */,
 			);
 			sourceTree = "<group>";
 		};
@@ -99,6 +103,14 @@
 				2B2D97C520519C7100520EC1 /* Test.entitlements */,
 			);
 			name = Mac;
+			sourceTree = "<group>";
+		};
+		2BB9041C2064EB6D00C0A0EA /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				2BB9041D2064EB6D00C0A0EA /* MetalKit.framework */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */

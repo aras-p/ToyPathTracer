@@ -23,13 +23,15 @@ static const NSUInteger kMaxBuffersInFlight = 3;
     float* _backbufferPixels;
 
     mach_timebase_info_data_t _clock_timebase;
+    NSTextField* _label;
 }
 
--(nonnull instancetype)initWithMetalKitView:(nonnull MTKView *)view;
+-(nonnull instancetype)initWithMetalKitView:(nonnull MTKView *)view withLabel:(nonnull NSTextField*) label;
 {
     self = [super init];
     if(self)
     {
+        _label = label;
         _device = view.device;
         _inFlightSemaphore = dispatch_semaphore_create(kMaxBuffersInFlight);
         mach_timebase_info(&_clock_timebase);
@@ -108,7 +110,11 @@ static const NSUInteger kMaxBuffersInFlight = 3;
     {
         uint64_t ns = (frameTime * _clock_timebase.numer) / _clock_timebase.denom;
         float s = (float)(ns * 1.0e-9) / frameCounter;
-        printf("%.2fms (%.1f FPS) %.1fMrays/s %.2fMrays/frame frames %i\n", s * 1000.0f, 1.f / s, rayCounter / frameCounter / s * 1.0e-6f, rayCounter / frameCounter * 1.0e-6f, totalCounter);
+        char buffer[200];
+        snprintf(buffer, 200, "%.2fms (%.1f FPS) %.1fMrays/s %.2fMrays/frame frames %i", s * 1000.0f, 1.f / s, rayCounter / frameCounter / s * 1.0e-6f, rayCounter / frameCounter * 1.0e-6f, totalCounter);
+        puts(buffer);
+        NSString* str = [[NSString alloc] initWithUTF8String:buffer];
+        _label.stringValue = str;
         frameCounter = 0;
         frameTime = 0;
         rayCounter = 0;
