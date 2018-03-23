@@ -12,3 +12,7 @@ project.xcworkspace
 xcschememanagement.plist
 xcuserdata
 output.tga
+Unity/*.csproj
+Unity/*.sln
+Unity/Library/
+Unity/Temp/
