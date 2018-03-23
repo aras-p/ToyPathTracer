@@ -10,6 +10,7 @@ using System.Threading.Tasks;
 using System.Threading;
 using UnityEngine;
 using Debug = System.Diagnostics.Debug;
+using Unity.Collections;
 
 struct Material
 {
@@ -211,9 +212,9 @@ class Test
         }
     }
 
-    int TraceRowJob(int y, int screenWidth, int screenHeight, int frameCount, float[] backbuffer, ref Camera cam)
+    int TraceRowJob(int y, int screenWidth, int screenHeight, int frameCount, NativeArray<Color> backbuffer, ref Camera cam)
     {
-        int backbufferIdx = y * screenWidth * 4;
+        int backbufferIdx = y * screenWidth;
         float invWidth = 1.0f / screenWidth;
         float invHeight = 1.0f / screenHeight;
         float lerpFac = (float)frameCount / (float)(frameCount + 1);
@@ -236,19 +237,17 @@ class Test
                 col *= 1.0f / (float)DO_SAMPLES_PER_PIXEL;
                 col = new float3(Mathf.Sqrt(col.x), Mathf.Sqrt(col.y), Mathf.Sqrt(col.z));
 
-                float3 prev = new float3(backbuffer[backbufferIdx + 0], backbuffer[backbufferIdx + 1], backbuffer[backbufferIdx + 2]);
-                col = prev * lerpFac + col * (1 - lerpFac);
-                backbuffer[backbufferIdx + 0] = col.x;
-                backbuffer[backbufferIdx + 1] = col.y;
-                backbuffer[backbufferIdx + 2] = col.z;
-                backbufferIdx += 4;
+                Color prev = backbuffer[backbufferIdx];
+                col = new float3(prev.r, prev.g, prev.b) * lerpFac + col * (1 - lerpFac);
+                backbuffer[backbufferIdx] = new Color(col.x, col.y, col.z, 1);
+                backbufferIdx++;
             }
         }
         return rayCount;
     }
 
 
-    public void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, float[] backbuffer, out int outRayCount)
+    public void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, NativeArray<Color> backbuffer, out int outRayCount)
     {
         int rayCount = 0;
 #if DO_ANIMATE

@@ -2,6 +2,8 @@
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using UnityEngine;
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 
 public class TestScript : MonoBehaviour
 {
@@ -9,7 +11,7 @@ public class TestScript : MonoBehaviour
     public UnityEngine.UI.RawImage m_UIImage;
     
     Texture2D m_BackbufferTex;
-    float[] m_Backbuffer;
+    NativeArray<Color> m_Backbuffer;
     Test m_Test;
 
     Stopwatch m_Stopwatch = new Stopwatch();
@@ -21,11 +23,16 @@ public class TestScript : MonoBehaviour
     {
         int width = 1280, height = 720;
         m_BackbufferTex = new Texture2D(width, height, TextureFormat.RGBAFloat, false);
-        m_Backbuffer = new float[width * height * 4];
-        for (int i = 0; i < m_Backbuffer.Length; i += 4)
-            m_Backbuffer[i + 3] = 1.0f;
+        m_Backbuffer = new NativeArray<Color>(width * height, Allocator.Persistent);
+        for (int i = 0; i < m_Backbuffer.Length; i++)
+            m_Backbuffer[i] = new Color(0,0,0,1);
         m_UIImage.texture = m_BackbufferTex;
         m_Test = new Test();
+    }
+
+    private void OnDestroy()
+    {
+        m_Backbuffer.Dispose();
     }
 
     void UpdateLoop()
@@ -53,10 +60,7 @@ public class TestScript : MonoBehaviour
             m_Stopwatch.Reset();
         }
 
-        GCHandle pinnedArray = GCHandle.Alloc(m_Backbuffer, GCHandleType.Pinned);
-        IntPtr pointer = pinnedArray.AddrOfPinnedObject();
-        m_BackbufferTex.LoadRawTextureData(pinnedArray.AddrOfPinnedObject(), m_Backbuffer.Length * 4);
-        pinnedArray.Free();
+        unsafe { m_BackbufferTex.LoadRawTextureData((IntPtr)m_Backbuffer.GetUnsafeReadOnlyPtr(), m_Backbuffer.Length * 16); }
         m_BackbufferTex.Apply();
     }
 }
