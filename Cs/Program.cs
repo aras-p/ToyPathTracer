@@ -36,7 +36,7 @@ class Program
             bytes[i + 0] = (byte)(System.Math.Clamp(backbuffer[i + 2], 0.0f, 1.0f) * 255.0f);
             bytes[i + 1] = (byte)(System.Math.Clamp(backbuffer[i + 1], 0.0f, 1.0f) * 255.0f);
             bytes[i + 2] = (byte)(System.Math.Clamp(backbuffer[i + 0], 0.0f, 1.0f) * 255.0f);
-            bytes[i + 3] = (byte)(System.Math.Clamp(backbuffer[i + 3], 0.0f, 1.0f) * 255.0f);
+            bytes[i + 3] = 255;
         }
         byte[] header = {
             0, // ID length

@@ -138,7 +138,10 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             QueryPerformanceCounter(&time1);
             float t = float(clock()) / CLOCKS_PER_SEC;
             static int s_FrameCount = 0;
-            DrawTest(t, s_FrameCount++, g_BackbufferWidth, g_BackbufferHeight, g_Backbuffer);
+            static size_t s_RayCounter = 0;
+            int rayCount;
+            DrawTest(t, s_FrameCount++, g_BackbufferWidth, g_BackbufferHeight, g_Backbuffer, rayCount);
+            s_RayCounter += rayCount;
             LARGE_INTEGER time2;
             QueryPerformanceCounter(&time2);
 
@@ -157,9 +160,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
                 QueryPerformanceFrequency(&frequency);
 
                 double s = double(s_Time) / double(frequency.QuadPart) / s_Count;
-                sprintf_s(s_Buffer, sizeof(s_Buffer), "ms: %.2f FPS %.1f\n", s * 1000.0f, 1.f / s);
+                sprintf_s(s_Buffer, sizeof(s_Buffer), "%.2fms (%.1f FPS) %.1fMrays/s %.2fMrays/frame frames %i\n", s * 1000.0f, 1.f / s, s_RayCounter / s_Count / s * 1.0e-6f, s_RayCounter / s_Count * 1.0e-6f, s_FrameCount);
+                OutputDebugStringA(s_Buffer);
                 s_Count = 0;
                 s_Time = 0;
+                s_RayCounter = 0;
             }
             RECT textRect;
             textRect.left = 5;
