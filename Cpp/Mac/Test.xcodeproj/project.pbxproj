@@ -34,7 +34,6 @@
 		2B2D97C520519C7100520EC1 /* Test.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Test.entitlements; sourceTree = "<group>"; };
 		2BE32DC7205BEDA6003C05B4 /* Test.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Test.cpp; path = ../Source/Test.cpp; sourceTree = "<group>"; };
 		2BE32DC8205BEDA6003C05B4 /* Test.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Test.h; path = ../Source/Test.h; sourceTree = "<group>"; };
-		2BE32DC9205BEDA6003C05B4 /* stb_image.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = stb_image.h; path = ../Source/stb_image.h; sourceTree = "<group>"; };
 		2BE32DCB205BFC31003C05B4 /* TaskScheduler_c.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = TaskScheduler_c.h; path = ../Source/enkiTS/TaskScheduler_c.h; sourceTree = "<group>"; };
 		2BE32DCC205BFC31003C05B4 /* LockLessMultiReadPipe.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = LockLessMultiReadPipe.h; path = ../Source/enkiTS/LockLessMultiReadPipe.h; sourceTree = "<group>"; };
 		2BE32DCD205BFC31003C05B4 /* Threads.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Threads.h; path = ../Source/enkiTS/Threads.h; sourceTree = "<group>"; };
@@ -71,7 +70,6 @@
 				2BE32DCD205BFC31003C05B4 /* Threads.h */,
 				2BE32DC7205BEDA6003C05B4 /* Test.cpp */,
 				2BE32DC8205BEDA6003C05B4 /* Test.h */,
-				2BE32DC9205BEDA6003C05B4 /* stb_image.h */,
 				2B2D97B020519C7100520EC1 /* Mac */,
 				2B2D97AF20519C7100520EC1 /* Products */,
 			);

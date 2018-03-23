@@ -2,10 +2,11 @@
 #include "Maths.h"
 #include <algorithm>
 #include "enkiTS/TaskScheduler_c.h"
+#include <atomic>
 
 #define DO_SAMPLES_PER_PIXEL 1
 #define DO_ANIMATE 0
-#define DO_ANIMATE_SMOOTHING 0.5f
+#define DO_ANIMATE_SMOOTHING 0.0f
 #define DO_LIGHT_SAMPLING 1
 
 static Sphere s_Spheres[] =
@@ -25,24 +26,24 @@ const int kSphereCount = sizeof(s_Spheres) / sizeof(s_Spheres[0]);
 struct Material
 {
     enum Type { Lambert, Metal, Dielectric };
+    Type type;
     float3 albedo;
     float3 emissive;
     float roughness;
     float ri;
-    Type type;
 };
 
 static Material s_SphereMats[kSphereCount] =
 {
-    { float3(0.8f, 0.8f, 0.8f), float3(0,0,0), 0, 0, Material::Lambert },
-    { float3(0.8f, 0.4f, 0.4f), float3(0,0,0), 0, 0, Material::Lambert },
-    { float3(0.4f, 0.8f, 0.4f), float3(0,0,0), 0, 0, Material::Lambert },
-    { float3(0.4f, 0.4f, 0.8f), float3(0,0,0), 0, 0, Material::Metal },
-    { float3(0.4f, 0.8f, 0.4f), float3(0,0,0), 0, 0, Material::Metal },
-    { float3(0.4f, 0.8f, 0.4f), float3(0,0,0), 0.2f, 0, Material::Metal },
-    { float3(0.4f, 0.8f, 0.4f), float3(0,0,0), 0.6f, 0, Material::Metal },
-    { float3(0.4f, 0.4f, 0.4f), float3(0,0,0), 0, 1.5f, Material::Dielectric },
-    { float3(0.8f, 0.6f, 0.2f), float3(30,25,15), 0, 0, Material::Lambert },
+    { Material::Lambert, float3(0.8f, 0.8f, 0.8f), float3(0,0,0), 0, 0, },
+    { Material::Lambert, float3(0.8f, 0.4f, 0.4f), float3(0,0,0), 0, 0, },
+    { Material::Lambert, float3(0.4f, 0.8f, 0.4f), float3(0,0,0), 0, 0, },
+    { Material::Metal, float3(0.4f, 0.4f, 0.8f), float3(0,0,0), 0, 0 },
+    { Material::Metal, float3(0.4f, 0.8f, 0.4f), float3(0,0,0), 0, 0 },
+    { Material::Metal, float3(0.4f, 0.8f, 0.4f), float3(0,0,0), 0.2f, 0 },
+    { Material::Metal, float3(0.4f, 0.8f, 0.4f), float3(0,0,0), 0.6f, 0 },
+    { Material::Dielectric, float3(0.4f, 0.4f, 0.4f), float3(0,0,0), 0, 1.5f },
+    { Material::Lambert, float3(0.8f, 0.6f, 0.2f), float3(30,25,15), 0, 0 },
 };
 
 const float kMinT = 0.001f;
@@ -69,7 +70,7 @@ bool HitWorld(const Ray& r, float tMin, float tMax, Hit& outHit, int& outID)
 }
 
 
-static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3& attenuation, Ray& scattered, float3& outLightE)
+static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3& attenuation, Ray& scattered, float3& outLightE, int& inoutRayCount)
 {
     outLightE = float3(0,0,0);
     if (mat.type == Material::Lambert)
@@ -107,6 +108,7 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
             // shoot shadow ray
             Hit lightHit;
             int hitID;
+            ++inoutRayCount;
             if (HitWorld(Ray(rec.pos, l), kMinT, kMaxT, lightHit, hitID) && hitID == i)
             {
                 float omega = 2 * kPI * (1-cosAMax);
@@ -161,9 +163,9 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
             reflProb = 1;
         }
         if (RandomFloat01() < reflProb)
-            scattered = Ray(rec.pos, refl);
+            scattered = Ray(rec.pos, normalize(refl));
         else
-            scattered = Ray(rec.pos, refr);
+            scattered = Ray(rec.pos, normalize(refr));
     }
     else
     {
@@ -173,19 +175,20 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
     return true;
 }
 
-static float3 Trace(const Ray& r, int depth)
+static float3 Trace(const Ray& r, int depth, int& inoutRayCount)
 {
     Hit rec;
     int id = 0;
+    ++inoutRayCount;
     if (HitWorld(r, kMinT, kMaxT, rec, id))
     {
         Ray scattered;
         float3 attenuation;
         float3 lightE;
         const Material& mat = s_SphereMats[id];
-        if (depth < kMaxDepth && Scatter(mat, r, rec, attenuation, scattered, lightE))
+        if (depth < kMaxDepth && Scatter(mat, r, rec, attenuation, scattered, lightE, inoutRayCount))
         {
-            return mat.emissive + lightE + attenuation * Trace(scattered, depth+1);
+            return mat.emissive + lightE + attenuation * Trace(scattered, depth+1, inoutRayCount);
         }
         else
         {
@@ -221,6 +224,7 @@ struct JobData
     int screenWidth, screenHeight;
     float* backbuffer;
     Camera* cam;
+    std::atomic<int> rayCount;
 };
 
 static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* data_)
@@ -233,6 +237,7 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
 #if DO_ANIMATE
     lerpFac *= DO_ANIMATE_SMOOTHING;
 #endif
+    int rayCount = 0;
     for (uint32_t y = start; y < end; ++y)
     {
         for (int x = 0; x < data.screenWidth; ++x)
@@ -243,7 +248,7 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
                 float u = float(x + RandomFloat01()) * invWidth;
                 float v = float(y + RandomFloat01()) * invHeight;
                 Ray r = data.cam->GetRay(u, v);
-                col += Trace(r, 0);
+                col += Trace(r, 0, rayCount);
             }
             col *= 1.0f / float(DO_SAMPLES_PER_PIXEL);
             col = float3(sqrtf(col.x), sqrtf(col.y), sqrtf(col.z));
@@ -256,9 +261,10 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
             backbuffer += 4;
         }
     }
+    data.rayCount += rayCount;
 }
 
-void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, float* backbuffer)
+void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, float* backbuffer, int& outRayCount)
 {
 #if DO_ANIMATE
     s_Spheres[1].center.y = cosf(time)+1.0f;
@@ -267,7 +273,7 @@ void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, flo
     float3 lookfrom(0,2,3);
     float3 lookat(0,0,0);
     float distToFocus = 3;
-    float aperture = 0.05f;
+    float aperture = 0.1f;
     
     for (int i = 0; i < kSphereCount; ++i)
         s_Spheres[i].UpdateDerivedData();
@@ -281,10 +287,12 @@ void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, flo
     args.screenHeight = screenHeight;
     args.backbuffer = backbuffer;
     args.cam = &cam;
+    args.rayCount = 0;
     enkiTaskSet* task = enkiCreateTaskSet(g_TS, TraceRowJob);
     bool threaded = true;
     enkiAddTaskSetToPipeMinRange(g_TS, task, &args, screenHeight, threaded ? 4 : screenHeight);
     enkiWaitForTaskSet(g_TS, task);
     enkiDeleteTaskSet(task);
+    outRayCount = args.rayCount;
 }
 

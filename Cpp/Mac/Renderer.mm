@@ -90,12 +90,15 @@ static const NSUInteger kMaxBuffersInFlight = 3;
     static int totalCounter = 0;
     static int frameCounter = 0;
     static uint64_t frameTime = 0;
+    static size_t rayCounter = 0;
     uint64_t time1 = mach_absolute_time();
     
     uint64_t curNs = (time1 * _clock_timebase.numer) / _clock_timebase.denom;
     float curT = float(curNs * 1.0e-9f);
 
-    DrawTest(curT, totalCounter, kBackbufferWidth, kBackbufferHeight, _backbufferPixels);
+    int rayCount;
+    DrawTest(curT, totalCounter, kBackbufferWidth, kBackbufferHeight, _backbufferPixels, rayCount);
+    rayCounter += rayCount;
     
     uint64_t time2 = mach_absolute_time();
     ++frameCounter;
@@ -105,9 +108,10 @@ static const NSUInteger kMaxBuffersInFlight = 3;
     {
         uint64_t ns = (frameTime * _clock_timebase.numer) / _clock_timebase.denom;
         float s = (float)(ns * 1.0e-9) / frameCounter;
-        printf("%.2fms (%.1f FPS) frames %i\n", s * 1000.0f, 1.f / s, totalCounter);
+        printf("%.2fms (%.1f FPS) %.1fMrays/s %.2fMrays/frame frames %i\n", s * 1000.0f, 1.f / s, rayCounter / frameCounter / s * 1.0e-6f, rayCounter / frameCounter * 1.0e-6f, totalCounter);
         frameCounter = 0;
         frameTime = 0;
+        rayCounter = 0;
     }
     
     [_backbuffer replaceRegion:MTLRegionMake2D(0,0,kBackbufferWidth,kBackbufferHeight) mipmapLevel:0 withBytes:_backbufferPixels bytesPerRow:kBackbufferWidth*16];
