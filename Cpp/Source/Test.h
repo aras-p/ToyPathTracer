@@ -3,4 +3,4 @@
 
 void InitializeTest();
 void ShutdownTest();
-void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, float* backbuffer, int& outRayCount);
+void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, float* backbuffer, float* tmpbuffer, int& outRayCount);

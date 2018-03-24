@@ -21,6 +21,7 @@ INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 static const int g_BackbufferWidth = 1280;
 static const int g_BackbufferHeight = 720;
 static float* g_Backbuffer;
+static float* g_TmpBuffer;
 static uint32_t* g_BackbufferBytes;
 static HBITMAP g_BackbufferBitmap;
 
@@ -37,6 +38,7 @@ static void InitBackbufferBitmap()
     HDC hdc = CreateCompatibleDC(GetDC(0));
     g_BackbufferBitmap = CreateDIBSection(hdc, &bmi, DIB_RGB_COLORS, (void**)&g_BackbufferBytes, NULL, 0x0);
     g_Backbuffer = new float[g_BackbufferWidth * g_BackbufferHeight * 4];
+    g_TmpBuffer = new float[g_BackbufferWidth * g_BackbufferHeight * 4];
     memset(g_Backbuffer, 0, g_BackbufferWidth * g_BackbufferHeight * 4 * sizeof(g_Backbuffer[0]));
 }
 
@@ -140,7 +142,7 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             static int s_FrameCount = 0;
             static size_t s_RayCounter = 0;
             int rayCount;
-            DrawTest(t, s_FrameCount++, g_BackbufferWidth, g_BackbufferHeight, g_Backbuffer, rayCount);
+            DrawTest(t, s_FrameCount++, g_BackbufferWidth, g_BackbufferHeight, g_Backbuffer, g_TmpBuffer, rayCount);
             s_RayCounter += rayCount;
             LARGE_INTEGER time2;
             QueryPerformanceCounter(&time2);

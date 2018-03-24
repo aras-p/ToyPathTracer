@@ -21,6 +21,7 @@ static const NSUInteger kMaxBuffersInFlight = 3;
     
     id <MTLTexture> _backbuffer;
     float* _backbufferPixels;
+    float* _tmpPixels;
 
     mach_timebase_info_data_t _clock_timebase;
     NSTextField* _label;
@@ -79,6 +80,7 @@ static const NSUInteger kMaxBuffersInFlight = 3;
     _backbuffer = [_device newTextureWithDescriptor:desc];
     _backbufferPixels = new float[kBackbufferWidth * kBackbufferHeight * 4];
     memset(_backbufferPixels, 0, kBackbufferWidth * kBackbufferHeight * 4 * sizeof(_backbufferPixels[0]));
+    _tmpPixels = new float[kBackbufferWidth * kBackbufferHeight * 4];
 }
 
 
@@ -99,7 +101,7 @@ static const NSUInteger kMaxBuffersInFlight = 3;
     float curT = float(curNs * 1.0e-9f);
 
     int rayCount;
-    DrawTest(curT, totalCounter, kBackbufferWidth, kBackbufferHeight, _backbufferPixels, rayCount);
+    DrawTest(curT, totalCounter, kBackbufferWidth, kBackbufferHeight, _backbufferPixels, _tmpPixels, rayCount);
     rayCounter += rayCount;
     
     uint64_t time2 = mach_absolute_time();

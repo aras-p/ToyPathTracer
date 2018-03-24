@@ -3,9 +3,10 @@
 #include <algorithm>
 #include "enkiTS/TaskScheduler_c.h"
 #include <atomic>
+#include <vector>
 
 #define DO_SAMPLES_PER_PIXEL 4
-#define DO_ANIMATE 1
+#define DO_ANIMATE 0
 #define DO_ANIMATE_SMOOTHING 0.5f
 #define DO_LIGHT_SAMPLING 1
 
@@ -51,75 +52,50 @@ const float kMaxT = 1.0e7f;
 const int kMaxDepth = 10;
 
 
-bool HitWorld(const Ray& r, float tMin, float tMax, Hit& outHit, int& outID)
+struct RayPayload
+{
+    RayPayload() {}
+    RayPayload(const float3& atten_, uint32_t pixelIndex_, uint32_t depth_, uint32_t lightID_, uint32_t shadow_)
+        : atten(atten_), pixelIndex(pixelIndex_), depth(depth_), lightID(lightID_), shadow(shadow_) {}
+    float3 atten;
+    uint32_t pixelIndex : 22;
+    uint32_t depth : 4;
+    uint32_t lightID : 5;
+    uint32_t shadow : 1;
+};
+
+struct TraceContext
+{
+    std::vector<Ray> queries;
+    std::vector<RayPayload> payloads;
+};
+
+int HitWorld(const Ray& r, float tMin, float tMax, Hit& outHit)
 {
     Hit tmpHit;
-    bool anything = false;
+    int id = -1;
     float closest = tMax;
     for (int i = 0; i < kSphereCount; ++i)
     {
         if (HitSphere(r, s_Spheres[i], tMin, closest, tmpHit))
         {
-            anything = true;
             closest = tmpHit.t;
             outHit = tmpHit;
-            outID = i;
+            id = i;
         }
     }
-    return anything;
+    return id;
 }
 
 
-static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3& attenuation, Ray& scattered, float3& outLightE, int& inoutRayCount)
+static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3& attenuation, Ray& scattered)
 {
-    outLightE = float3(0,0,0);
     if (mat.type == Material::Lambert)
     {
         // random point inside unit sphere that is tangent to the hit point
         float3 target = rec.pos + rec.normal + RandomInUnitSphere();
         scattered = Ray(rec.pos, normalize(target - rec.pos));
         attenuation = mat.albedo;
-        
-        // sample lights
-#if DO_LIGHT_SAMPLING
-        for (int i = 0; i < kSphereCount; ++i)
-        {
-            const Material& smat = s_SphereMats[i];
-            if (smat.emissive.x <= 0 && smat.emissive.y <= 0 && smat.emissive.z <= 0)
-                continue; // skip non-emissive
-            if (&mat == &smat)
-                continue; // skip self
-            const Sphere& s = s_Spheres[i];
-            
-            // create a random direction towards sphere
-            // coord system for sampling: sw, su, sv
-            float3 sw = normalize(s.center - rec.pos);
-            float3 su = normalize(cross(fabs(sw.x)>0.01f ? float3(0,1,0):float3(1,0,0), sw));
-            float3 sv = cross(sw, su);
-            // sample sphere by solid angle
-            float cosAMax = sqrtf(1.0f - s.radius*s.radius / (rec.pos-s.center).sqLength());
-            float eps1 = RandomFloat01(), eps2 = RandomFloat01();
-            float cosA = 1.0f - eps1 + eps1 * cosAMax;
-            float sinA = sqrtf(1.0f - cosA*cosA);
-            float phi = 2 * kPI * eps2;
-            float3 l = su * cosf(phi) * sinA + sv * sin(phi) * sinA + sw * cosA;
-            l.normalize();
-            
-            // shoot shadow ray
-            Hit lightHit;
-            int hitID;
-            ++inoutRayCount;
-            if (HitWorld(Ray(rec.pos, l), kMinT, kMaxT, lightHit, hitID) && hitID == i)
-            {
-                float omega = 2 * kPI * (1-cosAMax);
-                
-                float3 rdir = r_in.dir;
-                AssertUnit(rdir);
-                float3 nl = dot(rec.normal, rdir) < 0 ? rec.normal : -rec.normal;
-                outLightE += (mat.albedo * smat.emissive) * (std::max(0.0f, dot(l, nl)) * omega / kPI);
-            }
-        }
-#endif
         return true;
     }
     else if (mat.type == Material::Metal)
@@ -175,33 +151,67 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
     return true;
 }
 
-static float3 Trace(const Ray& r, int depth, int& inoutRayCount)
+static float3 SkyHit(const Ray& r)
 {
-    Hit rec;
-    int id = 0;
-    ++inoutRayCount;
-    if (HitWorld(r, kMinT, kMaxT, rec, id))
+    float t = 0.5f*(r.dir.y + 1.0f);
+    return ((1.0f-t)*float3(1.0f, 1.0f, 1.0f) + t*float3(0.5f, 0.7f, 1.0f)) * 0.3f;
+}
+
+static float3 TraceHit(const Ray& r, const RayPayload& rp, const Hit& hit, int id, TraceContext& ctx)
+{
+    assert(id >= 0 && id < kSphereCount);
+    const Material& mat = s_SphereMats[id];
+    Ray scattered;
+    float3 atten;
+    if (rp.depth < kMaxDepth)
     {
-        Ray scattered;
-        float3 attenuation;
-        float3 lightE;
-        const Material& mat = s_SphereMats[id];
-        if (depth < kMaxDepth && Scatter(mat, r, rec, attenuation, scattered, lightE, inoutRayCount))
+        if (Scatter(mat, r, hit, atten, scattered))
         {
-            return mat.emissive + lightE + attenuation * Trace(scattered, depth+1, inoutRayCount);
-        }
-        else
-        {
+            ctx.queries.push_back(scattered);
+            ctx.payloads.push_back(RayPayload(atten * rp.atten, rp.pixelIndex, (uint32_t)(rp.depth+1), 0, 0));
+            
+#if DO_LIGHT_SAMPLING
+            if (mat.type == Material::Lambert)
+            {
+                for (int i = 0; i < kSphereCount; ++i)
+                {
+                    const Material& smat = s_SphereMats[i];
+                    if (smat.emissive.x <= 0 && smat.emissive.y <= 0 && smat.emissive.z <= 0)
+                        continue; // skip non-emissive
+                    if (&mat == &smat)
+                        continue; // skip self
+                    const Sphere& s = s_Spheres[i];
+                    
+                    // create a random direction towards sphere
+                    // coord system for sampling: sw, su, sv
+                    float3 sw = normalize(s.center - hit.pos);
+                    float3 su = normalize(cross(fabs(sw.x)>0.01f ? float3(0,1,0):float3(1,0,0), sw));
+                    float3 sv = cross(sw, su);
+                    // sample sphere by solid angle
+                    float cosAMax = sqrtf(1.0f - s.radius*s.radius / (hit.pos-s.center).sqLength());
+                    float eps1 = RandomFloat01(), eps2 = RandomFloat01();
+                    float cosA = 1.0f - eps1 + eps1 * cosAMax;
+                    float sinA = sqrtf(1.0f - cosA*cosA);
+                    float phi = 2 * kPI * eps2;
+                    float3 l = su * cosf(phi) * sinA + sv * sin(phi) * sinA + sw * cosA;
+                    l.normalize();
+                    
+                    // queue a shadow ray
+                    float omega = 2 * kPI * (1-cosAMax);
+                    AssertUnit(r.dir);
+                    float3 nl = dot(hit.normal, r.dir) < 0 ? hit.normal : -hit.normal;
+                    float3 shadowAtt = (mat.albedo * smat.emissive) * (std::max(0.0f, dot(l, nl)) * omega / kPI);
+                    
+                    ctx.queries.push_back(Ray(hit.pos, l));
+                    ctx.payloads.push_back(RayPayload(shadowAtt * rp.atten, rp.pixelIndex, (uint32_t)(rp.depth+1), (uint32_t)i, 1));
+                }
+            }
+#endif // #if DO_LIGHT_SAMPLING
+
             return mat.emissive;
         }
     }
-    else
-    {
-        // sky
-        float3 unitDir = r.dir;
-        float t = 0.5f*(unitDir.y + 1.0f);
-        return ((1.0f-t)*float3(1.0f, 1.0f, 1.0f) + t*float3(0.5f, 0.7f, 1.0f)) * 0.3f;
-    }
+    return mat.emissive;
 }
 
 static enkiTaskScheduler* g_TS;
@@ -223,6 +233,7 @@ struct JobData
     int frameCount;
     int screenWidth, screenHeight;
     float* backbuffer;
+    float* tmpbuffer;
     Camera* cam;
     std::atomic<int> rayCount;
 };
@@ -231,6 +242,7 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
 {
     JobData& data = *(JobData*)data_;
     float* backbuffer = data.backbuffer + start * data.screenWidth * 4;
+    float* tmpbuffer = data.tmpbuffer + start * data.screenWidth * 4;
     float invWidth = 1.0f / data.screenWidth;
     float invHeight = 1.0f / data.screenHeight;
     float lerpFac = float(data.frameCount) / float(data.frameCount+1);
@@ -238,18 +250,89 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
     lerpFac *= DO_ANIMATE_SMOOTHING;
 #endif
     int rayCount = 0;
+    TraceContext ctx;
+    auto space = (end-start)*data.screenWidth*DO_SAMPLES_PER_PIXEL;
+    ctx.queries.reserve(space);
+    ctx.payloads.reserve(space);
+    
+    // clear temp buffer to zero
+    memset(tmpbuffer, 0, (end-start)*data.screenWidth*4*sizeof(tmpbuffer[0]));
+    
+    // initial eye rays
+    int pixelIndex = 0;
     for (uint32_t y = start; y < end; ++y)
     {
         for (int x = 0; x < data.screenWidth; ++x)
         {
-            float3 col(0, 0, 0);
             for (int s = 0; s < DO_SAMPLES_PER_PIXEL; s++)
             {
                 float u = float(x + RandomFloat01()) * invWidth;
                 float v = float(y + RandomFloat01()) * invHeight;
                 Ray r = data.cam->GetRay(u, v);
-                col += Trace(r, 0, rayCount);
+                ctx.queries.push_back(r);
+                ctx.payloads.push_back(RayPayload(float3(1,1,1), (uint32_t)(pixelIndex*4), 0, 0, 0));
             }
+            ++pixelIndex;
+        }
+    }
+    
+    // process ray requests
+    while (!ctx.queries.empty())
+    {
+        TraceContext newctx;
+        int rcount = (int)ctx.queries.size();
+        newctx.queries.reserve(rcount);
+        newctx.payloads.reserve(rcount);
+        
+        for (int i = 0; i < rcount; ++i)
+        {
+            const Ray& rq = ctx.queries[i];
+            const RayPayload& rp = ctx.payloads[i];
+            int pix = rp.pixelIndex;
+            Hit hit;
+            int hitID = HitWorld(rq, kMinT, kMaxT, hit);
+            if (hitID < 0)
+            {
+                if (!rp.shadow)
+                {
+                    float3 col = SkyHit(rq) * rp.atten;
+                    tmpbuffer[pix+0] += col.x;
+                    tmpbuffer[pix+1] += col.y;
+                    tmpbuffer[pix+2] += col.z;
+                }
+                continue;
+            }
+            if (!rp.shadow)
+            {
+                float3 col = TraceHit(rq, rp, hit, hitID, newctx) * rp.atten;
+                tmpbuffer[pix+0] += col.x;
+                tmpbuffer[pix+1] += col.y;
+                tmpbuffer[pix+2] += col.z;
+                continue;
+            }
+            if (rp.lightID == hitID)
+            {
+                assert(rp.shadow);
+                float3 col = rp.atten;
+                tmpbuffer[pix+0] += col.x;
+                tmpbuffer[pix+1] += col.y;
+                tmpbuffer[pix+2] += col.z;
+                continue;
+            }
+        }
+        
+        rayCount += rcount;
+        
+        ctx.queries.swap(newctx.queries);
+        ctx.payloads.swap(newctx.payloads);
+    }
+
+    // blend results into backbuffer
+    for (uint32_t y = start; y < end; ++y)
+    {
+        for (int x = 0; x < data.screenWidth; ++x)
+        {
+            float3 col(tmpbuffer[0], tmpbuffer[1], tmpbuffer[2]);
             col *= 1.0f / float(DO_SAMPLES_PER_PIXEL);
             col = float3(sqrtf(col.x), sqrtf(col.y), sqrtf(col.z));
             
@@ -259,12 +342,13 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
             backbuffer[1] = col.y;
             backbuffer[2] = col.z;
             backbuffer += 4;
+            tmpbuffer += 4;
         }
     }
     data.rayCount += rayCount;
 }
 
-void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, float* backbuffer, int& outRayCount)
+void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, float* backbuffer, float* tmpbuffer, int& outRayCount)
 {
 #if DO_ANIMATE
     s_Spheres[1].center.y = cosf(time)+1.0f;
@@ -286,6 +370,7 @@ void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, flo
     args.screenWidth = screenWidth;
     args.screenHeight = screenHeight;
     args.backbuffer = backbuffer;
+    args.tmpbuffer = tmpbuffer;
     args.cam = &cam;
     args.rayCount = 0;
     enkiTaskSet* task = enkiCreateTaskSet(g_TS, TraceRowJob);
