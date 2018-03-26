@@ -258,21 +258,35 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
     // clear temp buffer to zero
     memset(tmpbuffer, 0, (end-start)*data.screenWidth*4*sizeof(tmpbuffer[0]));
     
-    // initial eye rays
-    int pixelIndex = 0;
+    // initial eye rays; process immediately
+    int pix = 0;
     for (uint32_t y = start; y < end; ++y)
     {
-        for (int x = 0; x < data.screenWidth; ++x)
+        for (int x = 0; x < data.screenWidth; ++x, pix += 4)
         {
             for (int s = 0; s < DO_SAMPLES_PER_PIXEL; s++)
             {
                 float u = float(x + RandomFloat01()) * invWidth;
                 float v = float(y + RandomFloat01()) * invHeight;
                 Ray r = data.cam->GetRay(u, v);
-                ctx.queries.push_back(r);
-                ctx.payloads.push_back(RayPayload(float3(1,1,1), (uint32_t)(pixelIndex*4), 0, 0, 0));
+
+                Hit hit;
+                int hitID = HitWorld(r, kMinT, kMaxT, hit);
+                float3 col;
+                if (hitID < 0)
+                {
+                    col = SkyHit(r);
+                }
+                else
+                {
+                    RayPayload rp(float3(1, 1, 1), pix, 0, 0, 0);
+                    col = TraceHit(r, rp, hit, hitID, ctx);
+                }
+                tmpbuffer[pix + 0] += col.x;
+                tmpbuffer[pix + 1] += col.y;
+                tmpbuffer[pix + 2] += col.z;
+                ++rayCount;
             }
-            ++pixelIndex;
         }
     }
     
@@ -291,34 +305,31 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
             int pix = rp.pixelIndex;
             Hit hit;
             int hitID = HitWorld(rq, kMinT, kMaxT, hit);
+            if (hitID < 0 && rp.shadow)
+                continue;
+            float3 col;
             if (hitID < 0)
             {
-                if (!rp.shadow)
-                {
-                    float3 col = SkyHit(rq) * rp.atten;
-                    tmpbuffer[pix+0] += col.x;
-                    tmpbuffer[pix+1] += col.y;
-                    tmpbuffer[pix+2] += col.z;
-                }
-                continue;
+                col = SkyHit(rq) * rp.atten;
             }
-            if (!rp.shadow)
+            else if (!rp.shadow)
             {
-                float3 col = TraceHit(rq, rp, hit, hitID, newctx) * rp.atten;
-                tmpbuffer[pix+0] += col.x;
-                tmpbuffer[pix+1] += col.y;
-                tmpbuffer[pix+2] += col.z;
+                col = TraceHit(rq, rp, hit, hitID, newctx) * rp.atten;
+            }
+            else if (rp.lightID != hitID)
+            {
+                assert(rt.shadow);
                 continue;
             }
-            if (rp.lightID == hitID)
+            else
             {
                 assert(rp.shadow);
-                float3 col = rp.atten;
-                tmpbuffer[pix+0] += col.x;
-                tmpbuffer[pix+1] += col.y;
-                tmpbuffer[pix+2] += col.z;
-                continue;
+                assert(rp.lightID == hitID);
+                col = rp.atten;
             }
+            tmpbuffer[pix + 0] += col.x;
+            tmpbuffer[pix + 1] += col.y;
+            tmpbuffer[pix + 2] += col.z;
         }
         
         rayCount += rcount;
