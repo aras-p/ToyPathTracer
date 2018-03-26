@@ -18,3 +18,7 @@ Implementations I'm playing with:
 
 A lot of stuff in the implementation migth be totally suboptimal or using the tech (e.g. ISPC) in a "wrong" way. Unity+Burst
 implementation is likely both suboptimal, and using a super-super-early version of the Burst compiler too.
+
+I know it's just a simple toy, ok :)
+
+![Screenshot](/Shots/screenshot.jpg?raw=true "Screenshot")

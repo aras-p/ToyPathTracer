@@ -5,7 +5,7 @@
 #include <atomic>
 
 #define DO_SAMPLES_PER_PIXEL 4
-#define DO_ANIMATE 1
+#define DO_ANIMATE 0
 #define DO_ANIMATE_SMOOTHING 0.5f
 #define DO_LIGHT_SAMPLING 1
 
