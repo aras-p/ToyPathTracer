@@ -52,31 +52,31 @@ inline float schlick(float cosine, float ri)
     return r0 + (1-r0)*pow(1-cosine, 5);
 }
 
+struct RayBuffers
+{
+    int* origX;
+    int* origY;
+    int* origZ;
+    int* dirX;
+    int* dirY;
+    int* dirZ;
+    int* attenX;
+    int* attenY;
+    int* attenZ;
+    uint32_t* info;
+    int count;
+    int capacity;
+};
 
 struct Ray
 {
     float3 orig;
     float3 dir;
 };
-struct RayPacked
-{
-    float origX, origY, origZ;
-    float dirX, dirY, dirZ;
-};
-Ray RayFromPacked(RayPacked rp)
-{
-    Ray r = {f3(rp.origX, rp.origY, rp.origZ), f3(rp.dirX, rp.dirY, rp.dirZ)};
-    return r;
-}
-RayPacked PackedFromRay(Ray r)
-{
-    RayPacked rp = {r.orig.x, r.orig.y, r.orig.z, r.dir.x, r.dir.y, r.dir.z};
-    return rp;
-}
 
 struct RayPayload
 {
-    float attenX, attenY, attenZ;
+    float3 atten;
     uint32_t info; // 24 bit pixel index, 7 bit light ID, 1 bit shadow
 };
 uint32_t EncodeInfo(uint32_t pixelIndex, uint32_t lightID, uint32_t shadow)
@@ -308,39 +308,37 @@ static bool Scatter(int matIndex, const Ray& r_in, const Hit& rec, float3& atten
 }
 
 static void PushRay(
-    uniform RayPacked dstRays[],
-    uniform RayPayload dstPayloads[],
-    uniform int* dstCount,
-    uniform int dstCapacity,
+    uniform RayBuffers& dst,
     const Ray& ray, float3 atten, uint32_t rpInfo, uint32_t lightId, uint32_t shadow)
 {
-    cif (*dstCount < dstCapacity - programCount)
+    if (dst.count < dst.capacity - programCount)
     {
-        int dstIndex = atomic_add_global(dstCount, 1);
-        cif (dstIndex < dstCapacity)
-        {
-            dstRays[dstIndex] = PackedFromRay(ray);
-            uint32_t rpPixelIndex, rpLightId, rpShadow;
-            DecodeInfo(rpInfo, rpPixelIndex, rpLightId, rpShadow);
-            RayPayload newRP = {atten.x, atten.y, atten.z, EncodeInfo(rpPixelIndex, lightId, shadow)};
-            dstPayloads[dstIndex] = newRP;
-        }
-    }    
+        uint32_t rpPixelIndex, rpLightId, rpShadow;
+        DecodeInfo(rpInfo, rpPixelIndex, rpLightId, rpShadow);
+
+        uniform int dstIncr = packed_store_active(&dst.origX[dst.count], intbits(ray.orig.x));
+        packed_store_active(&dst.origY[dst.count], intbits(ray.orig.y));
+        packed_store_active(&dst.origZ[dst.count], intbits(ray.orig.z));
+        packed_store_active(&dst.dirX[dst.count], intbits(ray.dir.x));
+        packed_store_active(&dst.dirY[dst.count], intbits(ray.dir.y));
+        packed_store_active(&dst.dirZ[dst.count], intbits(ray.dir.z));
+        packed_store_active(&dst.attenX[dst.count], intbits(atten.x));
+        packed_store_active(&dst.attenY[dst.count], intbits(atten.y));
+        packed_store_active(&dst.attenZ[dst.count], intbits(atten.z));
+        packed_store_active(&dst.info[dst.count], EncodeInfo(rpPixelIndex, lightId, shadow));
+        dst.count += dstIncr;
+    }
 }
 
 static float3 TraceHit(const uniform Sphere spheres[], const uniform Material materials[], int sphereCount, const Ray& r, const RayPayload& rp, const Hit& hit, int id, uint32_t& randomState,
-    uniform RayPacked dstRays[],
-    uniform RayPayload dstPayloads[],
-    uniform int* dstCount,
-    uniform int dstCapacity
-)
+    uniform RayBuffers& dst)
 {
     const Material* mat = materials + id;
     Ray scattered;
     float3 atten;
     if (Scatter(id, r, hit, atten, scattered, randomState, spheres, materials, sphereCount))
     {
-        PushRay(dstRays, dstPayloads, dstCount, dstCapacity, scattered, atten * f3(rp.attenX, rp.attenY, rp.attenZ), rp.info, 0, 0);
+        PushRay(dst, scattered, atten * rp.atten, rp.info, 0, 0);
 
 #if DO_LIGHT_SAMPLING
         if (mat->type == MatLambert)
@@ -375,8 +373,8 @@ static float3 TraceHit(const uniform Sphere spheres[], const uniform Material ma
                 float3 nl = dot(hit.normal, r.dir) < 0 ? hit.normal : -hit.normal;
                 float3 matAlbedo = {mat->albedoX,mat->albedoY,mat->albedoZ};
                 float3 shadowAtt = (matAlbedo * f3(smat.emissiveX,smat.emissiveY,smat.emissiveZ)) * (max(0.0f, dot(l, nl)) * omega / 3.1415926);
-                float3 newAtten = shadowAtt * f3(rp.attenX, rp.attenY, rp.attenZ);
-                PushRay(dstRays, dstPayloads, dstCount, dstCapacity, MakeRay(hit.pos, l), newAtten, rp.info, i, 1);
+                float3 newAtten = shadowAtt * rp.atten;
+                PushRay(dst, MakeRay(hit.pos, l), newAtten, rp.info, i, 1);
             }
         }
 #endif
@@ -403,10 +401,7 @@ export void TracePrimaryRaysIspc(
     uniform Sphere spheres[],
     uniform Material materials[],
     uniform int sphereCount,
-    uniform RayPacked dstRays[],
-    uniform RayPayload dstPayloads[],
-    uniform int& dstCount,
-    uniform int dstCapacity)
+    uniform RayBuffers& dstRays)
 {
     uniform float invWidth = 1.0f / screenWidth;
     uniform float invHeight = 1.0f / screenHeight;
@@ -429,8 +424,8 @@ export void TracePrimaryRaysIspc(
             }
             else
             {
-                RayPayload rp = {1,1,1, EncodeInfo(pixelIndex, 0, 0)};
-                col = TraceHit(spheres, materials, sphereCount, r, rp, hit, hitID, rndState, dstRays, dstPayloads, &dstCount, dstCapacity);
+                RayPayload rp = {f3(1,1,1), EncodeInfo(pixelIndex, 0, 0)};
+                col = TraceHit(spheres, materials, sphereCount, r, rp, hit, hitID, rndState, dstRays);
             }
             tmpbuffer[pixelIndex+0] += col.x;
             tmpbuffer[pixelIndex+1] += col.y;
@@ -445,37 +440,42 @@ export void TraceSecondaryRaysIspc(
     uniform Sphere spheres[],
     uniform Material materials[],
     uniform int sphereCount,
-    uniform const RayPacked srcRays[],
-    uniform const RayPayload srcPayloads[],
-    uniform int srcCount,
-    uniform RayPacked dstRays[],
-    uniform RayPayload dstPayloads[],
-    uniform int& dstCount,
-    uniform int dstCapacity)
+    uniform const RayBuffers& srcRays,
+    uniform RayBuffers& dstRays)
 {
     uint32_t rndState = randomState;
-    foreach(i = 0 ... srcCount)
+    foreach(i = 0 ... srcRays.count)
     {
         rndState += programIndex;
-        Ray r = RayFromPacked(srcRays[i]);
-        RayPayload rp = srcPayloads[i];
+        Ray r;
+        r.orig.x = floatbits(srcRays.origX[i]);
+        r.orig.y = floatbits(srcRays.origY[i]);
+        r.orig.z = floatbits(srcRays.origZ[i]);
+        r.dir.x = floatbits(srcRays.dirX[i]);
+        r.dir.y = floatbits(srcRays.dirY[i]);
+        r.dir.z = floatbits(srcRays.dirZ[i]);
+        RayPayload rp;
+        rp.atten.x = floatbits(srcRays.attenX[i]);
+        rp.atten.y = floatbits(srcRays.attenY[i]);
+        rp.atten.z = floatbits(srcRays.attenZ[i]);
+        rp.info = srcRays.info[i];
+        
         Hit hit;
         int hitID = HitWorld(spheres, sphereCount, r, kMinT, kMaxT, hit);
-        float3 rpAtten = {rp.attenX,rp.attenY,rp.attenZ};
         uint32_t rpPix, rpLightID, rpShadow;
         DecodeInfo(rp.info, rpPix, rpLightID, rpShadow);
-
+        
         if (hitID < 0 && rpShadow)
             continue;
 
         float3 col;
         if (hitID < 0)
         {
-            col = SkyHit(r) * rpAtten;
+            col = SkyHit(r) * rp.atten;
         }
         else if (!rpShadow)
         {
-            col = TraceHit(spheres, materials, sphereCount, r, rp, hit, hitID, rndState, dstRays, dstPayloads, &dstCount, dstCapacity) * rpAtten;
+            col = TraceHit(spheres, materials, sphereCount, r, rp, hit, hitID, rndState, dstRays) * rp.atten;
         }
         else if (rpLightID != hitID)
         {
@@ -483,8 +483,9 @@ export void TraceSecondaryRaysIspc(
         }
         else
         {
-            col = rpAtten;
+            col = rp.atten;
         }
+        
         atomic_add_local(&tmpbuffer[rpPix+0], col.x);
         atomic_add_local(&tmpbuffer[rpPix+1], col.y);
         atomic_add_local(&tmpbuffer[rpPix+2], col.z);

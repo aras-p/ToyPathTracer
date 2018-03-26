@@ -67,8 +67,68 @@ struct RayPayload
 
 struct TraceContext
 {
+#if DO_ISPC
+    int* origX;
+    int* origY;
+    int* origZ;
+    int* dirX;
+    int* dirY;
+    int* dirZ;
+    int* attenX;
+    int* attenY;
+    int* attenZ;
+    uint32_t* info;
+    int count;
+    int capacity;
+    
+    TraceContext(int cap)
+    {
+        origX = new int[cap];
+        origY = new int[cap];
+        origZ = new int[cap];
+        dirX = new int[cap];
+        dirY = new int[cap];
+        dirZ = new int[cap];
+        attenX = new int[cap];
+        attenY = new int[cap];
+        attenZ = new int[cap];
+        info = new uint32_t[cap];
+        count = 0;
+        capacity = cap;
+    }
+    ~TraceContext()
+    {
+        delete[] origX;
+        delete[] origY;
+        delete[] origZ;
+        delete[] dirX;
+        delete[] dirY;
+        delete[] dirZ;
+        delete[] attenX;
+        delete[] attenY;
+        delete[] attenZ;
+        delete[] info;
+    }
+    
+    void swap(TraceContext& o)
+    {
+        std::swap(origX,o.origX);
+        std::swap(origY,o.origY);
+        std::swap(origZ,o.origZ);
+        std::swap(dirX,o.dirX);
+        std::swap(dirY,o.dirY);
+        std::swap(dirZ,o.dirZ);
+        std::swap(attenX,o.attenX);
+        std::swap(attenY,o.attenY);
+        std::swap(attenZ,o.attenZ);
+        std::swap(info,o.info);
+        std::swap(count,o.count);
+        std::swap(capacity,o.capacity);
+    }
+#else
     std::vector<Ray> queries;
     std::vector<RayPayload> payloads;
+#endif
 };
 
 int HitWorld(const Ray& r, float tMin, float tMax, Hit& outHit)
@@ -89,6 +149,7 @@ int HitWorld(const Ray& r, float tMin, float tMax, Hit& outHit)
 }
 
 
+#if !DO_ISPC
 static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3& attenuation, Ray& scattered)
 {
     if (mat.type == Material::Lambert)
@@ -213,6 +274,7 @@ static float3 TraceHit(const Ray& r, const RayPayload& rp, const Hit& hit, int i
     }
     return mat.emissive;
 }
+#endif // #if !DO_ISPC
 
 static enkiTaskScheduler* g_TS;
 
@@ -241,17 +303,12 @@ struct JobData
 static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* data_)
 {
     JobData& data = *(JobData*)data_;
-    float invWidth = 1.0f / data.screenWidth;
-    float invHeight = 1.0f / data.screenHeight;
     float lerpFac = float(data.frameCount) / float(data.frameCount+1);
 #if DO_ANIMATE
     lerpFac *= DO_ANIMATE_SMOOTHING;
 #endif
     int rayCount = (end - start)*data.screenWidth*DO_SAMPLES_PER_PIXEL;
-    TraceContext ctx;
     auto space = (end-start)*data.screenWidth*DO_SAMPLES_PER_PIXEL * 2;
-    ctx.queries.reserve(space);
-    ctx.payloads.reserve(space);
     
     // clear temp buffer to zero
     auto stride = data.screenWidth * 4 * sizeof(data.tmpbuffer[0]);
@@ -263,20 +320,20 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
     static_assert(sizeof(Camera) == sizeof(ispc::Camera), "camera data mismatch");
     static_assert(sizeof(Sphere) == sizeof(ispc::Sphere), "sphere data mismatch");
     static_assert(sizeof(Material) == sizeof(ispc::Material), "material data mismatch");
-    static_assert(sizeof(Ray) == sizeof(ispc::RayPacked), "ray data mismatch");
-    static_assert(sizeof(RayPayload) == sizeof(ispc::RayPayload), "ray data mismatch");
+    static_assert(sizeof(TraceContext) == sizeof(ispc::RayBuffers), "context data mismatch");
 
-    int dstCount = 0;
-    ctx.queries.resize(space);
-    ctx.payloads.resize(space);
-    ispc::TracePrimaryRaysIspc(data.screenWidth, data.screenHeight, start, end, randomState, data.tmpbuffer, *(ispc::Camera*)data.cam, (ispc::Sphere*)s_Spheres, (ispc::Material*)s_SphereMats, kSphereCount, (ispc::RayPacked*)ctx.queries.data(), (ispc::RayPayload*)ctx.payloads.data(), dstCount, space);
-    ctx.queries.resize(dstCount);
-    ctx.payloads.resize(dstCount);
+    TraceContext ctx(space);
+    ispc::TracePrimaryRaysIspc(data.screenWidth, data.screenHeight, start, end, randomState, data.tmpbuffer, *(ispc::Camera*)data.cam, (ispc::Sphere*)s_Spheres, (ispc::Material*)s_SphereMats, kSphereCount, (ispc::RayBuffers&)ctx);
 
     float* backbuffer = data.backbuffer;
     float* tmpbuffer = data.tmpbuffer;
 
 #else
+    ctx.queries.reserve(space);
+    ctx.payloads.reserve(space);
+
+    float invWidth = 1.0f / data.screenWidth;
+    float invHeight = 1.0f / data.screenHeight;
     float* backbuffer = data.backbuffer + start * data.screenWidth * 4;
     float* tmpbuffer = data.tmpbuffer + start * data.screenWidth * 4;
 
@@ -315,22 +372,24 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
     // process ray requests
     for (int depth = 0; depth < kMaxDepth; ++depth)
     {
-        TraceContext newctx;
+#if DO_ISPC
+        int rcount = (int)ctx.count;
+#else
         int rcount = (int)ctx.queries.size();
+#endif
         rayCount += rcount;
         //;;printf("Bounce %i: %i rays\n", depth, rcount);
 
 #if DO_ISPC
         randomState += depth * 17;
-        int dstCount = 0;
         int dstCap = rcount * 2;
-        newctx.queries.resize(dstCap);
-        newctx.payloads.resize(dstCap);
-        ispc::TraceSecondaryRaysIspc(randomState, data.tmpbuffer, (ispc::Sphere*)s_Spheres, (ispc::Material*)s_SphereMats, kSphereCount, (ispc::RayPacked*)ctx.queries.data(), (ispc::RayPayload*)ctx.payloads.data(), rcount, (ispc::RayPacked*)newctx.queries.data(), (ispc::RayPayload*)newctx.payloads.data(), dstCount, dstCap);
-        newctx.queries.resize(dstCount);
-        newctx.payloads.resize(dstCount);
+        TraceContext newctx(dstCap);
+        ispc::TraceSecondaryRaysIspc(randomState, data.tmpbuffer, (ispc::Sphere*)s_Spheres, (ispc::Material*)s_SphereMats, kSphereCount, (ispc::RayBuffers&)ctx, (ispc::RayBuffers&)newctx);
+        
+        ctx.swap(newctx);
 
 #else
+        TraceContext newctx;
         newctx.queries.reserve(rcount);
         newctx.payloads.reserve(rcount);
         
@@ -367,10 +426,11 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
             tmpbuffer[pix + 1] += col.y;
             tmpbuffer[pix + 2] += col.z;
         }
-#endif
-                
+        
         ctx.queries.swap(newctx.queries);
         ctx.payloads.swap(newctx.payloads);
+#endif
+                
     }
 
     // blend results into backbuffer
