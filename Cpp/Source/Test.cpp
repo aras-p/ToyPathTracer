@@ -3,11 +3,13 @@
 #include <algorithm>
 #include "enkiTS/TaskScheduler_c.h"
 #include <atomic>
+#include "TestKernels.h"
 
 #define DO_SAMPLES_PER_PIXEL 4
-#define DO_ANIMATE 1
+#define DO_ANIMATE 0
 #define DO_ANIMATE_SMOOTHING 0.5f
 #define DO_LIGHT_SAMPLING 1
+#define DO_ISPC 1
 
 static Sphere s_Spheres[] =
 {
@@ -230,14 +232,22 @@ struct JobData
 static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* data_)
 {
     JobData& data = *(JobData*)data_;
-    float* backbuffer = data.backbuffer + start * data.screenWidth * 4;
-    float invWidth = 1.0f / data.screenWidth;
-    float invHeight = 1.0f / data.screenHeight;
     float lerpFac = float(data.frameCount) / float(data.frameCount+1);
 #if DO_ANIMATE
     lerpFac *= DO_ANIMATE_SMOOTHING;
 #endif
+    
     int rayCount = 0;
+#if DO_ISPC
+    uint32_t randomState = start * 1483 + data.frameCount * 5153 + 1;
+    static_assert(sizeof(Camera) == sizeof(ispc::Camera), "camera data mismatch");
+    static_assert(sizeof(Sphere) == sizeof(ispc::Sphere), "sphere data mismatch");
+    static_assert(sizeof(Material) == sizeof(ispc::Material), "material data mismatch");
+    ispc::TraceRowJobJspc(data.screenWidth, data.screenHeight, start, end, randomState, data.backbuffer, lerpFac, *(ispc::Camera*)data.cam, (ispc::Sphere*)s_Spheres, (ispc::Material*)s_SphereMats, kSphereCount, rayCount);
+#else
+    float* backbuffer = data.backbuffer + start * data.screenWidth * 4;
+    float invWidth = 1.0f / data.screenWidth;
+    float invHeight = 1.0f / data.screenHeight;
     for (uint32_t y = start; y < end; ++y)
     {
         for (int x = 0; x < data.screenWidth; ++x)
@@ -261,6 +271,7 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
             backbuffer += 4;
         }
     }
+#endif
     data.rayCount += rayCount;
 }
 

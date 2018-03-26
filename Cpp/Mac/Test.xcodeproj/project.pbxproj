@@ -13,6 +13,7 @@
 		2B2D97BB20519C7100520EC1 /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 2B2D97BA20519C7100520EC1 /* Shaders.metal */; };
 		2B2D97C120519C7100520EC1 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 2B2D97BF20519C7100520EC1 /* Main.storyboard */; };
 		2B2D97C420519C7100520EC1 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B2D97C320519C7100520EC1 /* main.m */; };
+		2BAAFF3A2066E25600E680F6 /* TestKernels.ispc in Resources */ = {isa = PBXBuildFile; fileRef = 2BAAFF392066E25600E680F6 /* TestKernels.ispc */; };
 		2BB9041E2064EB6D00C0A0EA /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2BB9041D2064EB6D00C0A0EA /* MetalKit.framework */; };
 		2BE32DCA205BEDA6003C05B4 /* Test.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2BE32DC7205BEDA6003C05B4 /* Test.cpp */; };
 		2BE32DD2205BFC31003C05B4 /* TaskScheduler_c.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2BE32DCE205BFC31003C05B4 /* TaskScheduler_c.cpp */; };
@@ -33,6 +34,8 @@
 		2B2D97C220519C7100520EC1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		2B2D97C320519C7100520EC1 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		2B2D97C520519C7100520EC1 /* Test.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Test.entitlements; sourceTree = "<group>"; };
+		2B7DFA8E2068CB1C00B7AE18 /* TestKernels.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = TestKernels.h; path = ../Source/TestKernels.h; sourceTree = "<group>"; };
+		2BAAFF392066E25600E680F6 /* TestKernels.ispc */ = {isa = PBXFileReference; explicitFileType = sourcecode.c.h; fileEncoding = 4; name = TestKernels.ispc; path = ../Source/TestKernels.ispc; sourceTree = "<group>"; xcLanguageSpecificationIdentifier = xcode.lang.c; };
 		2BB9041D2064EB6D00C0A0EA /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
 		2BE32DC7205BEDA6003C05B4 /* Test.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Test.cpp; path = ../Source/Test.cpp; sourceTree = "<group>"; };
 		2BE32DC8205BEDA6003C05B4 /* Test.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Test.h; path = ../Source/Test.h; sourceTree = "<group>"; };
@@ -62,6 +65,8 @@
 		2B2D97A520519C7100520EC1 = {
 			isa = PBXGroup;
 			children = (
+				2B7DFA8E2068CB1C00B7AE18 /* TestKernels.h */,
+				2BAAFF392066E25600E680F6 /* TestKernels.ispc */,
 				2BFC4E1420614A7B0007766C /* Maths.cpp */,
 				2BFC4E1520614A7B0007766C /* Maths.h */,
 				2BE32DCF205BFC31003C05B4 /* Atomics.h */,
@@ -120,6 +125,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 2B2D97C820519C7100520EC1 /* Build configuration list for PBXNativeTarget "Test" */;
 			buildPhases = (
+				2BAAFF382066E02E00E680F6 /* Compile ISPC */,
 				2B2D97AA20519C7100520EC1 /* Sources */,
 				2B2D97AB20519C7100520EC1 /* Frameworks */,
 				2B2D97AC20519C7100520EC1 /* Resources */,
@@ -177,10 +183,31 @@
 			buildActionMask = 2147483647;
 			files = (
 				2B2D97C120519C7100520EC1 /* Main.storyboard in Resources */,
+				2BAAFF3A2066E25600E680F6 /* TestKernels.ispc in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		2BAAFF382066E02E00E680F6 /* Compile ISPC */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../Source/TestKernels.ispc",
+			);
+			name = "Compile ISPC";
+			outputPaths = (
+				"$(SRCROOT)/../Source/TestKernels.h",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "chmod 755 ../ispc\n../ispc -O2 ../Source/TestKernels.ispc -o \"$OBJROOT/TestKernels.o\" -h ../Source/TestKernels.h --arch=x86-64 --target=avx2 --opt=fast-math --wno-perf";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		2B2D97AA20519C7100520EC1 /* Sources */ = {
@@ -324,6 +351,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = "$(SRCROOT)/Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				OTHER_LDFLAGS = $OBJROOT/TestKernels.o;
 				PRODUCT_BUNDLE_IDENTIFIER = com.aras.Test;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -336,6 +364,7 @@
 				COMBINE_HIDPI_IMAGES = YES;
 				INFOPLIST_FILE = "$(SRCROOT)/Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				OTHER_LDFLAGS = $OBJROOT/TestKernels.o;
 				PRODUCT_BUNDLE_IDENTIFIER = com.aras.Test;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};

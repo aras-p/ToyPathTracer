@@ -1,9 +1,9 @@
 Cs/Unity/Library/
 Cs/Unity/Temp/
 .vs
+*.vcxproj.user
 bin
 obj
-*.exe
 *.pdb
 Cs/Unity/Unity.sln
 Cs/Unity/*.csproj
@@ -16,3 +16,5 @@ Unity/*.csproj
 Unity/*.sln
 Unity/Library/
 Unity/Temp/
+TestKernels.h
+Shots/
