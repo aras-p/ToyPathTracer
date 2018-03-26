@@ -162,9 +162,25 @@
     <ClInclude Include="..\Source\Maths.h" />
     <ClInclude Include="..\Source\Test.h" />
     <ClInclude Include="..\Source\stb_image.h" />
+    <ClInclude Include="..\Source\TestKernels.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\.editorconfig" />
+    <CustomBuild Include="..\Source\TestKernels.ispc">
+      <FileType>Document</FileType>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">"$(ProjectDir)..\ispc.exe" -O2 "%(FullPath)" -o "$(IntermediateOutputPath)$(Platform)%(Filename).obj" -h "%(RelativeDir)%(Filename).h" --arch=x86-64 --target=avx2 --opt=fast-math</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Compiling ISPC</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">"$(ProjectDir)..\ispc.exe" -O2 "%(FullPath)" -o "$(IntermediateOutputPath)$(Platform)%(Filename).obj" -h "%(RelativeDir)%(Filename).h" --arch=x86-64 --target=avx2 --opt=fast-math</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Compiling ISPC</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">"$(ProjectDir)..\ispc.exe" -O2 "%(FullPath)" -o "$(IntermediateOutputPath)$(Platform)%(Filename).obj" -h "%(RelativeDir)%(Filename).h" --arch=x86-64 --target=avx2 --opt=fast-math</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Compiling ISPC</Message>
+      <Command Condition="'$(Configuration)|$(Platform)'=='Release|x64'">"$(ProjectDir)..\ispc.exe" -O2 "%(FullPath)" -o "$(IntermediateOutputPath)$(Platform)%(Filename).obj" -h "%(RelativeDir)%(Filename).h" --arch=x86-64 --target=avx2 --opt=fast-math</Command>
+      <Message Condition="'$(Configuration)|$(Platform)'=='Release|x64'">Compiling ISPC</Message>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">$(IntermediateOutputPath)$(Platform)%(Filename).obj;%(RelativeDir)%(Filename).h</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">$(IntermediateOutputPath)$(Platform)%(Filename).obj;%(RelativeDir)%(Filename).h</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">$(IntermediateOutputPath)$(Platform)%(Filename).obj;%(RelativeDir)%(Filename).h</Outputs>
+      <Outputs Condition="'$(Configuration)|$(Platform)'=='Release|x64'">$(IntermediateOutputPath)$(Platform)%(Filename).obj;%(RelativeDir)%(Filename).h</Outputs>
+    </CustomBuild>
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

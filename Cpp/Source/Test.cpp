@@ -4,11 +4,13 @@
 #include "enkiTS/TaskScheduler_c.h"
 #include <atomic>
 #include <vector>
+#include "TestKernels.h"
 
 #define DO_SAMPLES_PER_PIXEL 4
 #define DO_ANIMATE 0
 #define DO_ANIMATE_SMOOTHING 0.5f
 #define DO_LIGHT_SAMPLING 1
+#define DO_ISPC 1
 
 static Sphere s_Spheres[] =
 {
@@ -239,23 +241,45 @@ struct JobData
 static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* data_)
 {
     JobData& data = *(JobData*)data_;
-    float* backbuffer = data.backbuffer + start * data.screenWidth * 4;
-    float* tmpbuffer = data.tmpbuffer + start * data.screenWidth * 4;
     float invWidth = 1.0f / data.screenWidth;
     float invHeight = 1.0f / data.screenHeight;
     float lerpFac = float(data.frameCount) / float(data.frameCount+1);
 #if DO_ANIMATE
     lerpFac *= DO_ANIMATE_SMOOTHING;
 #endif
-    int rayCount = 0;
+    int rayCount = (end - start)*data.screenWidth*DO_SAMPLES_PER_PIXEL;
     TraceContext ctx;
-    auto space = (end-start)*data.screenWidth*DO_SAMPLES_PER_PIXEL;
+    auto space = (end-start)*data.screenWidth*DO_SAMPLES_PER_PIXEL * 2;
     ctx.queries.reserve(space);
     ctx.payloads.reserve(space);
     
     // clear temp buffer to zero
-    memset(tmpbuffer, 0, (end-start)*data.screenWidth*4*sizeof(tmpbuffer[0]));
-    
+    auto stride = data.screenWidth * 4 * sizeof(data.tmpbuffer[0]);
+    memset((uint8_t*)data.tmpbuffer+start*stride, 0, (end-start)*stride);
+    //;;printf("Primary rays: %i\n", (end-start)*data.screenWidth*DO_SAMPLES_PER_PIXEL);
+
+#if DO_ISPC
+    uint32_t randomState = start * 1483 + data.frameCount * 5153 + 1;
+    static_assert(sizeof(Camera) == sizeof(ispc::Camera), "camera data mismatch");
+    static_assert(sizeof(Sphere) == sizeof(ispc::Sphere), "sphere data mismatch");
+    static_assert(sizeof(Material) == sizeof(ispc::Material), "material data mismatch");
+    static_assert(sizeof(Ray) == sizeof(ispc::RayPacked), "ray data mismatch");
+    static_assert(sizeof(RayPayload) == sizeof(ispc::RayPayload), "ray data mismatch");
+
+    int dstCount = 0;
+    ctx.queries.resize(space);
+    ctx.payloads.resize(space);
+    ispc::TracePrimaryRaysIspc(data.screenWidth, data.screenHeight, start, end, randomState, data.tmpbuffer, *(ispc::Camera*)data.cam, (ispc::Sphere*)s_Spheres, (ispc::Material*)s_SphereMats, kSphereCount, (ispc::RayPacked*)ctx.queries.data(), (ispc::RayPayload*)ctx.payloads.data(), dstCount, space);
+    ctx.queries.resize(dstCount);
+    ctx.payloads.resize(dstCount);
+
+    float* backbuffer = data.backbuffer;
+    float* tmpbuffer = data.tmpbuffer;
+
+#else
+    float* backbuffer = data.backbuffer + start * data.screenWidth * 4;
+    float* tmpbuffer = data.tmpbuffer + start * data.screenWidth * 4;
+
     // initial eye rays; process immediately
     int pix = 0;
     for (uint32_t y = start; y < end; ++y)
@@ -283,16 +307,30 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
                 tmpbuffer[pix + 0] += col.x;
                 tmpbuffer[pix + 1] += col.y;
                 tmpbuffer[pix + 2] += col.z;
-                ++rayCount;
             }
         }
     }
+#endif
     
     // process ray requests
     for (int depth = 0; depth < kMaxDepth; ++depth)
     {
         TraceContext newctx;
         int rcount = (int)ctx.queries.size();
+        rayCount += rcount;
+        //;;printf("Bounce %i: %i rays\n", depth, rcount);
+
+#if DO_ISPC
+        randomState += depth * 17;
+        int dstCount = 0;
+        int dstCap = rcount * 2;
+        newctx.queries.resize(dstCap);
+        newctx.payloads.resize(dstCap);
+        ispc::TraceSecondaryRaysIspc(randomState, data.tmpbuffer, (ispc::Sphere*)s_Spheres, (ispc::Material*)s_SphereMats, kSphereCount, (ispc::RayPacked*)ctx.queries.data(), (ispc::RayPayload*)ctx.payloads.data(), rcount, (ispc::RayPacked*)newctx.queries.data(), (ispc::RayPayload*)newctx.payloads.data(), dstCount, dstCap);
+        newctx.queries.resize(dstCount);
+        newctx.payloads.resize(dstCount);
+
+#else
         newctx.queries.reserve(rcount);
         newctx.payloads.reserve(rcount);
         
@@ -316,7 +354,7 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
             }
             else if (rp.lightID != hitID)
             {
-                assert(rt.shadow);
+                assert(rp.shadow);
                 continue;
             }
             else
@@ -329,14 +367,16 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
             tmpbuffer[pix + 1] += col.y;
             tmpbuffer[pix + 2] += col.z;
         }
-        
-        rayCount += rcount;
-        
+#endif
+                
         ctx.queries.swap(newctx.queries);
         ctx.payloads.swap(newctx.payloads);
     }
 
     // blend results into backbuffer
+#if DO_ISPC
+    ispc::TraceBlendIspc(data.screenWidth, start, end, backbuffer, tmpbuffer, lerpFac);
+#else
     for (uint32_t y = start; y < end; ++y)
     {
         for (int x = 0; x < data.screenWidth; ++x)
@@ -354,6 +394,7 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
             tmpbuffer += 4;
         }
     }
+#endif
     data.rayCount += rayCount;
 }
 

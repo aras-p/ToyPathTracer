@@ -48,8 +48,14 @@
     <ClInclude Include="..\Source\Maths.h">
       <Filter>Source</Filter>
     </ClInclude>
+    <ClInclude Include="..\Source\TestKernels.h">
+      <Filter>Source</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\.editorconfig" />
+    <None Include="..\Source\TestKernels.ispc">
+      <Filter>Source</Filter>
+    </None>
   </ItemGroup>
 </Project>
