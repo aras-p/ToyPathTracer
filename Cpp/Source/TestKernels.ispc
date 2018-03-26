@@ -202,10 +202,10 @@ bool HitSphere(const Ray& r, const uniform Sphere &s, float tMin, float tMax, Hi
 }
 
 
-enum Type { MatLambert, MatMetal, MatDielectric };
+enum MatType { MatLambert, MatMetal, MatDielectric };
 struct Material
 {
-    Type type;
+    MatType type;
     float albedoX,albedoY,albedoZ;
     float emissiveX,emissiveY,emissiveZ;
     float roughness;
@@ -245,23 +245,25 @@ static bool Scatter(int matIndex, const Ray& r_in, const Hit& rec, float3& atten
     const uniform Sphere spheres[], const uniform Material materials[], int sphereCount)
 {
     const Material* mat = &materials[matIndex];
-    if (mat->type == MatLambert)
+    MatType matType = mat->type;
+    float3 matAlbedo = {mat->albedoX,mat->albedoY,mat->albedoZ};
+    if (matType == MatLambert)
     {
         // random point inside unit sphere that is tangent to the hit point
         float3 target = rec.pos + rec.normal + RandomInUnitSphere(randomState);
         scattered = MakeRay(rec.pos, normalize(target - rec.pos));
-        attenuation = f3(mat->albedoX,mat->albedoY,mat->albedoZ);
+        attenuation = matAlbedo;
         return true;
     }
-    else if (mat->type == MatMetal)
+    else if (matType == MatMetal)
     {
         float3 refl = reflect(r_in.dir, rec.normal);
         // reflected ray, and random inside of sphere based on roughness
         scattered = MakeRay(rec.pos, normalize(refl + mat->roughness*RandomInUnitSphere(randomState)));
-        attenuation = f3(mat->albedoX,mat->albedoY,mat->albedoZ);
+        attenuation = matAlbedo;
         return dot(scattered.dir, rec.normal) > 0;
     }
-    else if (mat->type == MatDielectric)
+    else if (matType == MatDielectric)
     {
         float3 outwardN;
         float3 rdir = r_in.dir;
@@ -271,21 +273,22 @@ static bool Scatter(int matIndex, const Ray& r_in, const Hit& rec, float3& atten
         float3 refr;
         float reflProb;
         float cosine;
+        float matRI = mat->ri;
         if (dot(rdir, rec.normal) > 0)
         {
             outwardN = -rec.normal;
-            nint = mat->ri;
-            cosine = mat->ri * dot(rdir, rec.normal);
+            nint = matRI;
+            cosine = matRI * dot(rdir, rec.normal);
         }
         else
         {
             outwardN = rec.normal;
-            nint = 1.0f / mat->ri;
+            nint = 1.0f / matRI;
             cosine = -dot(rdir, rec.normal);
         }
         if (refract(rdir, outwardN, nint, refr))
         {
-            reflProb = schlick(cosine, mat->ri);
+            reflProb = schlick(cosine, matRI);
         }
         else
         {
@@ -377,13 +380,8 @@ static float3 TraceHit(const uniform Sphere spheres[], const uniform Material ma
             }
         }
 #endif
-
-        return f3(mat->emissiveX,mat->emissiveY,mat->emissiveZ); // + atten;
     }
-    else
-    {
-        return f3(mat->emissiveX,mat->emissiveY,mat->emissiveZ);
-    }
+    return f3(mat->emissiveX,mat->emissiveY,mat->emissiveZ);
 }
 
 static float3 SkyHit(const Ray& r)
@@ -413,7 +411,7 @@ export void TracePrimaryRaysIspc(
     uniform float invWidth = 1.0f / screenWidth;
     uniform float invHeight = 1.0f / screenHeight;
     uint32_t rndState = randomState;
-    foreach_tiled(y = startRow ... endRow, x = 0 ... screenWidth)
+    foreach(y = startRow ... endRow, x = 0 ... screenWidth)
     {
         rndState += programIndex;
         int pixelIndex = (y * screenWidth + x) * 4;
