@@ -55,12 +55,11 @@ const int kMaxDepth = 10;
 struct RayPayload
 {
     RayPayload() {}
-    RayPayload(const float3& atten_, uint32_t pixelIndex_, uint32_t depth_, uint32_t lightID_, uint32_t shadow_)
-        : atten(atten_), pixelIndex(pixelIndex_), depth(depth_), lightID(lightID_), shadow(shadow_) {}
+    RayPayload(const float3& atten_, uint32_t pixelIndex_, uint32_t lightID_, uint32_t shadow_)
+        : atten(atten_), pixelIndex(pixelIndex_), lightID(lightID_), shadow(shadow_) {}
     float3 atten;
-    uint32_t pixelIndex : 22;
-    uint32_t depth : 4;
-    uint32_t lightID : 5;
+    uint32_t pixelIndex : 24;
+    uint32_t lightID : 7;
     uint32_t shadow : 1;
 };
 
@@ -163,12 +162,11 @@ static float3 TraceHit(const Ray& r, const RayPayload& rp, const Hit& hit, int i
     const Material& mat = s_SphereMats[id];
     Ray scattered;
     float3 atten;
-    if (rp.depth < kMaxDepth)
     {
         if (Scatter(mat, r, hit, atten, scattered))
         {
             ctx.queries.push_back(scattered);
-            ctx.payloads.push_back(RayPayload(atten * rp.atten, rp.pixelIndex, (uint32_t)(rp.depth+1), 0, 0));
+            ctx.payloads.push_back(RayPayload(atten * rp.atten, rp.pixelIndex, 0, 0));
             
 #if DO_LIGHT_SAMPLING
             if (mat.type == Material::Lambert)
@@ -203,7 +201,7 @@ static float3 TraceHit(const Ray& r, const RayPayload& rp, const Hit& hit, int i
                     float3 shadowAtt = (mat.albedo * smat.emissive) * (std::max(0.0f, dot(l, nl)) * omega / kPI);
                     
                     ctx.queries.push_back(Ray(hit.pos, l));
-                    ctx.payloads.push_back(RayPayload(shadowAtt * rp.atten, rp.pixelIndex, (uint32_t)(rp.depth+1), (uint32_t)i, 1));
+                    ctx.payloads.push_back(RayPayload(shadowAtt * rp.atten, rp.pixelIndex, (uint32_t)i, 1));
                 }
             }
 #endif // #if DO_LIGHT_SAMPLING
@@ -279,7 +277,7 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
                 }
                 else
                 {
-                    RayPayload rp(float3(1, 1, 1), pix, 0, 0, 0);
+                    RayPayload rp(float3(1, 1, 1), pix, 0, 0);
                     col = TraceHit(r, rp, hit, hitID, ctx);
                 }
                 tmpbuffer[pix + 0] += col.x;
@@ -291,7 +289,7 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
     }
     
     // process ray requests
-    while (!ctx.queries.empty())
+    for (int depth = 0; depth < kMaxDepth; ++depth)
     {
         TraceContext newctx;
         int rcount = (int)ctx.queries.size();
