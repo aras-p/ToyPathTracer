@@ -12,6 +12,7 @@ inline float3 f3(float x, float y, float z)
 
 inline float dot(float3 a, float3 b) { return a.x*b.x+a.y*b.y+a.z*b.z; }
 inline float length(float3 v) { return sqrt(dot(v,v)); }
+inline float invLength(float3 v) { return rsqrt(dot(v,v)); }
 inline float sqLength(float3 v) { return dot(v,v); }
 inline float3 cross(float3 a, float3 b)
 {
@@ -23,7 +24,7 @@ inline float3 cross(float3 a, float3 b)
 }
 inline float3 normalize(float3 v)
 {
-    float k = 1.0f / length(v);
+    float k = invLength(v);
     float3 ret;
     ret.x = v.x*k;
     ret.y = v.y*k;
@@ -111,9 +112,9 @@ struct Camera
     float lensRadius;
 };
 
-inline uint32_t XorShift32(uint32_t& state)
+inline uint32_t RNG(uint32_t& state)
 {
-    uint32_t x = state | 0x80000000;
+    uint32_t x = state;
     x ^= x << 13;
     x ^= x >> 17;
     x ^= x << 15;
@@ -123,7 +124,7 @@ inline uint32_t XorShift32(uint32_t& state)
 
 inline float RandomFloat01(uint32_t& state)
 {
-    return (int)(XorShift32(state) & 0xFFFFFF) / 16777216.0f;
+    return (int)(RNG(state) & 0xFFFFFF) / 16777216.0f;
 }
 
 inline float3 RandomInUnitDisk(uint32_t& state)
@@ -173,12 +174,12 @@ bool HitSphere(const Ray& r, const uniform Sphere &s, float tMin, float tMax, Hi
     float b = dot(oc, r.dir);
     float c = dot(oc, oc) - s.radius*s.radius;
     float discr = b*b - c;
-    if (discr > 0)
+    cif (discr > 0)
     {
         float discrSq = sqrt(discr);
 
         float t = (-b - discrSq);
-        if (t < tMax && t > tMin)
+        cif (t < tMax && t > tMin)
         {
             outHit.pos = RayPointAt(r, t);
             outHit.normal = (outHit.pos - scenter) * s.invRadius;
@@ -186,7 +187,7 @@ bool HitSphere(const Ray& r, const uniform Sphere &s, float tMin, float tMax, Hi
             return true;
         }
         t = (-b + discrSq);
-        if (t < tMax && t > tMin)
+        cif (t < tMax && t > tMin)
         {
             outHit.pos = RayPointAt(r, t);
             outHit.normal = (outHit.pos - scenter) * s.invRadius;
@@ -218,7 +219,7 @@ static int HitWorld(const uniform Sphere spheres[], int sphereCount, const Ray& 
     Hit tmpHit;
     int id = -1;
     float closest = tMax;
-    for (uniform int i = 0; i < sphereCount; ++i)
+    cfor (uniform int i = 0; i < sphereCount; ++i)
     {
         if (HitSphere(r, spheres[i], tMin, closest, tmpHit))
         {
@@ -312,15 +313,15 @@ static void PushRay(
         uint32_t rpPixelIndex, rpLightId, rpShadow;
         DecodeInfo(rpInfo, rpPixelIndex, rpLightId, rpShadow);
 
-        uint32_t origXhalf = float_to_half(ray.orig.x);
-        uint32_t origYhalf = float_to_half(ray.orig.y);
-        uint32_t origZhalf = float_to_half(ray.orig.z);
-        uint32_t dirXhalf = float_to_half(ray.dir.x);
-        uint32_t dirYhalf = float_to_half(ray.dir.y);
-        uint32_t dirZhalf = float_to_half(ray.dir.z);
-        uint32_t attXhalf = float_to_half(atten.x);
-        uint32_t attYhalf = float_to_half(atten.y);
-        uint32_t attZhalf = float_to_half(atten.z);
+        uint32_t origXhalf = float_to_half_fast(ray.orig.x);
+        uint32_t origYhalf = float_to_half_fast(ray.orig.y);
+        uint32_t origZhalf = float_to_half_fast(ray.orig.z);
+        uint32_t dirXhalf = float_to_half_fast(ray.dir.x);
+        uint32_t dirYhalf = float_to_half_fast(ray.dir.y);
+        uint32_t dirZhalf = float_to_half_fast(ray.dir.z);
+        uint32_t attXhalf = float_to_half_fast(atten.x);
+        uint32_t attYhalf = float_to_half_fast(atten.y);
+        uint32_t attZhalf = float_to_half_fast(atten.z);
         uniform int dstIncr = packed_store_active(&dst.origXY[dst.count], (origXhalf<<16) | (origYhalf&0xFFFF));
         packed_store_active(&dst.origZ[dst.count], (origZhalf&0xFFFF));
         packed_store_active(&dst.dirXY[dst.count], (dirXhalf<<16) | (dirYhalf&0xFFFF));
@@ -410,6 +411,7 @@ export void TracePrimaryRaysIspc(
     foreach(y = startRow ... endRow, x = 0 ... screenWidth)
     {
         rndState += programIndex;
+        rndState |= 1;
         int pixelIndex = (y * screenWidth + x) * 4;
         for (int s = 0; s < DO_SAMPLES_PER_PIXEL; s++)
         {
@@ -448,22 +450,23 @@ export void TraceSecondaryRaysIspc(
     foreach(i = 0 ... srcRays.count)
     {
         rndState += programIndex;
+        rndState |= 1;
         Ray r;
         uint32_t origXYbits = srcRays.origXY[i];
         uint32_t origZbits = srcRays.origZ[i];
         uint32_t dirXYbits = srcRays.dirXY[i];
         uint32_t dirZattenXbits = srcRays.dirZattenX[i];
         uint32_t attenYZbits = srcRays.attenYZ[i];
-        r.orig.x = half_to_float(origXYbits>>16);
-        r.orig.y = half_to_float(origXYbits&0xFFFF);
-        r.orig.z = half_to_float(origZbits&0xFFFF);
-        r.dir.x = half_to_float(dirXYbits>>16);
-        r.dir.y = half_to_float(dirXYbits&0xFFFF);
-        r.dir.z = half_to_float(dirZattenXbits>>16);
+        r.orig.x = half_to_float_fast(origXYbits>>16);
+        r.orig.y = half_to_float_fast(origXYbits&0xFFFF);
+        r.orig.z = half_to_float_fast(origZbits&0xFFFF);
+        r.dir.x = half_to_float_fast(dirXYbits>>16);
+        r.dir.y = half_to_float_fast(dirXYbits&0xFFFF);
+        r.dir.z = half_to_float_fast(dirZattenXbits>>16);
         RayPayload rp;
-        rp.atten.x = half_to_float(dirZattenXbits&0xFFFF);
-        rp.atten.y = half_to_float(attenYZbits>>16);
-        rp.atten.z = half_to_float(attenYZbits&0xFFFF);
+        rp.atten.x = half_to_float_fast(dirZattenXbits&0xFFFF);
+        rp.atten.y = half_to_float_fast(attenYZbits>>16);
+        rp.atten.z = half_to_float_fast(attenYZbits&0xFFFF);
         rp.info = srcRays.info[i];
         
         Hit hit;
