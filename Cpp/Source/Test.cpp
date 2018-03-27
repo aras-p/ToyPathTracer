@@ -71,12 +71,9 @@ struct TraceContext
     int* origX;
     int* origY;
     int* origZ;
-    int* dirX;
-    int* dirY;
-    int* dirZ;
-    int* attenX;
-    int* attenY;
-    int* attenZ;
+    int* dirXY;
+    int* dirZattenX;
+    int* attenYZ;
     uint32_t* info;
     int count;
     int capacity;
@@ -86,12 +83,9 @@ struct TraceContext
         origX = new int[cap];
         origY = new int[cap];
         origZ = new int[cap];
-        dirX = new int[cap];
-        dirY = new int[cap];
-        dirZ = new int[cap];
-        attenX = new int[cap];
-        attenY = new int[cap];
-        attenZ = new int[cap];
+        dirXY = new int[cap];
+        dirZattenX = new int[cap];
+        attenYZ = new int[cap];
         info = new uint32_t[cap];
         count = 0;
         capacity = cap;
@@ -101,12 +95,9 @@ struct TraceContext
         delete[] origX;
         delete[] origY;
         delete[] origZ;
-        delete[] dirX;
-        delete[] dirY;
-        delete[] dirZ;
-        delete[] attenX;
-        delete[] attenY;
-        delete[] attenZ;
+        delete[] dirXY;
+        delete[] dirZattenX;
+        delete[] attenYZ;
         delete[] info;
     }
     
@@ -115,12 +106,9 @@ struct TraceContext
         std::swap(origX,o.origX);
         std::swap(origY,o.origY);
         std::swap(origZ,o.origZ);
-        std::swap(dirX,o.dirX);
-        std::swap(dirY,o.dirY);
-        std::swap(dirZ,o.dirZ);
-        std::swap(attenX,o.attenX);
-        std::swap(attenY,o.attenY);
-        std::swap(attenZ,o.attenZ);
+        std::swap(dirXY,o.dirXY);
+        std::swap(dirZattenX,o.dirZattenX);
+        std::swap(attenYZ,o.attenYZ);
         std::swap(info,o.info);
         std::swap(count,o.count);
         std::swap(capacity,o.capacity);
@@ -329,6 +317,7 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
     float* tmpbuffer = data.tmpbuffer;
 
 #else
+    TraceContext ctx;
     ctx.queries.reserve(space);
     ctx.payloads.reserve(space);
 
