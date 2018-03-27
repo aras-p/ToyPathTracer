@@ -68,37 +68,34 @@ struct RayPayload
 struct TraceContext
 {
 #if DO_ISPC
+    enum { kRayIntSize = 7 };
     int* origX;
     int* origY;
     int* origZ;
     int* dirXY;
     int* dirZattenX;
     int* attenYZ;
-    uint32_t* info;
+    int* info;
     int count;
     int capacity;
     
-    TraceContext(int cap)
+    TraceContext(int* buffer, size_t bufferSize, int rowCount, int startRow, int endRow, int index)
     {
-        origX = new int[cap];
-        origY = new int[cap];
-        origZ = new int[cap];
-        dirXY = new int[cap];
-        dirZattenX = new int[cap];
-        attenYZ = new int[cap];
-        info = new uint32_t[cap];
+        size_t intsPerRow = (size_t)(bufferSize / rowCount);
+        size_t startOffset = startRow * intsPerRow;
+        size_t intsForUs = (endRow-startRow) * intsPerRow;
+        size_t intsPerArray = intsForUs / kRayIntSize;
+        intsPerArray /= 2; // we need two buffers
+        startOffset += index * kRayIntSize * intsPerArray;
+        origX = buffer + startOffset + intsPerArray * 0;
+        origY = buffer + startOffset + intsPerArray * 1;
+        origZ = buffer + startOffset + intsPerArray * 2;
+        dirXY = buffer + startOffset + intsPerArray * 3;
+        dirZattenX = buffer + startOffset + intsPerArray * 4;
+        attenYZ = buffer + startOffset + intsPerArray * 5;
+        info = buffer + startOffset + intsPerArray * 6;
         count = 0;
-        capacity = cap;
-    }
-    ~TraceContext()
-    {
-        delete[] origX;
-        delete[] origY;
-        delete[] origZ;
-        delete[] dirXY;
-        delete[] dirZattenX;
-        delete[] attenYZ;
-        delete[] info;
+        capacity = (int)intsPerArray;
     }
     
 #else
@@ -272,6 +269,8 @@ struct JobData
     int screenWidth, screenHeight;
     float* backbuffer;
     float* tmpbuffer;
+    int* rayBuffer;
+    size_t rayBufferSize;
     Camera* cam;
     std::atomic<int> rayCount;
 };
@@ -284,7 +283,6 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
     lerpFac *= DO_ANIMATE_SMOOTHING;
 #endif
     int rayCount = (end - start)*data.screenWidth*DO_SAMPLES_PER_PIXEL;
-    auto space = (end-start)*data.screenWidth*DO_SAMPLES_PER_PIXEL * 2;
     
     // clear temp buffer to zero
     auto stride = data.screenWidth * 4 * sizeof(data.tmpbuffer[0]);
@@ -298,8 +296,8 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
     static_assert(sizeof(Material) == sizeof(ispc::Material), "material data mismatch");
     static_assert(sizeof(TraceContext) == sizeof(ispc::RayBuffers), "context data mismatch");
 
-    TraceContext ctx1(space);
-    TraceContext ctx2(space);
+    TraceContext ctx1(data.rayBuffer, data.rayBufferSize, data.screenHeight, start, end, 0);
+    TraceContext ctx2(data.rayBuffer, data.rayBufferSize, data.screenHeight, start, end, 1);
     TraceContext* ctx = &ctx1;
 
     ispc::TracePrimaryRaysIspc(data.screenWidth, data.screenHeight, start, end, randomState, data.tmpbuffer, *(ispc::Camera*)data.cam, (ispc::Sphere*)s_Spheres, (ispc::Material*)s_SphereMats, kSphereCount, (ispc::RayBuffers&)*ctx);
@@ -309,6 +307,7 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
 
 #else
     TraceContext ctx;
+    auto space = (end-start)*data.screenWidth*DO_SAMPLES_PER_PIXEL * 2;
     ctx.queries.reserve(space);
     ctx.payloads.reserve(space);
 
@@ -439,6 +438,7 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
 
 void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, float* backbuffer, float* tmpbuffer, int& outRayCount)
 {
+
 #if DO_ANIMATE
     s_Spheres[1].center.y = cosf(time)+1.0f;
     s_Spheres[8].center.z = sinf(time)*0.3f;
@@ -462,6 +462,19 @@ void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, flo
     args.tmpbuffer = tmpbuffer;
     args.cam = &cam;
     args.rayCount = 0;
+#if DO_ISPC
+    static int* g_RayBuffer = NULL;
+    static size_t g_RayBufferSize = 0;
+    const int kRayBufferMult = 2;
+    if (!g_RayBuffer)
+    {
+        g_RayBufferSize = screenWidth * screenHeight * DO_SAMPLES_PER_PIXEL * kRayBufferMult * 2 * TraceContext::kRayIntSize;
+        g_RayBuffer = new int[g_RayBufferSize];
+    }
+    args.rayBuffer = g_RayBuffer;
+    args.rayBufferSize = g_RayBufferSize;
+#endif
+
     enkiTaskSet* task = enkiCreateTaskSet(g_TS, TraceRowJob);
     bool threaded = true;
     enkiAddTaskSetToPipeMinRange(g_TS, task, &args, screenHeight, threaded ? 4 : screenHeight);
