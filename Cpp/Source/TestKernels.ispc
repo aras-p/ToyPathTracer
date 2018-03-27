@@ -4,7 +4,7 @@
 typedef float<3> float3;
 typedef unsigned int uint32_t;
 
-float3 f3(float x, float y, float z)
+inline float3 f3(float x, float y, float z)
 {
     float3 v = {x,y,z};
     return v;
@@ -12,6 +12,7 @@ float3 f3(float x, float y, float z)
 
 inline float dot(float3 a, float3 b) { return a.x*b.x+a.y*b.y+a.z*b.z; }
 inline float length(float3 v) { return sqrt(dot(v,v)); }
+inline float invLength(float3 v) { return rsqrt(dot(v,v)); }
 inline float sqLength(float3 v) { return dot(v,v); }
 inline float3 cross(float3 a, float3 b)
 {
@@ -23,12 +24,7 @@ inline float3 cross(float3 a, float3 b)
 }
 inline float3 normalize(float3 v)
 {
-    float k = 1.0f / length(v);
-    float3 ret;
-    ret.x = v.x*k;
-    ret.y = v.y*k;
-    ret.z = v.z*k;
-    return ret;
+    return v * invLength(v);
 }
 inline float3 reflect(const float3& v, const float3& n)
 {
@@ -145,12 +141,12 @@ bool HitSphere(const Ray& r, const uniform Sphere &s, float tMin, float tMax, Hi
     float b = dot(oc, r.dir);
     float c = dot(oc, oc) - s.radius*s.radius;
     float discr = b*b - c;
-    if (discr > 0)
+    cif (discr > 0)
     {
         float discrSq = sqrt(discr);
 
         float t = (-b - discrSq);
-        if (t < tMax && t > tMin)
+        cif (t < tMax && t > tMin)
         {
             outHit.pos = RayPointAt(r, t);
             outHit.normal = (outHit.pos - scenter) * s.invRadius;
@@ -158,7 +154,7 @@ bool HitSphere(const Ray& r, const uniform Sphere &s, float tMin, float tMax, Hi
             return true;
         }
         t = (-b + discrSq);
-        if (t < tMax && t > tMin)
+        cif (t < tMax && t > tMin)
         {
             outHit.pos = RayPointAt(r, t);
             outHit.normal = (outHit.pos - scenter) * s.invRadius;
@@ -366,6 +362,7 @@ export void TraceRowJobJspc(
     foreach_tiled(y = startRow ... endRow, x = 0 ... screenWidth)
     {
         rndState += programIndex;
+        rndState |= 1;
         int pixelIndex = (y * screenWidth + x) * 4;
         float3 col = {0, 0, 0};
         for (int s = 0; s < DO_SAMPLES_PER_PIXEL; s++)
