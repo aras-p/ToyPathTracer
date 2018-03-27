@@ -101,18 +101,6 @@ struct TraceContext
         delete[] info;
     }
     
-    void swap(TraceContext& o)
-    {
-        std::swap(origX,o.origX);
-        std::swap(origY,o.origY);
-        std::swap(origZ,o.origZ);
-        std::swap(dirXY,o.dirXY);
-        std::swap(dirZattenX,o.dirZattenX);
-        std::swap(attenYZ,o.attenYZ);
-        std::swap(info,o.info);
-        std::swap(count,o.count);
-        std::swap(capacity,o.capacity);
-    }
 #else
     std::vector<Ray> queries;
     std::vector<RayPayload> payloads;
@@ -310,8 +298,11 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
     static_assert(sizeof(Material) == sizeof(ispc::Material), "material data mismatch");
     static_assert(sizeof(TraceContext) == sizeof(ispc::RayBuffers), "context data mismatch");
 
-    TraceContext ctx(space);
-    ispc::TracePrimaryRaysIspc(data.screenWidth, data.screenHeight, start, end, randomState, data.tmpbuffer, *(ispc::Camera*)data.cam, (ispc::Sphere*)s_Spheres, (ispc::Material*)s_SphereMats, kSphereCount, (ispc::RayBuffers&)ctx);
+    TraceContext ctx1(space);
+    TraceContext ctx2(space);
+    TraceContext* ctx = &ctx1;
+
+    ispc::TracePrimaryRaysIspc(data.screenWidth, data.screenHeight, start, end, randomState, data.tmpbuffer, *(ispc::Camera*)data.cam, (ispc::Sphere*)s_Spheres, (ispc::Material*)s_SphereMats, kSphereCount, (ispc::RayBuffers&)*ctx);
 
     float* backbuffer = data.backbuffer;
     float* tmpbuffer = data.tmpbuffer;
@@ -362,7 +353,7 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
     for (int depth = 0; depth < kMaxDepth; ++depth)
     {
 #if DO_ISPC
-        int rcount = (int)ctx.count;
+        int rcount = (int)ctx->count;
 #else
         int rcount = (int)ctx.queries.size();
 #endif
@@ -371,11 +362,10 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
 
 #if DO_ISPC
         randomState += depth * 17;
-        int dstCap = rcount * 2;
-        TraceContext newctx(dstCap);
-        ispc::TraceSecondaryRaysIspc(randomState, data.tmpbuffer, (ispc::Sphere*)s_Spheres, (ispc::Material*)s_SphereMats, kSphereCount, (ispc::RayBuffers&)ctx, (ispc::RayBuffers&)newctx);
-        
-        ctx.swap(newctx);
+        TraceContext* newctx = (ctx == &ctx1 ? &ctx2 : &ctx1);
+        newctx->count = 0;
+        ispc::TraceSecondaryRaysIspc(randomState, data.tmpbuffer, (ispc::Sphere*)s_Spheres, (ispc::Material*)s_SphereMats, kSphereCount, (ispc::RayBuffers&)*ctx, (ispc::RayBuffers&)*newctx);
+        ctx = newctx;
 
 #else
         TraceContext newctx;

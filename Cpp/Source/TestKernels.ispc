@@ -4,7 +4,7 @@
 typedef float<3> float3;
 typedef unsigned int uint32_t;
 
-float3 f3(float x, float y, float z)
+inline float3 f3(float x, float y, float z)
 {
     float3 v = {x,y,z};
     return v;
@@ -76,11 +76,11 @@ struct RayPayload
     float3 atten;
     uint32_t info; // 24 bit pixel index, 7 bit light ID, 1 bit shadow
 };
-uint32_t EncodeInfo(uint32_t pixelIndex, uint32_t lightID, uint32_t shadow)
+inline uint32_t EncodeInfo(uint32_t pixelIndex, uint32_t lightID, uint32_t shadow)
 {
     return pixelIndex | (lightID << 24) | (shadow << 31);
 }
-void DecodeInfo(uint32_t info, uint32_t& pixelIndex, uint32_t& lightID, uint32_t& shadow)
+inline void DecodeInfo(uint32_t info, uint32_t& pixelIndex, uint32_t& lightID, uint32_t& shadow)
 {
     pixelIndex = info & 0xFFFFFF;
     lightID = (info >> 24) & 0x7F;
@@ -112,7 +112,7 @@ struct Camera
     float lensRadius;
 };
 
-uint32_t XorShift32(uint32_t& state)
+inline uint32_t XorShift32(uint32_t& state)
 {
     uint32_t x = state | 0x80000000;
     x ^= x << 13;
@@ -122,12 +122,12 @@ uint32_t XorShift32(uint32_t& state)
     return x;
 }
 
-float RandomFloat01(uint32_t& state)
+inline float RandomFloat01(uint32_t& state)
 {
     return (int)(XorShift32(state) & 0xFFFFFF) / 16777216.0f;
 }
 
-float3 RandomInUnitDisk(uint32_t& state)
+inline float3 RandomInUnitDisk(uint32_t& state)
 {
     float3 p;
     do
@@ -139,7 +139,7 @@ float3 RandomInUnitDisk(uint32_t& state)
     return p;
 }
 
-float3 RandomInUnitSphere(uint32_t& state)
+inline float3 RandomInUnitSphere(uint32_t& state)
 {
     float3 p;
     do {
@@ -151,9 +151,9 @@ float3 RandomInUnitSphere(uint32_t& state)
 }
 
 
-float3 RayPointAt(const Ray& r, float t) { return r.orig + r.dir * t; }
+inline float3 RayPointAt(const Ray& r, float t) { return r.orig + r.dir * t; }
 
-Ray CameraGetRay(const uniform Camera& cam, float s, float t, uint32_t& state)
+inline Ray CameraGetRay(const uniform Camera& cam, float s, float t, uint32_t& state)
 {
     float3 rd = cam.lensRadius * RandomInUnitDisk(state);
     float3 offset = f3(cam.ux,cam.uy,cam.uz) * rd.x + f3(cam.vx,cam.vy,cam.vz) * rd.y;
@@ -231,7 +231,7 @@ static int HitWorld(const uniform Sphere spheres[], int sphereCount, const Ray& 
     return id;
 }
 
-Ray MakeRay(float3 pos, float3 dir)
+inline Ray MakeRay(float3 pos, float3 dir)
 {
     Ray r = {pos, dir};
     return r;
@@ -382,7 +382,7 @@ static float3 TraceHit(const uniform Sphere spheres[], const uniform Material ma
     return f3(mat->emissiveX,mat->emissiveY,mat->emissiveZ);
 }
 
-static float3 SkyHit(const Ray& r)
+static inline float3 SkyHit(const Ray& r)
 {
     float3 unitDir = r.dir;
     float t = 0.5f*(unitDir.y + 1.0f);
