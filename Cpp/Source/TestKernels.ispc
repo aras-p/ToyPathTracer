@@ -54,9 +54,8 @@ inline float schlick(float cosine, float ri)
 
 struct RayBuffers
 {
-    int* origX;
-    int* origY;
-    int* origZ;
+    uint32_t* origXY;
+    uint32_t* origZ;
     uint32_t* dirXY;
     uint32_t* dirZattenX;
     uint32_t* attenYZ;
@@ -313,15 +312,17 @@ static void PushRay(
         uint32_t rpPixelIndex, rpLightId, rpShadow;
         DecodeInfo(rpInfo, rpPixelIndex, rpLightId, rpShadow);
 
-        uniform int dstIncr = packed_store_active(&dst.origX[dst.count], intbits(ray.orig.x));
-        packed_store_active(&dst.origY[dst.count], intbits(ray.orig.y));
-        packed_store_active(&dst.origZ[dst.count], intbits(ray.orig.z));
+        uint32_t origXhalf = float_to_half(ray.orig.x);
+        uint32_t origYhalf = float_to_half(ray.orig.y);
+        uint32_t origZhalf = float_to_half(ray.orig.z);
         uint32_t dirXhalf = float_to_half(ray.dir.x);
         uint32_t dirYhalf = float_to_half(ray.dir.y);
         uint32_t dirZhalf = float_to_half(ray.dir.z);
         uint32_t attXhalf = float_to_half(atten.x);
         uint32_t attYhalf = float_to_half(atten.y);
         uint32_t attZhalf = float_to_half(atten.z);
+        uniform int dstIncr = packed_store_active(&dst.origXY[dst.count], (origXhalf<<16) | (origYhalf&0xFFFF));
+        packed_store_active(&dst.origZ[dst.count], (origZhalf&0xFFFF));
         packed_store_active(&dst.dirXY[dst.count], (dirXhalf<<16) | (dirYhalf&0xFFFF));
         packed_store_active(&dst.dirZattenX[dst.count], (dirZhalf<<16) | (attXhalf&0xFFFF));
         packed_store_active(&dst.attenYZ[dst.count], (attYhalf<<16) | (attZhalf&0xFFFF));
@@ -448,13 +449,15 @@ export void TraceSecondaryRaysIspc(
     {
         rndState += programIndex;
         Ray r;
-        r.orig.x = floatbits(srcRays.origX[i]);
-        r.orig.y = floatbits(srcRays.origY[i]);
-        r.orig.z = floatbits(srcRays.origZ[i]);
+        uint32_t origXYbits = srcRays.origXY[i];
+        uint32_t origZbits = srcRays.origZ[i];
         uint32_t dirXYbits = srcRays.dirXY[i];
         uint32_t dirZattenXbits = srcRays.dirZattenX[i];
         uint32_t attenYZbits = srcRays.attenYZ[i];
-        r.dir.x = half_to_float((dirXYbits>>16)&0xFFFF);
+        r.orig.x = half_to_float(origXYbits>>16);
+        r.orig.y = half_to_float(origXYbits&0xFFFF);
+        r.orig.z = half_to_float(origZbits&0xFFFF);
+        r.dir.x = half_to_float(dirXYbits>>16);
         r.dir.y = half_to_float(dirXYbits&0xFFFF);
         r.dir.z = half_to_float(dirZattenXbits>>16);
         RayPayload rp;

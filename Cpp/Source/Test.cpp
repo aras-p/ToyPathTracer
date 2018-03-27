@@ -68,9 +68,8 @@ struct RayPayload
 struct TraceContext
 {
 #if DO_ISPC
-    enum { kRayIntSize = 7 };
-    int* origX;
-    int* origY;
+    enum { kRayIntSize = 6 };
+    int* origXY;
     int* origZ;
     int* dirXY;
     int* dirZattenX;
@@ -87,13 +86,12 @@ struct TraceContext
         size_t intsPerArray = intsForUs / kRayIntSize;
         intsPerArray /= 2; // we need two buffers
         startOffset += index * kRayIntSize * intsPerArray;
-        origX = buffer + startOffset + intsPerArray * 0;
-        origY = buffer + startOffset + intsPerArray * 1;
-        origZ = buffer + startOffset + intsPerArray * 2;
-        dirXY = buffer + startOffset + intsPerArray * 3;
-        dirZattenX = buffer + startOffset + intsPerArray * 4;
-        attenYZ = buffer + startOffset + intsPerArray * 5;
-        info = buffer + startOffset + intsPerArray * 6;
+        origXY = buffer + startOffset + intsPerArray * 0;
+        origZ = buffer + startOffset + intsPerArray * 1;
+        dirXY = buffer + startOffset + intsPerArray * 2;
+        dirZattenX = buffer + startOffset + intsPerArray * 3;
+        attenYZ = buffer + startOffset + intsPerArray * 4;
+        info = buffer + startOffset + intsPerArray * 5;
         count = 0;
         capacity = (int)intsPerArray;
     }
