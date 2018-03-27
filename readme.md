@@ -8,11 +8,11 @@ Right now: can only do spheres, no bounding volume hierachy of any sorts, a lot 
 
 Implementations I'm playing with:
 
-* C++: ~130 Mray/s on PC, ~34.7 Mray/s on Mac,
-* C++ with ISPC: ~221 Mray/s on PC, 85 Mray/s on Mac,
+* C++: 130 Mray/s on PC, 34.7 Mray/s on Mac,
+* C++ with ISPC: 228 Mray/s on PC, 87 Mray/s on Mac,
 * C# (.NetCore): 53 Mray/s on PC,
 * C# (Unity, Mono): 10.2 Mray/s on PC,
-* C# (Unity, JobSystem+Burst): 140 Mray/s on PC
+* C# (Unity, JobSystem+Burst): 140 Mray/s on PC.
 
 "PC" is AMD ThreadRipper 1950X 3.4GHz (SMT disabled, 16c/16t), "Mac" is late 2013 MacBookPro 2.3GHz (4c/8t).
 
