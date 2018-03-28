@@ -2,10 +2,9 @@
 #define DO_LIGHT_SAMPLING
 #define DO_THREADED
 
-using static float3;
 using static MathUtil;
-using UnityEngine;
-using Debug = System.Diagnostics.Debug;
+using Unity.Mathematics;
+using static Unity.Mathematics.math;
 using Unity.Collections;
 using Unity.Jobs;
 
@@ -83,7 +82,7 @@ class Test
         {
             // random point inside unit sphere that is tangent to the hit point
             float3 target = rec.pos + rec.normal + MathUtil.RandomInUnitSphere(ref randState);
-            scattered = new Ray(rec.pos, float3.Normalize(target - rec.pos));
+            scattered = new Ray(rec.pos, normalize(target - rec.pos));
             attenuation = mat.albedo;
 
             // sample lights
@@ -98,17 +97,17 @@ class Test
 
                 // create a random direction towards sphere
                 // coord system for sampling: sw, su, sv
-                float3 sw = Normalize(s.center - rec.pos);
-                float3 su = Normalize(Cross(Mathf.Abs(sw.x) > 0.01f ? new float3(0, 1, 0) : new float3(1, 0, 0), sw));
-                float3 sv = Cross(sw, su);
+                float3 sw = normalize(s.center - rec.pos);
+                float3 su = normalize(cross(abs(sw.x) > 0.01f ? new float3(0, 1, 0) : new float3(1, 0, 0), sw));
+                float3 sv = cross(sw, su);
                 // sample sphere by solid angle
-                float cosAMax = Mathf.Sqrt(Mathf.Max(0.0f, 1.0f - s.radius * s.radius / (rec.pos - s.center).SqLength));
+                float cosAMax = sqrt(max(0.0f, 1.0f - s.radius * s.radius / lengthSquared(rec.pos - s.center)));
                 float eps1 = RandomFloat01(ref randState), eps2 = RandomFloat01(ref randState);
                 float cosA = 1.0f - eps1 + eps1 * cosAMax;
-                float sinA = Mathf.Sqrt(1.0f - cosA * cosA);
+                float sinA = sqrt(1.0f - cosA * cosA);
                 float phi = 2 * PI * eps2;
-                float3 l = su * Mathf.Cos(phi) * sinA + sv * Mathf.Sin(phi) * sinA + sw * cosA;
-                l.Normalize();
+                float3 l = su * cos(phi) * sinA + sv * sin(phi) * sinA + sw * cosA;
+                l = normalize(l);
 
                 // shoot shadow ray
                 Hit lightHit = default(Hit);
@@ -119,9 +118,8 @@ class Test
                     float omega = 2 * PI * (1 - cosAMax);
 
                     float3 rdir = r_in.dir;
-                    //Debug.Assert(rdir.IsNormalized);
-                    float3 nl = Dot(rec.normal, rdir) < 0 ? rec.normal : -rec.normal;
-                    outLightE += (mat.albedo * materials[i].emissive) * (Mathf.Max(0.0f, Dot(l, nl)) * omega / PI);
+                    float3 nl = dot(rec.normal, rdir) < 0 ? rec.normal : -rec.normal;
+                    outLightE += (mat.albedo * materials[i].emissive) * (max(0.0f, dot(l, nl)) * omega / PI);
                 }
             }
 #endif
@@ -129,35 +127,33 @@ class Test
         }
         else if (mat.type == Material.Type.Metal)
         {
-            //Debug.Assert(r_in.dir.IsNormalized); Debug.Assert(rec.normal.IsNormalized);
-            float3 refl = Reflect(r_in.dir, rec.normal);
+            float3 refl = reflect(r_in.dir, rec.normal);
             // reflected ray, and random inside of sphere based on roughness
-            scattered = new Ray(rec.pos, Normalize(refl + mat.roughness * RandomInUnitSphere(ref randState)));
+            scattered = new Ray(rec.pos, normalize(refl + mat.roughness * RandomInUnitSphere(ref randState)));
             attenuation = mat.albedo;
-            return Dot(scattered.dir, rec.normal) > 0;
+            return dot(scattered.dir, rec.normal) > 0;
         }
         else if (mat.type == Material.Type.Dielectric)
         {
-            //Debug.Assert(r_in.dir.IsNormalized); Debug.Assert(rec.normal.IsNormalized);
             float3 outwardN;
             float3 rdir = r_in.dir;
-            float3 refl = Reflect(rdir, rec.normal);
+            float3 refl = reflect(rdir, rec.normal);
             float nint;
             attenuation = new float3(1, 1, 1);
             float3 refr;
             float reflProb;
             float cosine;
-            if (Dot(rdir, rec.normal) > 0)
+            if (dot(rdir, rec.normal) > 0)
             {
                 outwardN = -rec.normal;
                 nint = mat.ri;
-                cosine = mat.ri * Dot(rdir, rec.normal);
+                cosine = mat.ri * dot(rdir, rec.normal);
             }
             else
             {
                 outwardN = rec.normal;
                 nint = 1.0f / mat.ri;
-                cosine = -Dot(rdir, rec.normal);
+                cosine = -dot(rdir, rec.normal);
             }
             if (Refract(rdir, outwardN, nint, out refr))
             {
@@ -168,9 +164,9 @@ class Test
                 reflProb = 1;
             }
             if (RandomFloat01(ref randState) < reflProb)
-                scattered = new Ray(rec.pos, Normalize(refl));
+                scattered = new Ray(rec.pos, normalize(refl));
             else
-                scattered = new Ray(rec.pos, Normalize(refr));
+                scattered = new Ray(rec.pos, normalize(refr));
         }
         else
         {
@@ -214,7 +210,7 @@ class Test
     struct TraceRowJob : IJobParallelFor
     {
         public int screenWidth, screenHeight, frameCount;
-        [NativeDisableParallelForRestriction] public NativeArray<Color> backbuffer;
+        [NativeDisableParallelForRestriction] public NativeArray<UnityEngine.Color> backbuffer;
         public Camera cam;
 
         [NativeDisableParallelForRestriction] public NativeArray<int> rayCounter;
@@ -243,11 +239,11 @@ class Test
                     col += Trace(r, 0, ref rayCount, spheres, materials, ref randState);
                 }
                 col *= 1.0f / (float)DO_SAMPLES_PER_PIXEL;
-                col = new float3(Mathf.Sqrt(col.x), Mathf.Sqrt(col.y), Mathf.Sqrt(col.z));
+                col = sqrt(col);
 
-                Color prev = backbuffer[backbufferIdx];
+                UnityEngine.Color prev = backbuffer[backbufferIdx];
                 col = new float3(prev.r, prev.g, prev.b) * lerpFac + col * (1 - lerpFac);
-                backbuffer[backbufferIdx] = new Color(col.x, col.y, col.z, 1);
+                backbuffer[backbufferIdx] = new UnityEngine.Color(col.x, col.y, col.z, 1);
                 backbufferIdx++;
             }
             rayCounter[0] += rayCount; //@TODO: how to do atomics add?
@@ -255,12 +251,12 @@ class Test
     }
 
 
-    public void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, NativeArray<Color> backbuffer, out int outRayCount)
+    public void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, NativeArray<UnityEngine.Color> backbuffer, out int outRayCount)
     {
         int rayCount = 0;
 #if DO_ANIMATE
-        s_SpheresData[1].center.y = Mathf.Cos(time)+1.0f;
-        s_SpheresData[8].center.z = Mathf.Sin(time)*0.3f;
+        s_SpheresData[1].center.y = cos(time)+1.0f;
+        s_SpheresData[8].center.z = sin(time)*0.3f;
 #endif
         float3 lookfrom = new float3(0, 2, 3);
         float3 lookat = new float3(0, 0, 0);
