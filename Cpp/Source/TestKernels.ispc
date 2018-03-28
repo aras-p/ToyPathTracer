@@ -96,25 +96,27 @@ float RandomFloat01(uint32_t& state)
 
 float3 RandomInUnitDisk(uint32_t& state)
 {
-    float3 p;
-    do
-    {
-        p.x = 2.0 * RandomFloat01(state) - 1;
-        p.y = 2.0 * RandomFloat01(state) - 1;
-        p.z = 0;
-    } while (dot(p,p) >= 1.0);
-    return p;
+    float a = RandomFloat01(state) * 2.0f * 3.1415926f;
+    float x, y;
+    sincos(a, &x, &y);
+    float d = sqrt(RandomFloat01(state));
+    x *= d;
+    y *= d;
+    return f3(x,y,0);
 }
 
 float3 RandomInUnitSphere(uint32_t& state)
 {
-    float3 p;
-    do {
-        p.x = 2.0 * RandomFloat01(state) - 1;
-        p.y = 2.0 * RandomFloat01(state) - 1;
-        p.z = 2.0 * RandomFloat01(state) - 1;
-    } while (sqLength(p) >= 1.0);
-    return p;
+    float z = RandomFloat01(state) * 2.0f - 1.0f;
+    float t = RandomFloat01(state) * 2.0f * 3.1415926f;
+    float r = sqrt(max(0.0, 1.0f - z*z));
+    float x, y;
+    sincos(t, &x, &y);
+    x *= r;
+    y *= r;
+    float3 res = {x,y,z};
+    res *= pow(RandomFloat01(state), 1.0/3.0);
+    return res;
 }
 
 
