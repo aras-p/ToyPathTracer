@@ -9,7 +9,9 @@ Right now: can only do spheres, no bounding volume hierachy of any sorts, a lot 
 Implementations I'm playing with:
 
 * C++: 130 Mray/s on PC, 34.7 Mray/s on Mac,
-* C++ with ISPC, targeting AVX2: 246 Mray/s on PC, 90 Mray/s on Mac,
+* C++ with ISPC:
+  * AVX2: 246 Mray/s on PC, 90 Mray/s on Mac,
+  * SSE4: 200 Mray/s on PC, 56.6 Mray/s on Mac,
 * C# (.NetCore): 53 Mray/s on PC,
 * C# (Unity, Mono): 10.8 Mray/s on PC,
 * C# (Unity, JobSystem+Burst+Mathematics targeting SSE4): 162 Mray/s on PC.
