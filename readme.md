@@ -4,6 +4,11 @@ Toy path tracer for my own learning purposes, using various approaches/techs. So
 [Ray Tracing in One Weekend](http://in1weekend.blogspot.lt/) minibook (highly recommended!), and on Kevin Beason's
 [smallpt](http://www.kevinbeason.com/smallpt/).
 
+I decided to write blog posts about things I discover as I do this, currently:
+
+* [Part 0: Intro](http://aras-p.info/blog/2018/03/28/Daily-Pathtracer-Part-0-Intro/)
+* [Part 1: Initial C++ and walkthrough](http://aras-p.info/blog/2018/03/28/Daily-Pathtracer-Part-1-Initial-C--/)
+
 Right now: can only do spheres, no bounding volume hierachy of any sorts, a lot of stuff hardcoded.
 
 Implementations I'm playing with:
