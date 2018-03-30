@@ -1,4 +1,4 @@
-#define DO_ANIMATE
+//#define DO_ANIMATE
 #define DO_LIGHT_SAMPLING
 #define DO_THREADED
 
@@ -25,7 +25,7 @@ struct Material
 
 class Test
 {
-    const int DO_SAMPLES_PER_PIXEL = 1;
+    const int DO_SAMPLES_PER_PIXEL = 4;
     const float DO_ANIMATE_SMOOTHING = 0.5f;
 
     static Sphere[] s_SpheresData = {
@@ -223,20 +223,20 @@ class Test
             float invWidth = 1.0f / screenWidth;
             float invHeight = 1.0f / screenHeight;
             float lerpFac = (float)frameCount / (float)(frameCount + 1);
-            uint randState = (uint)(frameCount * 37 + y * 13 + 1);
 #if DO_ANIMATE
             lerpFac *= DO_ANIMATE_SMOOTHING;
 #endif
+            uint state = (uint)(y * 9781 + frameCount * 6271) | 1;
             int rayCount = 0;
             for (int x = 0; x < screenWidth; ++x)
             {
                 float3 col = new float3(0, 0, 0);
                 for (int s = 0; s < DO_SAMPLES_PER_PIXEL; s++)
                 {
-                    float u = (x + RandomFloat01(ref randState)) * invWidth;
-                    float v = (y + RandomFloat01(ref randState)) * invHeight;
-                    Ray r = cam.GetRay(u, v, ref randState);
-                    col += Trace(r, 0, ref rayCount, spheres, materials, ref randState);
+                    float u = (x + RandomFloat01(ref state)) * invWidth;
+                    float v = (y + RandomFloat01(ref state)) * invHeight;
+                    Ray r = cam.GetRay(u, v, ref state);
+                    col += Trace(r, 0, ref rayCount, spheres, materials, ref state);
                 }
                 col *= 1.0f / (float)DO_SAMPLES_PER_PIXEL;
                 col = sqrt(col);

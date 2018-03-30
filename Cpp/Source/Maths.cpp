@@ -2,38 +2,36 @@
 #include <stdlib.h>
 #include <stdint.h>
 
-static thread_local uint32_t s_RndState = 1;
-
-static uint32_t XorShift32()
+static uint32_t XorShift32(uint32_t& state)
 {
-    uint32_t x = s_RndState + 1; // avoid zero seed
+    uint32_t x = state;
     x ^= x << 13;
     x ^= x >> 17;
     x ^= x << 15;
-    s_RndState = x;
+    state = x;
     return x;
 }
 
-float RandomFloat01()
+float RandomFloat01(uint32_t& state)
 {
-    return (XorShift32() & 0xFFFFFF) / 16777216.0f;
+    return (XorShift32(state) & 0xFFFFFF) / 16777216.0f;
 }
 
-float3 RandomInUnitDisk()
+float3 RandomInUnitDisk(uint32_t& state)
 {
     float3 p;
     do
     {
-        p = 2.0 * float3(RandomFloat01(),RandomFloat01(),0) - float3(1,1,0);
+        p = 2.0 * float3(RandomFloat01(state),RandomFloat01(state),0) - float3(1,1,0);
     } while (dot(p,p) >= 1.0);
     return p;
 }
 
-float3 RandomInUnitSphere()
+float3 RandomInUnitSphere(uint32_t& state)
 {
     float3 p;
     do {
-        p = 2.0*float3(RandomFloat01(),RandomFloat01(),RandomFloat01()) - float3(1,1,1);
+        p = 2.0*float3(RandomFloat01(state),RandomFloat01(state),RandomFloat01(state)) - float3(1,1,1);
     } while (p.sqLength() >= 1.0);
     return p;
 }

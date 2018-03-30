@@ -70,13 +70,13 @@ bool HitWorld(const Ray& r, float tMin, float tMax, Hit& outHit, int& outID)
 }
 
 
-static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3& attenuation, Ray& scattered, float3& outLightE, int& inoutRayCount)
+static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3& attenuation, Ray& scattered, float3& outLightE, int& inoutRayCount, uint32_t& state)
 {
     outLightE = float3(0,0,0);
     if (mat.type == Material::Lambert)
     {
         // random point inside unit sphere that is tangent to the hit point
-        float3 target = rec.pos + rec.normal + RandomInUnitSphere();
+        float3 target = rec.pos + rec.normal + RandomInUnitSphere(state);
         scattered = Ray(rec.pos, normalize(target - rec.pos));
         attenuation = mat.albedo;
         
@@ -98,7 +98,7 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
             float3 sv = cross(sw, su);
             // sample sphere by solid angle
             float cosAMax = sqrtf(1.0f - s.radius*s.radius / (rec.pos-s.center).sqLength());
-            float eps1 = RandomFloat01(), eps2 = RandomFloat01();
+            float eps1 = RandomFloat01(state), eps2 = RandomFloat01(state);
             float cosA = 1.0f - eps1 + eps1 * cosAMax;
             float sinA = sqrtf(1.0f - cosA*cosA);
             float phi = 2 * kPI * eps2;
@@ -127,7 +127,7 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
         AssertUnit(r_in.dir); AssertUnit(rec.normal);
         float3 refl = reflect(r_in.dir, rec.normal);
         // reflected ray, and random inside of sphere based on roughness
-        scattered = Ray(rec.pos, normalize(refl + mat.roughness*RandomInUnitSphere()));
+        scattered = Ray(rec.pos, normalize(refl + mat.roughness*RandomInUnitSphere(state)));
         attenuation = mat.albedo;
         return dot(scattered.dir, rec.normal) > 0;
     }
@@ -162,7 +162,7 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
         {
             reflProb = 1;
         }
-        if (RandomFloat01() < reflProb)
+        if (RandomFloat01(state) < reflProb)
             scattered = Ray(rec.pos, normalize(refl));
         else
             scattered = Ray(rec.pos, normalize(refr));
@@ -175,7 +175,7 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
     return true;
 }
 
-static float3 Trace(const Ray& r, int depth, int& inoutRayCount)
+static float3 Trace(const Ray& r, int depth, int& inoutRayCount, uint32_t& state)
 {
     Hit rec;
     int id = 0;
@@ -186,9 +186,9 @@ static float3 Trace(const Ray& r, int depth, int& inoutRayCount)
         float3 attenuation;
         float3 lightE;
         const Material& mat = s_SphereMats[id];
-        if (depth < kMaxDepth && Scatter(mat, r, rec, attenuation, scattered, lightE, inoutRayCount))
+        if (depth < kMaxDepth && Scatter(mat, r, rec, attenuation, scattered, lightE, inoutRayCount, state))
         {
-            return mat.emissive + lightE + attenuation * Trace(scattered, depth+1, inoutRayCount);
+            return mat.emissive + lightE + attenuation * Trace(scattered, depth+1, inoutRayCount, state);
         }
         else
         {
@@ -240,15 +240,16 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
     int rayCount = 0;
     for (uint32_t y = start; y < end; ++y)
     {
+        uint32_t state = (y * 9781 + data.frameCount * 6271) | 1;
         for (int x = 0; x < data.screenWidth; ++x)
         {
             float3 col(0, 0, 0);
             for (int s = 0; s < DO_SAMPLES_PER_PIXEL; s++)
             {
-                float u = float(x + RandomFloat01()) * invWidth;
-                float v = float(y + RandomFloat01()) * invHeight;
-                Ray r = data.cam->GetRay(u, v);
-                col += Trace(r, 0, rayCount);
+                float u = float(x + RandomFloat01(state)) * invWidth;
+                float v = float(y + RandomFloat01(state)) * invHeight;
+                Ray r = data.cam->GetRay(u, v, state);
+                col += Trace(r, 0, rayCount, state);
             }
             col *= 1.0f / float(DO_SAMPLES_PER_PIXEL);
             col = float3(sqrtf(col.x), sqrtf(col.y), sqrtf(col.z));

@@ -2,6 +2,7 @@
 
 #include <math.h>
 #include <assert.h>
+#include <stdint.h>
 
 #define kPI 3.1415926f
 
@@ -101,9 +102,9 @@ struct Sphere
 
 bool HitSphere(const Ray& r, const Sphere& s, float tMin, float tMax, Hit& outHit);
 
-float RandomFloat01();
-float3 RandomInUnitDisk();
-float3 RandomInUnitSphere();
+float RandomFloat01(uint32_t& state);
+float3 RandomInUnitDisk(uint32_t& state);
+float3 RandomInUnitSphere(uint32_t& state);
 
 
 struct Camera
@@ -124,9 +125,9 @@ struct Camera
         vertical = 2*halfHeight*focusDist*v;
     }
     
-    Ray GetRay(float s, float t) const
+    Ray GetRay(float s, float t, uint32_t& state) const
     {
-        float3 rd = lensRadius * RandomInUnitDisk();
+        float3 rd = lensRadius * RandomInUnitDisk(state);
         float3 offset = u * rd.x + v * rd.y;
         return Ray(origin + offset, normalize(lowerLeftCorner + s*horizontal + t*vertical - origin - offset));
     }

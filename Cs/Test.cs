@@ -1,5 +1,5 @@
 
-#define DO_ANIMATE
+//#define DO_ANIMATE
 #define DO_LIGHT_SAMPLING
 #define DO_THREADED
 
@@ -78,13 +78,13 @@ class Test
         return anything;
     }
 
-    bool Scatter(Material mat, Ray r_in, Hit rec, out float3 attenuation, out Ray scattered, out float3 outLightE, ref int inoutRayCount)
+    bool Scatter(Material mat, Ray r_in, Hit rec, out float3 attenuation, out Ray scattered, out float3 outLightE, ref int inoutRayCount, ref uint state)
     {
         outLightE = new float3(0, 0, 0);
         if (mat.type == Material.Type.Lambert)
         {
             // random point inside unit sphere that is tangent to the hit point
-            float3 target = rec.pos + rec.normal + MathUtil.RandomInUnitSphere();
+            float3 target = rec.pos + rec.normal + MathUtil.RandomInUnitSphere(ref state);
             scattered = new Ray(rec.pos, float3.Normalize(target - rec.pos));
             attenuation = mat.albedo;
 
@@ -105,7 +105,7 @@ class Test
                 float3 sv = Cross(sw, su);
                 // sample sphere by solid angle
                 float cosAMax = MathF.Sqrt(MathF.Max(0.0f, 1.0f - s.radius * s.radius / (rec.pos - s.center).SqLength));
-                float eps1 = RandomFloat01(), eps2 = RandomFloat01();
+                float eps1 = RandomFloat01(ref state), eps2 = RandomFloat01(ref state);
                 float cosA = 1.0f - eps1 + eps1 * cosAMax;
                 float sinA = MathF.Sqrt(1.0f - cosA * cosA);
                 float phi = 2 * PI * eps2;
@@ -134,7 +134,7 @@ class Test
             Debug.Assert(r_in.dir.IsNormalized); Debug.Assert(rec.normal.IsNormalized);
             float3 refl = Reflect(r_in.dir, rec.normal);
             // reflected ray, and random inside of sphere based on roughness
-            scattered = new Ray(rec.pos, Normalize(refl + mat.roughness * RandomInUnitSphere()));
+            scattered = new Ray(rec.pos, Normalize(refl + mat.roughness * RandomInUnitSphere(ref state)));
             attenuation = mat.albedo;
             return Dot(scattered.dir, rec.normal) > 0;
         }
@@ -169,7 +169,7 @@ class Test
             {
                 reflProb = 1;
             }
-            if (RandomFloat01() < reflProb)
+            if (RandomFloat01(ref state) < reflProb)
                 scattered = new Ray(rec.pos, Normalize(refl));
             else
                 scattered = new Ray(rec.pos, Normalize(refr));
@@ -183,7 +183,7 @@ class Test
         return true;
     }
 
-    float3 Trace(Ray r, int depth, ref int inoutRayCount)
+    float3 Trace(Ray r, int depth, ref int inoutRayCount, ref uint state)
     {
         Hit rec = default(Hit);
         int id = 0;
@@ -194,9 +194,9 @@ class Test
             float3 attenuation;
             float3 lightE;
             var mat = s_SphereMats[id];
-            if (depth < kMaxDepth && Scatter(mat, r, rec, out attenuation, out scattered, out lightE, ref inoutRayCount))
+            if (depth < kMaxDepth && Scatter(mat, r, rec, out attenuation, out scattered, out lightE, ref inoutRayCount, ref state))
             {
-                return mat.emissive + lightE + attenuation * Trace(scattered, depth + 1, ref inoutRayCount);
+                return mat.emissive + lightE + attenuation * Trace(scattered, depth + 1, ref inoutRayCount, ref state);
             }
             else
             {
@@ -224,15 +224,16 @@ class Test
         int rayCount = 0;
         //for (uint32_t y = start; y < end; ++y)
         {
+            uint state = (uint)(y * 9781 + frameCount * 6271) | 1;
             for (int x = 0; x < screenWidth; ++x)
             {
                 float3 col = new float3(0, 0, 0);
                 for (int s = 0; s < DO_SAMPLES_PER_PIXEL; s++)
                 {
-                    float u = (x + RandomFloat01()) * invWidth;
-                    float v = (y + RandomFloat01()) * invHeight;
-                    Ray r = cam.GetRay(u, v);
-                    col += Trace(r, 0, ref rayCount);
+                    float u = (x + RandomFloat01(ref state)) * invWidth;
+                    float v = (y + RandomFloat01(ref state)) * invHeight;
+                    Ray r = cam.GetRay(u, v, ref state);
+                    col += Trace(r, 0, ref rayCount, ref state);
                 }
                 col *= 1.0f / (float)DO_SAMPLES_PER_PIXEL;
                 col = new float3(MathF.Sqrt(col.x), MathF.Sqrt(col.y), MathF.Sqrt(col.z));
