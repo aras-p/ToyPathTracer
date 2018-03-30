@@ -8,18 +8,21 @@ I decided to write blog posts about things I discover as I do this, currently:
 
 * [Part 0: Intro](http://aras-p.info/blog/2018/03/28/Daily-Pathtracer-Part-0-Intro/)
 * [Part 1: Initial C++ and walkthrough](http://aras-p.info/blog/2018/03/28/Daily-Pathtracer-Part-1-Initial-C--/)
+* [Part 2: Fix stupid performance issue](http://aras-p.info/blog/2018/03/28/Daily-Pathtracer-Part-2-Fix-Stupid/)
+* [Part 3: C#, Unity and Burst](http://aras-p.info/blog/2018/03/28/Daily-Pathtracer-Part-3-CSharp-Unity-Burst/)
 
 Right now: can only do spheres, no bounding volume hierachy of any sorts, a lot of stuff hardcoded.
 
 Implementations I'm playing with:
 
-* C++: 130 Mray/s on PC, 34.7 Mray/s on Mac,
+* C++: PC 136, Mac 37.8 Mray/s,
 * C++ with ISPC:
-  * AVX2: 246 Mray/s on PC, 90 Mray/s on Mac,
-  * SSE4: 200 Mray/s on PC, 56.6 Mray/s on Mac,
-* C# (.NetCore): 53 Mray/s on PC,
-* C# (Unity, Mono): 10.8 Mray/s on PC,
-* C# (Unity, JobSystem+Burst+Mathematics targeting SSE4): 162 Mray/s on PC.
+  * AVX2: PC 246, Mac 90 Mray/s,
+  * SSE4: PC 200, Mac 56.6 Mray/s,
+* C# (.NET Core): PC 67, Mac 17.5 Mray/s,
+* C# (Unity, Mono): PC 13.3, Mac 4.6 Mray/s,
+* C# (Unity, IL2CPP): PC 28.1, Mac 17.1 Mray/s,
+* C# (Unity, JobSystem+Burst+Mathematics targeting SSE4): PC 164, Mac 48.1 Mray/s.
 
 "PC" is AMD ThreadRipper 1950X 3.4GHz (SMT disabled, 16c/16t), "Mac" is late 2013 MacBookPro 2.3GHz (4c/8t).
 
