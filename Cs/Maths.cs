@@ -91,6 +91,17 @@ public class MathUtil
         } while (p.SqLength >= 1.0);
         return p;
     }
+
+    public static float3 RandomUnitVector(ref uint state)
+    {
+        float z = RandomFloat01(ref state) * 2.0f - 1.0f;
+        float a = RandomFloat01(ref state) * 2.0f * PI;
+        float r = MathF.Sqrt(1.0f - z * z);
+        float x = MathF.Sin(a);
+        float y = MathF.Cos(a);
+        return new float3(r * x, r * y, z);
+    }
+
 }
 
 public struct Ray

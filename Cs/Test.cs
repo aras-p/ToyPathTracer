@@ -84,7 +84,7 @@ class Test
         if (mat.type == Material.Type.Lambert)
         {
             // random point inside unit sphere that is tangent to the hit point
-            float3 target = rec.pos + rec.normal + MathUtil.RandomInUnitSphere(ref state);
+            float3 target = rec.pos + rec.normal + MathUtil.RandomUnitVector(ref state);
             scattered = new Ray(rec.pos, float3.Normalize(target - rec.pos));
             attenuation = mat.albedo;
 
@@ -183,7 +183,7 @@ class Test
         return true;
     }
 
-    float3 Trace(Ray r, int depth, ref int inoutRayCount, ref uint state)
+    float3 Trace(Ray r, int depth, ref int inoutRayCount, ref uint state, bool doMaterialE = true)
     {
         Hit rec = default(Hit);
         int id = 0;
@@ -194,13 +194,18 @@ class Test
             float3 attenuation;
             float3 lightE;
             var mat = s_SphereMats[id];
+            var matE = mat.emissive;
             if (depth < kMaxDepth && Scatter(mat, r, rec, out attenuation, out scattered, out lightE, ref inoutRayCount, ref state))
             {
-                return mat.emissive + lightE + attenuation * Trace(scattered, depth + 1, ref inoutRayCount, ref state);
+                #if DO_LIGHT_SAMPLING
+                if (!doMaterialE) matE = new float3(0, 0, 0);
+                doMaterialE = (mat.type != Material.Type.Lambert);
+                #endif
+                return matE + lightE + attenuation * Trace(scattered, depth + 1, ref inoutRayCount, ref state, doMaterialE);
             }
             else
             {
-                return mat.emissive;
+                return matE;
             }
         }
         else
@@ -236,7 +241,6 @@ class Test
                     col += Trace(r, 0, ref rayCount, ref state);
                 }
                 col *= 1.0f / (float)DO_SAMPLES_PER_PIXEL;
-                col = new float3(MathF.Sqrt(col.x), MathF.Sqrt(col.y), MathF.Sqrt(col.z));
 
                 float3 prev = new float3(backbuffer[backbufferIdx + 0], backbuffer[backbufferIdx + 1], backbuffer[backbufferIdx + 2]);
                 col = prev * lerpFac + col * (1 - lerpFac);

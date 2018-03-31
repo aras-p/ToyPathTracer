@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using System.IO;
 
 class Program
@@ -33,9 +34,9 @@ class Program
         byte[] bytes = new byte[backbuffer.Length];
         for (int i = 0; i < backbuffer.Length; i += 4)
         {
-            bytes[i + 0] = (byte)(System.Math.Clamp(backbuffer[i + 2], 0.0f, 1.0f) * 255.0f);
-            bytes[i + 1] = (byte)(System.Math.Clamp(backbuffer[i + 1], 0.0f, 1.0f) * 255.0f);
-            bytes[i + 2] = (byte)(System.Math.Clamp(backbuffer[i + 0], 0.0f, 1.0f) * 255.0f);
+            bytes[i + 0] = (byte)(LinearToSRGB(backbuffer[i + 2]));
+            bytes[i + 1] = (byte)(LinearToSRGB(backbuffer[i + 1]));
+            bytes[i + 2] = (byte)(LinearToSRGB(backbuffer[i + 0]));
             bytes[i + 3] = 255;
         }
         byte[] header = {
@@ -57,4 +58,13 @@ class Program
             writer.Write(bytes);
         }
     }
+
+    static uint LinearToSRGB(float x)
+    {
+        x = Math.Max(x, 0.0f);
+        x = Math.Max(1.055f * (float)Math.Pow(x, 0.416666667f) - 0.055f, 0.0f);
+        uint u = Math.Min((uint)(x * 255.9f), 255u);
+        return u;
+    }
+
 }
