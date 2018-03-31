@@ -1,0 +1,106 @@
+<?xml version="1.0" encoding="utf-8"?>
+<scene version="0.5.0">
+
+<integrator type="path">
+	<integer name="maxDepth" value="10"/>
+</integrator>
+
+<!--<sensor type="thinlens">-->
+<sensor type="perspective">
+	<transform name="toWorld">
+		<lookat origin="0,2,3" target="0,0,0" up="0,1,0"/>
+	</transform>
+	<float name="fov" value="60"/>
+	<string name="fovAxis" value="y"/>
+	<float name="focusDistance" value="3"/>
+	<float name="apertureRadius" value="0.1"/>
+	<sampler type="ldsampler">
+		<integer name="sampleCount" value="256"/>
+	</sampler>
+	<film type="hdrfilm">
+		<integer name="width" value="1280"/>
+		<integer name="height" value="720"/>
+	</film>
+</sensor>
+
+<emitter type="constant">
+	<rgb name="radiance" value="0.15,0.21,0.3"/>
+</emitter>
+
+
+<shape type="sphere">
+	<transform name="toWorld"><translate x="0" y="-100.5" z="-1"/></transform>
+	<float name="radius" value="100"/>
+	<bsdf type="diffuse">
+		<rgb name="reflectance" value="0.8, 0.8, 0.8"/>
+	</bsdf>
+</shape>
+<shape type="sphere">
+	<transform name="toWorld"><translate x="2" y="0" z="-1"/></transform>
+	<float name="radius" value="0.5"/>
+	<bsdf type="diffuse">
+		<rgb name="reflectance" value="0.8, 0.4, 0.4"/>
+	</bsdf>
+</shape>
+<shape type="sphere">
+	<transform name="toWorld"><translate x="0" y="0" z="-1"/></transform>
+	<float name="radius" value="0.5"/>
+	<bsdf type="diffuse">
+		<rgb name="reflectance" value="0.4, 0.8, 0.4"/>
+	</bsdf>
+</shape>
+<shape type="sphere">
+	<transform name="toWorld"><translate x="-2" y="0" z="-1"/></transform>
+	<float name="radius" value="0.5"/>
+	<bsdf type="roughconductor">
+		<float name="alpha" value="0" />
+		<string name="material" value="none" />
+		<rgb name="specularReflectance" value="0.4, 0.4, 0.8"/>
+	</bsdf>
+</shape>
+<shape type="sphere">
+	<transform name="toWorld"><translate x="2" y="0" z="1"/></transform>
+	<float name="radius" value="0.5"/>
+	<bsdf type="roughconductor">
+		<float name="alpha" value="0" />
+		<string name="material" value="none" />
+		<rgb name="specularReflectance" value="0.4, 0.8, 0.4"/>
+	</bsdf>
+</shape>
+<shape type="sphere">
+	<transform name="toWorld"><translate x="0" y="0" z="1"/></transform>
+	<float name="radius" value="0.5"/>
+	<bsdf type="roughconductor">
+		<float name="alpha" value="0.0" />
+		<string name="material" value="none" />
+		<rgb name="specularReflectance" value="0.4, 0.8, 0.4"/>
+	</bsdf>
+</shape>
+<shape type="sphere">
+	<transform name="toWorld"><translate x="-2" y="0" z="1"/></transform>
+	<float name="radius" value="0.5"/>
+	<bsdf type="roughconductor">
+		<float name="alpha" value="0.0" />
+		<string name="material" value="none" />
+		<rgb name="specularReflectance" value="0.4, 0.8, 0.4"/>
+	</bsdf>
+</shape>
+<shape type="sphere">
+	<transform name="toWorld"><translate x="0.5" y="1" z="0.5"/></transform>
+	<float name="radius" value="0.5"/>
+	<bsdf type="dielectric">
+		<float name="intIOR" value="1.5"/>
+	</bsdf>	
+</shape>
+<shape type="sphere">
+	<transform name="toWorld"><translate x="-1.5" y="1.5" z="0"/></transform>
+	<float name="radius" value="0.3"/>
+	<emitter type="area">
+		<rgb name="radiance" value="30,25,15"/>
+	</emitter>
+	<bsdf type="diffuse">
+		<rgb name="reflectance" value="0.8, 0.6, 0.2"/>
+	</bsdf>
+</shape>
+
+</scene>

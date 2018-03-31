@@ -8,6 +8,7 @@
 #define DO_ANIMATE 0
 #define DO_ANIMATE_SMOOTHING 0.5f
 #define DO_LIGHT_SAMPLING 1
+#define DO_MITSUBA_COMPARE 1
 
 static Sphere s_Spheres[] =
 {
@@ -127,7 +128,11 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
         AssertUnit(r_in.dir); AssertUnit(rec.normal);
         float3 refl = reflect(r_in.dir, rec.normal);
         // reflected ray, and random inside of sphere based on roughness
-        scattered = Ray(rec.pos, normalize(refl + mat.roughness*RandomInUnitSphere(state)));
+        float roughness = mat.roughness;
+#if DO_MITSUBA_COMPARE
+        roughness = 0; // until we get better BRDF for metals
+#endif
+        scattered = Ray(rec.pos, normalize(refl + roughness*RandomInUnitSphere(state)));
         attenuation = mat.albedo;
         return dot(scattered.dir, rec.normal) > 0;
     }
@@ -198,9 +203,13 @@ static float3 Trace(const Ray& r, int depth, int& inoutRayCount, uint32_t& state
     else
     {
         // sky
+#if DO_MITSUBA_COMPARE
+        return float3(0.15f,0.21f,0.3f); // easier compare with Mitsuba's constant environment light
+#else
         float3 unitDir = r.dir;
         float t = 0.5f*(unitDir.y + 1.0f);
         return ((1.0f-t)*float3(1.0f, 1.0f, 1.0f) + t*float3(0.5f, 0.7f, 1.0f)) * 0.3f;
+#endif
     }
 }
 
@@ -274,7 +283,11 @@ void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, flo
     float3 lookfrom(0,2,3);
     float3 lookat(0,0,0);
     float distToFocus = 3;
+#if DO_MITSUBA_COMPARE
+    float aperture = 0.0f;
+#else
     float aperture = 0.1f;
+#endif
     
     for (int i = 0; i < kSphereCount; ++i)
         s_Spheres[i].UpdateDerivedData();
