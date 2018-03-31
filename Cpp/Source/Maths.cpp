@@ -36,6 +36,16 @@ float3 RandomInUnitSphere(uint32_t& state)
     return p;
 }
 
+float3 RandomUnitVector(uint32_t& state)
+{
+    float z = RandomFloat01(state) * 2.0f - 1.0f;
+    float a = RandomFloat01(state) * 2.0f * kPI;
+    float r = sqrtf(1.0f - z * z);
+    float x = r * cosf(a);
+    float y = r * sinf(a);
+    return float3(x, y, z);
+}
+
 
 bool HitSphere(const Ray& r, const Sphere& s, float tMin, float tMax, Hit& outHit)
 {

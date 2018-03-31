@@ -105,7 +105,7 @@ bool HitSphere(const Ray& r, const Sphere& s, float tMin, float tMax, Hit& outHi
 float RandomFloat01(uint32_t& state);
 float3 RandomInUnitDisk(uint32_t& state);
 float3 RandomInUnitSphere(uint32_t& state);
-
+float3 RandomUnitVector(uint32_t& state);
 
 struct Camera
 {

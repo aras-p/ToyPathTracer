@@ -76,8 +76,8 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
     outLightE = float3(0,0,0);
     if (mat.type == Material::Lambert)
     {
-        // random point inside unit sphere that is tangent to the hit point
-        float3 target = rec.pos + rec.normal + RandomInUnitSphere(state);
+        // random point on unit sphere that is tangent to the hit point
+        float3 target = rec.pos + rec.normal + RandomUnitVector(state);
         scattered = Ray(rec.pos, normalize(target - rec.pos));
         attenuation = mat.albedo;
         
