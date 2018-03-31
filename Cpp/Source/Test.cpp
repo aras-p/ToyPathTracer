@@ -8,7 +8,8 @@
 #define DO_ANIMATE 0
 #define DO_ANIMATE_SMOOTHING 0.5f
 #define DO_LIGHT_SAMPLING 1
-#define DO_MITSUBA_COMPARE 1
+#define DO_PROGRESSIVE 1
+#define DO_MITSUBA_COMPARE 0
 
 static Sphere s_Spheres[] =
 {
@@ -180,7 +181,7 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
     return true;
 }
 
-static float3 Trace(const Ray& r, int depth, int& inoutRayCount, uint32_t& state)
+static float3 Trace(const Ray& r, int depth, int& inoutRayCount, uint32_t& state, bool doMaterialE = true)
 {
     Hit rec;
     int id = 0;
@@ -191,13 +192,21 @@ static float3 Trace(const Ray& r, int depth, int& inoutRayCount, uint32_t& state
         float3 attenuation;
         float3 lightE;
         const Material& mat = s_SphereMats[id];
+        float3 matE = mat.emissive;
         if (depth < kMaxDepth && Scatter(mat, r, rec, attenuation, scattered, lightE, inoutRayCount, state))
         {
-            return mat.emissive + lightE + attenuation * Trace(scattered, depth+1, inoutRayCount, state);
+#if DO_LIGHT_SAMPLING
+            if (!doMaterialE) matE = float3(0,0,0); // don't add material emission if told so
+            // dor Lambert materials, we just did explicit light (emissive) sampling and already
+            // for their contribution, so if next ray bounce hits the light again, don't add
+            // emission
+            doMaterialE = (mat.type != Material::Lambert);
+#endif
+            return matE + lightE + attenuation * Trace(scattered, depth+1, inoutRayCount, state, doMaterialE);
         }
         else
         {
-            return mat.emissive;
+            return matE;
         }
     }
     else
@@ -245,6 +254,9 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
     float lerpFac = float(data.frameCount) / float(data.frameCount+1);
 #if DO_ANIMATE
     lerpFac *= DO_ANIMATE_SMOOTHING;
+#endif
+#if !DO_PROGRESSIVE
+    lerpFac = 0;
 #endif
     int rayCount = 0;
     for (uint32_t y = start; y < end; ++y)
