@@ -104,15 +104,24 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     return TRUE;
 }
 
+// http://chilliant.blogspot.com.au/2012/08/srgb-approximations-for-hlsl.html
+static uint32_t LinearToSRGB (float x)
+{
+    x = std::max(x, 0.0f);
+    x = std::max(1.055f * powf(x, 0.416666667f) - 0.055f, 0.0f);
+    uint32_t u = std::min((uint32_t)(x * 255.9f), 255u);
+    return u;
+}
+
 static void DrawBitmap(HDC dc, int width, int height)
 {
     uint32_t* dst = g_BackbufferBytes;
     const float* src = g_Backbuffer;
     for (int i = 0; i < g_BackbufferWidth * g_BackbufferHeight; ++i)
     {
-        uint32_t r = std::min((uint32_t)(src[0] * 255.9f), 255u);
-        uint32_t g = std::min((uint32_t)(src[1] * 255.9f), 255u);
-        uint32_t b = std::min((uint32_t)(src[2] * 255.9f), 255u);
+        uint32_t r = LinearToSRGB(src[0]);
+        uint32_t g = LinearToSRGB(src[1]);
+        uint32_t b = LinearToSRGB(src[2]);
         *dst = b | (g << 8) | (r << 16);
         src += 4;
         dst += 1;

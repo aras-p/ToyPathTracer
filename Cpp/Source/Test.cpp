@@ -261,7 +261,6 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
                 col += Trace(r, 0, rayCount, state);
             }
             col *= 1.0f / float(DO_SAMPLES_PER_PIXEL);
-            col = float3(sqrtf(col.x), sqrtf(col.y), sqrtf(col.z));
             
             float3 prev(backbuffer[0], backbuffer[1], backbuffer[2]);
             col = prev * lerpFac + col * (1-lerpFac);
