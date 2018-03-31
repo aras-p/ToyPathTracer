@@ -61,6 +61,17 @@ public class MathUtil
         } while (lengthSquared(p) >= 1.0);
         return p;
     }
+
+    public static float3 RandomUnitVector(ref uint state)
+    {
+        float z = RandomFloat01(ref state) * 2.0f - 1.0f;
+        float a = RandomFloat01(ref state) * 2.0f * PI;
+        float r = sqrt(1.0f - z * z);
+        float x, y;
+        sincos(a, out x, out y);
+        return new float3(r * x, r* y, z);
+    }
+
 }
 
 public struct Ray

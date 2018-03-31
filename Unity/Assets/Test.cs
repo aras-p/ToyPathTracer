@@ -81,7 +81,7 @@ class Test
         if (mat.type == Material.Type.Lambert)
         {
             // random point inside unit sphere that is tangent to the hit point
-            float3 target = rec.pos + rec.normal + MathUtil.RandomInUnitSphere(ref randState);
+            float3 target = rec.pos + rec.normal + MathUtil.RandomUnitVector(ref randState);
             scattered = new Ray(rec.pos, normalize(target - rec.pos));
             attenuation = mat.albedo;
 
@@ -177,7 +177,7 @@ class Test
         return true;
     }
 
-    static float3 Trace(Ray r, int depth, ref int inoutRayCount, NativeArray<Sphere> spheres, NativeArray<Material> materials, ref uint randState)
+    static float3 Trace(Ray r, int depth, ref int inoutRayCount, NativeArray<Sphere> spheres, NativeArray<Material> materials, ref uint randState, bool doMaterialE = true)
     {
         Hit rec = default(Hit);
         int id = 0;
@@ -188,13 +188,18 @@ class Test
             float3 attenuation;
             float3 lightE;
             var mat = materials[id];
+            var matE = mat.emissive;
             if (depth < kMaxDepth && Scatter(mat, r, rec, out attenuation, out scattered, out lightE, ref inoutRayCount, spheres, materials, ref randState))
             {
-                return mat.emissive + lightE + attenuation * Trace(scattered, depth + 1, ref inoutRayCount, spheres, materials, ref randState);
+                #if DO_LIGHT_SAMPLING
+                if (!doMaterialE) matE = new float3(0, 0, 0);
+                doMaterialE = (mat.type != Material.Type.Lambert);
+                #endif
+                return matE + lightE + attenuation * Trace(scattered, depth + 1, ref inoutRayCount, spheres, materials, ref randState, doMaterialE);
             }
             else
             {
-                return mat.emissive;
+                return matE;
             }
         }
         else
@@ -239,7 +244,6 @@ class Test
                     col += Trace(r, 0, ref rayCount, spheres, materials, ref state);
                 }
                 col *= 1.0f / (float)DO_SAMPLES_PER_PIXEL;
-                col = sqrt(col);
 
                 UnityEngine.Color prev = backbuffer[backbufferIdx];
                 col = new float3(prev.r, prev.g, prev.b) * lerpFac + col * (1 - lerpFac);
