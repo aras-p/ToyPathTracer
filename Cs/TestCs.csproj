@@ -1,25 +1,29 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp2.0</TargetFramework>
-    <StartupObject>Program</StartupObject>
-    <ApplicationIcon />
-  </PropertyGroup>
+    <PropertyGroup>
+        <OutputType>Exe</OutputType>
+        <TargetFrameworks>netcoreapp2.0;net461</TargetFrameworks>
+        <StartupObject>Program</StartupObject>
+        <ApplicationIcon />
+    </PropertyGroup>
 
-  <PropertyGroup Condition=" '$(RunConfiguration)' == 'Default' ">
-    <StartAction>Project</StartAction>
-    <StartWorkingDirectory>.</StartWorkingDirectory>
-    <ExternalConsole>true</ExternalConsole>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <DebugType></DebugType>
-  </PropertyGroup>
-  <ItemGroup>
-    <None Remove=".DS_Store" />
-    <None Remove="Properties\launchSettings.json" />
-    <None Remove="output.tga" />
-  </ItemGroup>
+    <PropertyGroup Condition=" '$(TargetFramework)' == 'net461' ">
+        <DefineConstants>DESKTOP</DefineConstants>
+    </PropertyGroup>
+
+    <PropertyGroup Condition=" '$(RunConfiguration)' == 'Default' ">
+        <StartAction>Project</StartAction>
+        <StartWorkingDirectory>.</StartWorkingDirectory>
+        <ExternalConsole>true</ExternalConsole>
+    </PropertyGroup>
+    <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+        <DebugType></DebugType>
+    </PropertyGroup>
+    <ItemGroup>
+        <None Remove=".DS_Store" />
+        <None Remove="Properties\launchSettings.json" />
+        <None Remove="output.tga" />
+    </ItemGroup>
 
     <ItemGroup>
         <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="1.0.0-alpha-*" />

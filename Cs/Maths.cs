@@ -1,6 +1,42 @@
 using System;
 using System.Diagnostics;
 
+#if DESKTOP
+public static class MathF
+{
+    public static float Sqrt(float v)
+    {
+        return (float)Math.Sqrt(v);
+    }
+
+    public static float Abs(float v)
+    {
+        return (float)Math.Abs(v);
+    }
+
+    public static float Pow(float a, float b)
+    {
+        return (float)Math.Pow(a, b);
+    }
+    public static float Sin(float v)
+    {
+        return (float)Math.Sin(v);
+    }
+    public static float Cos(float v)
+    {
+        return (float)Math.Cos(v);
+    }
+    public static float Tan(float v)
+    {
+        return (float)Math.Tan(v);
+    }
+    public static float Max(float a, float b)
+    {
+        return (float) Math.Max(a, b);
+    }
+}
+#endif
+
 public struct float3
 {
     public float x, y, z;
