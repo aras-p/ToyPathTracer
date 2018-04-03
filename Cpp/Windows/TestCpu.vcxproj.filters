@@ -52,4 +52,8 @@
   <ItemGroup>
     <None Include="..\.editorconfig" />
   </ItemGroup>
+  <ItemGroup>
+    <FxCompile Include="VertexShader.hlsl" />
+    <FxCompile Include="PixelShader.hlsl" />
+  </ItemGroup>
 </Project>

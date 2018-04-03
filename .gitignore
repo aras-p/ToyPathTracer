@@ -17,3 +17,4 @@ Unity/*.sln
 Unity/Library/
 Unity/Temp/
 Unity/Builds
+Cpp/Windows/Compiled*Shader.h

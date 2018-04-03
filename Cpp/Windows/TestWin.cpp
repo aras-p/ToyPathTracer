@@ -2,6 +2,7 @@
 #define WIN32_LEAN_AND_MEAN
 #define NOMINMAX
 #include <windows.h>
+#include <d3d11_1.h>
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -9,6 +10,8 @@
 #include <algorithm>
 
 #include "../Source/Test.h"
+#include "CompiledVertexShader.h"
+#include "CompiledPixelShader.h"
 
 static HINSTANCE g_HInstance;
 static HWND g_Wnd;
@@ -18,31 +21,31 @@ BOOL                InitInstance(HINSTANCE, int);
 LRESULT CALLBACK    WndProc(HWND, UINT, WPARAM, LPARAM);
 INT_PTR CALLBACK    About(HWND, UINT, WPARAM, LPARAM);
 
+static HRESULT InitD3DDevice();
+static void ShutdownD3DDevice();
+static void RenderFrame();
+
 static const int g_BackbufferWidth = 1280;
 static const int g_BackbufferHeight = 720;
 static float* g_Backbuffer;
-static uint32_t* g_BackbufferBytes;
-static HBITMAP g_BackbufferBitmap;
 
-static void InitBackbufferBitmap()
-{
-    BITMAPINFO bmi;
-    bmi.bmiHeader.biSize = sizeof(BITMAPINFOHEADER);
-    bmi.bmiHeader.biWidth = g_BackbufferWidth;
-    bmi.bmiHeader.biHeight = g_BackbufferHeight;
-    bmi.bmiHeader.biPlanes = 1;
-    bmi.bmiHeader.biBitCount = 32;
-    bmi.bmiHeader.biCompression = BI_RGB;
-    bmi.bmiHeader.biSizeImage = g_BackbufferWidth * g_BackbufferHeight * 4;
-    HDC hdc = CreateCompatibleDC(GetDC(0));
-    g_BackbufferBitmap = CreateDIBSection(hdc, &bmi, DIB_RGB_COLORS, (void**)&g_BackbufferBytes, NULL, 0x0);
-    g_Backbuffer = new float[g_BackbufferWidth * g_BackbufferHeight * 4];
-    memset(g_Backbuffer, 0, g_BackbufferWidth * g_BackbufferHeight * 4 * sizeof(g_Backbuffer[0]));
-}
+static D3D_FEATURE_LEVEL g_D3D11FeatureLevel = D3D_FEATURE_LEVEL_11_0;
+static ID3D11Device* g_D3D11Device = nullptr;
+static ID3D11DeviceContext* g_D3D11Ctx = nullptr;
+static IDXGISwapChain* g_D3D11SwapChain = nullptr;
+static ID3D11RenderTargetView* g_D3D11RenderTarget = nullptr;
+static ID3D11VertexShader* g_VertexShader;
+static ID3D11PixelShader* g_PixelShader;
+static ID3D11Texture2D* g_BackbufferTexture;
+static ID3D11ShaderResourceView* g_BackbufferSRV;
+static ID3D11SamplerState* g_SamplerLinear;
+static ID3D11RasterizerState* g_RasterState;
+
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR, _In_ int nCmdShow)
 {
-    InitBackbufferBitmap();
+    g_Backbuffer = new float[g_BackbufferWidth * g_BackbufferHeight * 4];
+    memset(g_Backbuffer, 0, g_BackbufferWidth * g_BackbufferHeight * 4 * sizeof(g_Backbuffer[0]));
 
     InitializeTest();
 
@@ -52,25 +55,63 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR,
         return FALSE;
     }
 
+    if (FAILED(InitD3DDevice()))
+    {
+        ShutdownD3DDevice();
+        return 0;
+    }
+
+    g_D3D11Device->CreateVertexShader(g_VSBytecode, ARRAYSIZE(g_VSBytecode), NULL, &g_VertexShader);
+    g_D3D11Device->CreatePixelShader(g_PSBytecode, ARRAYSIZE(g_PSBytecode), NULL, &g_PixelShader);
+
+    D3D11_TEXTURE2D_DESC texDesc = {};
+    texDesc.Width = g_BackbufferWidth;
+    texDesc.Height = g_BackbufferHeight;
+    texDesc.MipLevels = 1;
+    texDesc.ArraySize = 1;
+    texDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
+    texDesc.SampleDesc.Count = 1;
+    texDesc.SampleDesc.Quality = 0;
+    texDesc.Usage = D3D11_USAGE_DYNAMIC;
+    texDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    texDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+    texDesc.MiscFlags = 0;
+    g_D3D11Device->CreateTexture2D(&texDesc, NULL, &g_BackbufferTexture);
+
+    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Format = texDesc.Format;
+    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MipLevels = 1;
+    srvDesc.Texture2D.MostDetailedMip = 0;
+    g_D3D11Device->CreateShaderResourceView(g_BackbufferTexture, &srvDesc, &g_BackbufferSRV);
+
+    D3D11_SAMPLER_DESC smpDesc = {};
+    smpDesc.Filter = D3D11_FILTER_MIN_MAG_LINEAR_MIP_POINT;
+    smpDesc.AddressU = smpDesc.AddressV = smpDesc.AddressW = D3D11_TEXTURE_ADDRESS_CLAMP;
+    g_D3D11Device->CreateSamplerState(&smpDesc, &g_SamplerLinear);
+
+    D3D11_RASTERIZER_DESC rasterDesc = {};
+    rasterDesc.FillMode = D3D11_FILL_SOLID;
+    rasterDesc.CullMode = D3D11_CULL_NONE;
+    g_D3D11Device->CreateRasterizerState(&rasterDesc, &g_RasterState);
+
     // Main message loop
-    MSG msg;
-    msg.message = WM_NULL;
+    MSG msg = { 0 };
     while (msg.message != WM_QUIT)
     {
-        bool gotMsg = (PeekMessage(&msg, NULL, 0U, 0U, PM_REMOVE) != 0);
-        if (gotMsg)
+        if (PeekMessage(&msg, NULL, 0U, 0U, PM_REMOVE))
         {
             TranslateMessage(&msg);
             DispatchMessage(&msg);
         }
         else
         {
-            InvalidateRect(g_Wnd, NULL, FALSE);
-            UpdateWindow(g_Wnd);
+            RenderFrame();
         }
     }
 
     ShutdownTest();
+    ShutdownD3DDevice();
 
     return (int) msg.wParam;
 }
@@ -104,38 +145,61 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
     return TRUE;
 }
 
-// http://chilliant.blogspot.com.au/2012/08/srgb-approximations-for-hlsl.html
-static uint32_t LinearToSRGB (float x)
-{
-    x = std::max(x, 0.0f);
-    x = std::max(1.055f * powf(x, 0.416666667f) - 0.055f, 0.0f);
-    uint32_t u = std::min((uint32_t)(x * 255.9f), 255u);
-    return u;
-}
-
-static void DrawBitmap(HDC dc, int width, int height)
-{
-    uint32_t* dst = g_BackbufferBytes;
-    const float* src = g_Backbuffer;
-    for (int i = 0; i < g_BackbufferWidth * g_BackbufferHeight; ++i)
-    {
-        uint32_t r = LinearToSRGB(src[0]);
-        uint32_t g = LinearToSRGB(src[1]);
-        uint32_t b = LinearToSRGB(src[2]);
-        *dst = b | (g << 8) | (r << 16);
-        src += 4;
-        dst += 1;
-    }
-    HDC srcDC = CreateCompatibleDC(dc);
-    SetStretchBltMode(dc, COLORONCOLOR);
-    SelectObject(srcDC, g_BackbufferBitmap);
-    StretchBlt(dc, 0, 0, width, height, srcDC, 0, 0, g_BackbufferWidth, g_BackbufferHeight, SRCCOPY);
-    DeleteObject(srcDC);
-}
-
 static uint64_t s_Time;
 static int s_Count;
 static char s_Buffer[200];
+
+static void RenderFrame()
+{
+    LARGE_INTEGER time1;
+    QueryPerformanceCounter(&time1);
+    float t = float(clock()) / CLOCKS_PER_SEC;
+    static int s_FrameCount = 0;
+    static size_t s_RayCounter = 0;
+    int rayCount;
+    DrawTest(t, s_FrameCount++, g_BackbufferWidth, g_BackbufferHeight, g_Backbuffer, rayCount);
+    s_RayCounter += rayCount;
+    LARGE_INTEGER time2;
+    QueryPerformanceCounter(&time2);
+    uint64_t dt = time2.QuadPart - time1.QuadPart;
+    ++s_Count;
+    s_Time += dt;
+    if (s_Count > 10)
+    {
+        LARGE_INTEGER frequency;
+        QueryPerformanceFrequency(&frequency);
+
+        double s = double(s_Time) / double(frequency.QuadPart) / s_Count;
+        sprintf_s(s_Buffer, sizeof(s_Buffer), "%.2fms (%.1f FPS) %.1fMrays/s %.2fMrays/frame frames %i\n", s * 1000.0f, 1.f / s, s_RayCounter / s_Count / s * 1.0e-6f, s_RayCounter / s_Count * 1.0e-6f, s_FrameCount);
+        SetWindowTextA(g_Wnd, s_Buffer);
+        OutputDebugStringA(s_Buffer);
+        s_Count = 0;
+        s_Time = 0;
+        s_RayCounter = 0;
+    }
+
+    D3D11_MAPPED_SUBRESOURCE mapped;
+    g_D3D11Ctx->Map(g_BackbufferTexture, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+    const uint8_t* src = (const uint8_t*)g_Backbuffer;
+    uint8_t* dst = (uint8_t*)mapped.pData;
+    for (int y = 0; y < g_BackbufferHeight; ++y)
+    {
+        memcpy(dst, src, g_BackbufferWidth * 16);
+        src += g_BackbufferWidth * 16;
+        dst += mapped.RowPitch;
+    }
+    g_D3D11Ctx->Unmap(g_BackbufferTexture, 0);
+
+    g_D3D11Ctx->VSSetShader(g_VertexShader, NULL, 0);
+    g_D3D11Ctx->PSSetShader(g_PixelShader, NULL, 0);
+    g_D3D11Ctx->PSSetShaderResources(0, 1, &g_BackbufferSRV);
+    g_D3D11Ctx->PSSetSamplers(0, 1, &g_SamplerLinear);
+    g_D3D11Ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    g_D3D11Ctx->RSSetState(g_RasterState);
+    g_D3D11Ctx->Draw(3, 0);
+    g_D3D11SwapChain->Present(0, 0);
+}
+
 
 LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
 {
@@ -143,46 +207,8 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
     {
     case WM_PAINT:
         {
-            LARGE_INTEGER time1;
-            QueryPerformanceCounter(&time1);
-            float t = float(clock()) / CLOCKS_PER_SEC;
-            static int s_FrameCount = 0;
-            static size_t s_RayCounter = 0;
-            int rayCount;
-            DrawTest(t, s_FrameCount++, g_BackbufferWidth, g_BackbufferHeight, g_Backbuffer, rayCount);
-            s_RayCounter += rayCount;
-            LARGE_INTEGER time2;
-            QueryPerformanceCounter(&time2);
-
             PAINTSTRUCT ps;
-            RECT rect;
             HDC hdc = BeginPaint(hWnd, &ps);
-            GetClientRect(hWnd, &rect);
-            DrawBitmap(hdc, rect.right, rect.bottom);
-
-            uint64_t dt = time2.QuadPart - time1.QuadPart;
-            ++s_Count;
-            s_Time += dt;
-            if (s_Count > 10)
-            {
-                LARGE_INTEGER frequency;
-                QueryPerformanceFrequency(&frequency);
-
-                double s = double(s_Time) / double(frequency.QuadPart) / s_Count;
-                sprintf_s(s_Buffer, sizeof(s_Buffer), "%.2fms (%.1f FPS) %.1fMrays/s %.2fMrays/frame frames %i\n", s * 1000.0f, 1.f / s, s_RayCounter / s_Count / s * 1.0e-6f, s_RayCounter / s_Count * 1.0e-6f, s_FrameCount);
-                OutputDebugStringA(s_Buffer);
-                s_Count = 0;
-                s_Time = 0;
-                s_RayCounter = 0;
-            }
-            RECT textRect;
-            textRect.left = 5;
-            textRect.top = 5;
-            textRect.right = 500;
-            textRect.bottom = 30;
-            SetTextColor(hdc, 0x00000080);
-            SetBkMode(hdc, TRANSPARENT);
-            DrawTextA(hdc, s_Buffer, (int)strlen(s_Buffer), &textRect, DT_NOCLIP | DT_LEFT | DT_TOP);
             EndPaint(hWnd, &ps);
         }
         break;
@@ -193,4 +219,106 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         return DefWindowProc(hWnd, message, wParam, lParam);
     }
     return 0;
+}
+
+
+static HRESULT InitD3DDevice()
+{
+    HRESULT hr = S_OK;
+
+    RECT rc;
+    GetClientRect(g_Wnd, &rc);
+    UINT width = rc.right - rc.left;
+    UINT height = rc.bottom - rc.top;
+
+    UINT createDeviceFlags = 0;
+#ifdef _DEBUG
+    createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
+#endif
+
+    D3D_FEATURE_LEVEL featureLevels[] =
+    {
+        D3D_FEATURE_LEVEL_11_0,
+    };
+    UINT numFeatureLevels = ARRAYSIZE(featureLevels);
+    hr = D3D11CreateDevice(nullptr, D3D_DRIVER_TYPE_HARDWARE, nullptr, createDeviceFlags, featureLevels, numFeatureLevels, D3D11_SDK_VERSION, &g_D3D11Device, &g_D3D11FeatureLevel, &g_D3D11Ctx);
+    if (FAILED(hr))
+        return hr;
+
+    // Get DXGI factory
+    IDXGIFactory1* dxgiFactory = nullptr;
+    {
+        IDXGIDevice* dxgiDevice = nullptr;
+        hr = g_D3D11Device->QueryInterface(__uuidof(IDXGIDevice), reinterpret_cast<void**>(&dxgiDevice));
+        if (SUCCEEDED(hr))
+        {
+            IDXGIAdapter* adapter = nullptr;
+            hr = dxgiDevice->GetAdapter(&adapter);
+            if (SUCCEEDED(hr))
+            {
+                hr = adapter->GetParent(__uuidof(IDXGIFactory1), reinterpret_cast<void**>(&dxgiFactory));
+                adapter->Release();
+            }
+            dxgiDevice->Release();
+        }
+    }
+    if (FAILED(hr))
+        return hr;
+
+    // Create swap chain
+    DXGI_SWAP_CHAIN_DESC sd;
+    ZeroMemory(&sd, sizeof(sd));
+    sd.BufferCount = 1;
+    sd.BufferDesc.Width = width;
+    sd.BufferDesc.Height = height;
+    sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    sd.BufferDesc.RefreshRate.Numerator = 60;
+    sd.BufferDesc.RefreshRate.Denominator = 1;
+    sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    sd.OutputWindow = g_Wnd;
+    sd.SampleDesc.Count = 1;
+    sd.SampleDesc.Quality = 0;
+    sd.Windowed = TRUE;
+    hr = dxgiFactory->CreateSwapChain(g_D3D11Device, &sd, &g_D3D11SwapChain);
+
+    // Prevent Alt-Enter
+    dxgiFactory->MakeWindowAssociation(g_Wnd, DXGI_MWA_NO_ALT_ENTER);
+    dxgiFactory->Release();
+
+    if (FAILED(hr))
+        return hr;
+
+    // RTV
+    ID3D11Texture2D* pBackBuffer = nullptr;
+    hr = g_D3D11SwapChain->GetBuffer(0, __uuidof(ID3D11Texture2D), reinterpret_cast<void**>(&pBackBuffer));
+    if (FAILED(hr))
+        return hr;
+    hr = g_D3D11Device->CreateRenderTargetView(pBackBuffer, nullptr, &g_D3D11RenderTarget);
+    pBackBuffer->Release();
+    if (FAILED(hr))
+        return hr;
+
+    g_D3D11Ctx->OMSetRenderTargets(1, &g_D3D11RenderTarget, nullptr);
+
+    // Viewport
+    D3D11_VIEWPORT vp;
+    vp.Width = (float)width;
+    vp.Height = (float)height;
+    vp.MinDepth = 0.0f;
+    vp.MaxDepth = 1.0f;
+    vp.TopLeftX = 0;
+    vp.TopLeftY = 0;
+    g_D3D11Ctx->RSSetViewports(1, &vp);
+
+    return S_OK;
+}
+
+static void ShutdownD3DDevice()
+{
+    if (g_D3D11Ctx) g_D3D11Ctx->ClearState();
+
+    if (g_D3D11RenderTarget) g_D3D11RenderTarget->Release();
+    if (g_D3D11SwapChain) g_D3D11SwapChain->Release();
+    if (g_D3D11Ctx) g_D3D11Ctx->Release();
+    if (g_D3D11Device) g_D3D11Device->Release();
 }

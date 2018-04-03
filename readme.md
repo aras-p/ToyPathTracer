@@ -16,9 +16,6 @@ Right now: can only do spheres, no bounding volume hierachy of any sorts, a lot 
 Implementations I'm playing with:
 
 * C++: PC 136, Mac 37.8 Mray/s,
-* C++ with ISPC:
-  * AVX2: PC 246, Mac 90 Mray/s,
-  * SSE4: PC 200, Mac 56.6 Mray/s,
 * C# (.NET Core): PC 67, Mac 17.5 Mray/s,
 * C# (Unity, Mono): PC 13.3, Mac 4.6 Mray/s,
 * C# (Unity, IL2CPP): PC 28.1, Mac 17.1 Mray/s,
@@ -26,7 +23,7 @@ Implementations I'm playing with:
 
 "PC" is AMD ThreadRipper 1950X 3.4GHz (SMT disabled, 16c/16t), "Mac" is late 2013 MacBookPro 2.3GHz (4c/8t).
 
-A lot of stuff in the implementation migth be totally suboptimal or using the tech (e.g. ISPC) in a "wrong" way. Unity+Burst
+A lot of stuff in the implementation migth be totally suboptimal or using the tech in a "wrong" way. Unity+Burst
 implementation is likely both suboptimal, and using a super-super-early version of the Burst compiler too.
 
 I know it's just a simple toy, ok :)
@@ -36,8 +33,7 @@ I know it's just a simple toy, ok :)
 ### Building
 
 * C++ projects: Windows (Visual Studio 2017) in `Cpp/Windows/TestCpu.sln`, Mac (Xcode 9) in `Cpp/Mac/Test.xcodeproj`.
-  * ISPC branches need [ISPC binaries] to be in `Cpp/ispc.exe` (Win) and `Cpp/ispc` (Mac). I used version 1.9.2.
-  * Windows is a simple Win32 app that displays image via GDI (that part is not terribly fast).
-  * Mac is a Metal app that displays result as a fullscreen texture.
+  * Windows is DX11 Win32 app that displays result as a fullscreen CPU-updated texture.
+  * Mac is a Metal app that displays result as a fullscreen CPU-updated texture.
 * C# project in `Cs/TestCs.sln`. A command line app that renders some frames and dumps out final TGA screenshot at the end.
 * Unity project in `Unity`. I used [2018.1 beta 12](https://beta.unity3d.com/download/ed1bf90b40e6/public_download.html) version linked to from [ECS samples](https://github.com/Unity-Technologies/EntityComponentSystemSamples).
