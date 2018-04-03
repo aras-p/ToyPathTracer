@@ -12,6 +12,7 @@
 static const NSUInteger kMaxBuffersInFlight = 3;
 
 #if DO_COMPUTE
+// Metal on Mac needs buffer offsets to be 256-byte aligned
 static int AlignedSize(int sz)
 {
     return (sz + 0xFF) & ~0xFF;
@@ -41,6 +42,7 @@ struct ComputeParams
     id <MTLDepthStencilState> _depthState;
 #if DO_COMPUTE
     id <MTLComputePipelineState> _computeState;
+    // all the data in separate buffers
     id <MTLBuffer> _computeSpheres;
     id <MTLBuffer> _computeMaterials;
     id <MTLBuffer> _computeParams;
@@ -78,8 +80,6 @@ struct ComputeParams
 
 - (void)_loadMetalWithView:(nonnull MTKView *)view;
 {
-    printf("loadMetalWithView\n");
-
     view.depthStencilPixelFormat = MTLPixelFormatDepth32Float_Stencil8;
     view.colorPixelFormat = MTLPixelFormatBGRA8Unorm;
     view.sampleCount = 1;
@@ -94,7 +94,6 @@ struct ComputeParams
     if (!_computeState)
         NSLog(@"Failed to created compute pipeline state, error %@", error);
 
-    printf("AAA\n");
     int camSize;
     GetObjectCount(_sphereCount, _objSize, _matSize, camSize);
     assert(_objSize == 20);
@@ -105,7 +104,6 @@ struct ComputeParams
     _computeParams = [_device newBufferWithLength:AlignedSize(sizeof(ComputeParams))*kMaxBuffersInFlight options:MTLResourceStorageModeManaged];
     _computeCounter = [_device newBufferWithLength:AlignedSize(4)*kMaxBuffersInFlight options:MTLStorageModeShared];
     _uniformBufferIndex = 0;
-    printf("BBB\n");
 #endif
 
     MTLRenderPipelineDescriptor *pipelineStateDescriptor = [[MTLRenderPipelineDescriptor alloc] init];
@@ -255,6 +253,10 @@ static size_t rayCounter = 0;
     [cmd addCompletedHandler:^(id<MTLCommandBuffer> buffer)
     {
         #if DO_COMPUTE
+        // There's no easy/proper way to do GPU timing on Metal (or at least I couldn't find any),
+        // so I'm timing CPU side, from beginning of command buffer invocation to when we get the
+        // callback that the GPU is done with it. Not 100% proper, but gets similar results to
+        // what Xcode reports for the GPU duration.
         uint64_t time2 = mach_absolute_time();
         _computeDur = (time2 - _computeStartTime);
         int rayCount = *(const int*)(((const uint8_t*)[_computeCounter contents]) + counterIndex*AlignedSize(4));

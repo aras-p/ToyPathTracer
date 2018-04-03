@@ -1,13 +1,14 @@
 #include <metal_stdlib>
-
 using namespace metal;
+
+// -----------------------------------------------------------------
+// regular blit / display
 
 struct vs2ps
 {
     float4 pos [[position]];
     float2 uv;
 };
-
 vertex vs2ps vertexShader(ushort vid [[vertex_id]])
 {
     vs2ps o;
@@ -15,24 +16,20 @@ vertex vs2ps vertexShader(ushort vid [[vertex_id]])
     o.pos = float4(o.uv * float2(2, 2) + float2(-1, -1), 0, 1);
     return o;
 }
-
 // http://chilliant.blogspot.com.au/2012/08/srgb-approximations-for-hlsl.html
 float3 LinearToSRGB (float3 rgb)
 {
     rgb = max(rgb, float3(0,0,0));
     return max(1.055 * pow(rgb, 0.416666667) - 0.055, 0.0);
 }
-
-
 fragment float4 fragmentShader(vs2ps i [[stage_in]], texture2d<float> tex [[texture(0)]])
 {
     constexpr sampler smp(mip_filter::nearest, mag_filter::linear, min_filter::linear);
     return float4(LinearToSRGB(tex.sample(smp, i.uv).rgb), 1);
 }
 
-
 // -----------------------------------------------------------------
-// compute tracing
+// GPU path tracing
 
 #include "../Source/Config.h"
 
@@ -50,7 +47,6 @@ float RandomFloat01(thread uint32_t& state)
 {
     return (RNG(state) & 0xFFFFFF) / 16777216.0f;
 }
-
 float3 RandomInUnitDisk(thread uint32_t& state)
 {
     float a = RandomFloat01(state) * 2.0f * 3.1415926f;
@@ -79,8 +75,6 @@ float3 RandomUnitVector(thread uint32_t& state)
     return float3(x, y, z);
 }
 
-
-
 struct Ray
 {
     float3 orig;
@@ -106,6 +100,7 @@ inline float schlick(float cosine, float ri)
 {
     float r0 = (1-ri) / (1+ri);
     r0 = r0*r0;
+    // note: saturate to guard against possible tiny negative numbers
     return r0 + (1-r0)*pow(saturate(1-cosine), 5);
 }
 
@@ -150,7 +145,6 @@ Ray CameraGetRay(constant const Camera& cam, float s, float t, thread uint32_t& 
     return Ray(cam.origin + offset, normalize(cam.lowerLeftCorner + s*cam.horizontal + t*cam.vertical - cam.origin - offset));
 }
 
-
 bool HitSphere(Ray r, constant const Sphere& s, float tMin, float tMax, thread Hit& outHit)
 {
     float3 oc = r.orig - s.center;
@@ -193,11 +187,9 @@ struct Params
     float lerpFac;
 };
 
-
 #define kMinT 0.001f
 #define kMaxT 1.0e7f
 #define kMaxDepth 10
-
 
 static int HitWorld(constant const Sphere* spheres, int sphereCount, Ray r, float tMin, float tMax, thread Hit& outHit)
 {
@@ -215,7 +207,6 @@ static int HitWorld(constant const Sphere* spheres, int sphereCount, Ray r, floa
     }
     return id;
 }
-
 
 static bool Scatter(constant const Sphere* spheres, constant const Material* materials, int sphereCount, int matID, Ray r_in, Hit rec, thread float3& attenuation, thread Ray& scattered, thread float3& outLightE, thread int& inoutRayCount, thread uint32_t& state)
 {
@@ -261,7 +252,6 @@ static bool Scatter(constant const Sphere* spheres, constant const Material* mat
             if (hitID == i)
             {
                 float omega = 2 * 3.1415926 * (1-cosAMax);
-                
                 float3 rdir = r_in.dir;
                 float3 nl = dot(rec.normal, rdir) < 0 ? rec.normal : -rec.normal;
                 outLightE += (mat.albedo * smat.emissive) * (max(0.0f, dot(l, nl)) * omega / 3.1415926);
@@ -326,6 +316,12 @@ static float3 Trace(constant const Sphere* spheres, constant const Material* mat
     float3 col = 0;
     float3 curAtten = 1;
     bool doMaterialE = true;
+
+    // Metal (and most/all other current shading languages) don't support recursion, so to tracing
+    // iterations in a loop up to max depth. For each iteration, track "current attenuation";
+    // or the amount of ligth that should contribute to the eye / final pixel at this point;
+    // it achieves the same as "return matE + lightE + attenuation * Trace(...)" in
+    // the regular recursive C++ version does.
     for (int depth = 0; depth < kMaxDepth; ++depth)
     {
         Hit rec;
@@ -371,6 +367,7 @@ static float3 Trace(constant const Sphere* spheres, constant const Material* mat
     return col;
 }
 
+
 kernel void TraceGPU(
                      texture2d<float,access::read> srcImage [[texture(0)]],
                      texture2d<float,access::write> dstImage [[texture(1)]],
@@ -393,10 +390,12 @@ kernel void TraceGPU(
     col *= 1.0f / float(DO_SAMPLES_PER_PIXEL);
     
     float3 prev = srcImage.read(gid).rgb;
+    // initially "prev" might contain NaNs; guard against that. @TODO: clear to black on app side
     if (!isfinite(length_squared(prev)))
         prev = float3(0.0);
     
     col = mix(col, prev, params->lerpFac);
     dstImage.write(float4(col,1), gid);
+
     atomic_fetch_add_explicit(outRayCount, rayCount, memory_order_relaxed);
 }
