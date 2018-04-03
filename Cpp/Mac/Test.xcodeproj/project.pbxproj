@@ -10,7 +10,7 @@
 		2B2D97B320519C7100520EC1 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B2D97B220519C7100520EC1 /* AppDelegate.m */; };
 		2B2D97B620519C7100520EC1 /* Renderer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 2B2D97B520519C7100520EC1 /* Renderer.mm */; };
 		2B2D97B920519C7100520EC1 /* GameViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B2D97B820519C7100520EC1 /* GameViewController.m */; };
-		2B2D97BB20519C7100520EC1 /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 2B2D97BA20519C7100520EC1 /* Shaders.metal */; };
+		2B2D97BB20519C7100520EC1 /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 2B2D97BA20519C7100520EC1 /* Shaders.metal */; settings = {COMPILER_FLAGS = "-std=osx-metal1.2"; }; };
 		2B2D97C120519C7100520EC1 /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 2B2D97BF20519C7100520EC1 /* Main.storyboard */; };
 		2B2D97C420519C7100520EC1 /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B2D97C320519C7100520EC1 /* main.m */; };
 		2BB9041E2064EB6D00C0A0EA /* MetalKit.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 2BB9041D2064EB6D00C0A0EA /* MetalKit.framework */; };
