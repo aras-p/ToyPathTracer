@@ -9,6 +9,7 @@
 #include <time.h>
 #include <algorithm>
 
+#include "../Source/Config.h"
 #include "../Source/Test.h"
 #include "CompiledVertexShader.h"
 #include "CompiledPixelShader.h"
@@ -25,8 +26,6 @@ static HRESULT InitD3DDevice();
 static void ShutdownD3DDevice();
 static void RenderFrame();
 
-static const int g_BackbufferWidth = 1280;
-static const int g_BackbufferHeight = 720;
 static float* g_Backbuffer;
 
 static D3D_FEATURE_LEVEL g_D3D11FeatureLevel = D3D_FEATURE_LEVEL_11_0;
@@ -44,8 +43,8 @@ static ID3D11RasterizerState* g_RasterState;
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR, _In_ int nCmdShow)
 {
-    g_Backbuffer = new float[g_BackbufferWidth * g_BackbufferHeight * 4];
-    memset(g_Backbuffer, 0, g_BackbufferWidth * g_BackbufferHeight * 4 * sizeof(g_Backbuffer[0]));
+    g_Backbuffer = new float[kBackbufferWidth * kBackbufferHeight * 4];
+    memset(g_Backbuffer, 0, kBackbufferWidth * kBackbufferHeight * 4 * sizeof(g_Backbuffer[0]));
 
     InitializeTest();
 
@@ -65,8 +64,8 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR,
     g_D3D11Device->CreatePixelShader(g_PSBytecode, ARRAYSIZE(g_PSBytecode), NULL, &g_PixelShader);
 
     D3D11_TEXTURE2D_DESC texDesc = {};
-    texDesc.Width = g_BackbufferWidth;
-    texDesc.Height = g_BackbufferHeight;
+    texDesc.Width = kBackbufferWidth;
+    texDesc.Height = kBackbufferHeight;
     texDesc.MipLevels = 1;
     texDesc.ArraySize = 1;
     texDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
@@ -157,8 +156,8 @@ static void RenderFrame()
     static int s_FrameCount = 0;
     static size_t s_RayCounter = 0;
     int rayCount;
-    UpdateTest(t, s_FrameCount, g_BackbufferWidth, g_BackbufferHeight);
-    DrawTest(t, s_FrameCount, g_BackbufferWidth, g_BackbufferHeight, g_Backbuffer, rayCount);
+    UpdateTest(t, s_FrameCount, kBackbufferWidth, kBackbufferHeight);
+    DrawTest(t, s_FrameCount, kBackbufferWidth, kBackbufferHeight, g_Backbuffer, rayCount);
     s_FrameCount++;
     s_RayCounter += rayCount;
     LARGE_INTEGER time2;
@@ -184,10 +183,10 @@ static void RenderFrame()
     g_D3D11Ctx->Map(g_BackbufferTexture, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
     const uint8_t* src = (const uint8_t*)g_Backbuffer;
     uint8_t* dst = (uint8_t*)mapped.pData;
-    for (int y = 0; y < g_BackbufferHeight; ++y)
+    for (int y = 0; y < kBackbufferHeight; ++y)
     {
-        memcpy(dst, src, g_BackbufferWidth * 16);
-        src += g_BackbufferWidth * 16;
+        memcpy(dst, src, kBackbufferWidth * 16);
+        src += kBackbufferWidth * 16;
         dst += mapped.RowPitch;
     }
     g_D3D11Ctx->Unmap(g_BackbufferTexture, 0);

@@ -158,6 +158,7 @@
     <ClCompile Include="TestWin.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="..\Source\Config.h" />
     <ClInclude Include="..\Source\enkiTS\Atomics.h" />
     <ClInclude Include="..\Source\enkiTS\LockLessMultiReadPipe.h" />
     <ClInclude Include="..\Source\enkiTS\TaskScheduler.h" />

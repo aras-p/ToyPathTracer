@@ -1,10 +1,8 @@
 #import <simd/simd.h>
 #include <mach/mach_time.h>
 
-const int kBackbufferWidth = 1280;
-const int kBackbufferHeight = 720;
-
 #import "Renderer.h"
+#include "../Source/Config.h"
 #include "../Source/Test.h"
 
 static const NSUInteger kMaxBuffersInFlight = 3;
