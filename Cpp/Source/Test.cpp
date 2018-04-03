@@ -48,6 +48,8 @@ static Material s_SphereMats[kSphereCount] =
     { Material::Lambert, float3(0.8f, 0.6f, 0.2f), float3(30,25,15), 0, 0 },
 };
 
+static Camera s_Cam;
+
 const float kMinT = 0.001f;
 const float kMaxT = 1.0e7f;
 const int kMaxDepth = 10;
@@ -285,33 +287,36 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
     data.rayCount += rayCount;
 }
 
-void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, float* backbuffer, int& outRayCount)
+void UpdateTest(float time, int frameCount, int screenWidth, int screenHeight)
 {
 #if DO_ANIMATE
-    s_Spheres[1].center.y = cosf(time)+1.0f;
+    s_Spheres[1].center.y = cosf(time) + 1.0f;
     s_Spheres[8].center.z = sinf(time)*0.3f;
 #endif
-    float3 lookfrom(0,2,3);
-    float3 lookat(0,0,0);
+    float3 lookfrom(0, 2, 3);
+    float3 lookat(0, 0, 0);
     float distToFocus = 3;
 #if DO_MITSUBA_COMPARE
     float aperture = 0.0f;
 #else
     float aperture = 0.1f;
 #endif
-    
+
     for (int i = 0; i < kSphereCount; ++i)
         s_Spheres[i].UpdateDerivedData();
-    
-    Camera cam(lookfrom, lookat, float3(0,1,0), 60, float(screenWidth)/float(screenHeight), aperture, distToFocus);
 
+    s_Cam = Camera(lookfrom, lookat, float3(0, 1, 0), 60, float(screenWidth) / float(screenHeight), aperture, distToFocus);
+}
+
+void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, float* backbuffer, int& outRayCount)
+{    
     JobData args;
     args.time = time;
     args.frameCount = frameCount;
     args.screenWidth = screenWidth;
     args.screenHeight = screenHeight;
     args.backbuffer = backbuffer;
-    args.cam = &cam;
+    args.cam = &s_Cam;
     args.rayCount = 0;
     enkiTaskSet* task = enkiCreateTaskSet(g_TS, TraceRowJob);
     bool threaded = true;
@@ -321,3 +326,17 @@ void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, flo
     outRayCount = args.rayCount;
 }
 
+void GetObjectCount(int& outCount, int& outObjectSize, int& outMaterialSize, int& outCamSize)
+{
+    outCount = kSphereCount;
+    outObjectSize = sizeof(Sphere);
+    outMaterialSize = sizeof(Material);
+    outCamSize = sizeof(Camera);
+}
+
+void GetSceneDesc(void* outObjects, void* outMaterials, void* outCam)
+{
+    memcpy(outObjects, s_Spheres, kSphereCount * sizeof(s_Spheres[0]));
+    memcpy(outMaterials, s_SphereMats, kSphereCount * sizeof(s_SphereMats[0]));
+    memcpy(outCam, &s_Cam, sizeof(s_Cam));
+}

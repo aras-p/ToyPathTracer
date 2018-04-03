@@ -157,7 +157,9 @@ static void RenderFrame()
     static int s_FrameCount = 0;
     static size_t s_RayCounter = 0;
     int rayCount;
-    DrawTest(t, s_FrameCount++, g_BackbufferWidth, g_BackbufferHeight, g_Backbuffer, rayCount);
+    UpdateTest(t, s_FrameCount, g_BackbufferWidth, g_BackbufferHeight);
+    DrawTest(t, s_FrameCount, g_BackbufferWidth, g_BackbufferHeight, g_Backbuffer, rayCount);
+    s_FrameCount++;
     s_RayCounter += rayCount;
     LARGE_INTEGER time2;
     QueryPerformanceCounter(&time2);

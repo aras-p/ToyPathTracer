@@ -109,6 +109,7 @@ float3 RandomUnitVector(uint32_t& state);
 
 struct Camera
 {
+    Camera() {}
     // vfov is top to bottom in degrees
     Camera(const float3& lookFrom, const float3& lookAt, const float3& vup, float vfov, float aspect, float aperture, float focusDist)
     {

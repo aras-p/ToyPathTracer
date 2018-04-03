@@ -99,6 +99,7 @@ static const NSUInteger kMaxBuffersInFlight = 3;
     float curT = float(curNs * 1.0e-9f);
 
     int rayCount;
+    UpdateTest(curT, totalCounter, kBackbufferWidth, kBackbufferHeight);
     DrawTest(curT, totalCounter, kBackbufferWidth, kBackbufferHeight, _backbufferPixels, rayCount);
     rayCounter += rayCount;
     
