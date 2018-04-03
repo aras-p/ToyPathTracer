@@ -20,4 +20,8 @@
     <None Remove="Properties\launchSettings.json" />
     <None Remove="output.tga" />
   </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.DotNet.ILCompiler" Version="1.0.0-alpha-*" />
+    </ItemGroup>
 </Project>
