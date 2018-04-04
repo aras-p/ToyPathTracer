@@ -69,7 +69,8 @@ inline float schlick(float cosine, float ri)
 {
     float r0 = (1 - ri) / (1 + ri);
     r0 = r0 * r0;
-    return r0 + (1 - r0)*pow(1 - cosine, 5);
+    // note: saturate to guard against possible tiny negative numbers
+    return r0 + (1 - r0)*pow(saturate(1 - cosine), 5);
 }
 
 struct Hit
@@ -297,6 +298,7 @@ static float3 Trace(StructuredBuffer<Sphere> spheres, StructuredBuffer<Material>
     float3 col = 0;
     float3 curAtten = 1;
     bool doMaterialE = true;
+    // GPUs don't support recursion, so do tracing iterations in a loop up to max depth
     for (int depth = 0; depth < kMaxDepth; ++depth)
     {
         Hit rec;
@@ -331,7 +333,6 @@ static float3 Trace(StructuredBuffer<Sphere> spheres, StructuredBuffer<Material>
 #if DO_MITSUBA_COMPARE
             col += curAtten * float3(0.15f, 0.21f, 0.3f); // easier compare with Mitsuba's constant environment light
 #else
-
             float3 unitDir = r.dir;
             float t = 0.5f*(unitDir.y + 1.0f);
             float3 skyCol = ((1.0f - t)*float3(1.0f, 1.0f, 1.0f) + t * float3(0.5f, 0.7f, 1.0f)) * 0.3f;
@@ -370,6 +371,7 @@ void main(
     float3 prev = srcImage.Load(int3(gid.xy,0)).rgb;
     col = lerp(col, prev, params.lerpFac);
     dstImage[gid.xy] = float4(col, 1);
+
     uint prevRayCount;
     g_OutRayCount.InterlockedAdd(0, rayCount, prevRayCount);
 }

@@ -358,17 +358,17 @@ static void RenderFrame()
     g_D3D11Ctx->End(g_QueryDisjoint);
 
     // get GPU times
-    while (g_D3D11Ctx->GetData(g_QueryDisjoint, NULL, 0, 0) == S_FALSE)
-    {
-        Sleep(0);
-    }
+    while (g_D3D11Ctx->GetData(g_QueryDisjoint, NULL, 0, 0) == S_FALSE) { Sleep(0); }
     D3D10_QUERY_DATA_TIMESTAMP_DISJOINT tsDisjoint;
     g_D3D11Ctx->GetData(g_QueryDisjoint, &tsDisjoint, sizeof(tsDisjoint), 0);
     if (!tsDisjoint.Disjoint)
     {
         UINT64 tsBegin, tsEnd;
-        g_D3D11Ctx->GetData(g_QueryBegin, &tsBegin, sizeof(tsBegin), 0);
-        g_D3D11Ctx->GetData(g_QueryEnd, &tsEnd, sizeof(tsEnd), 0);
+        // Note: on some GPUs/drivers, even when the disjoint query above already said "yeah I have data",
+        // might still not return "I have data" for timestamp queries before it.
+        while (g_D3D11Ctx->GetData(g_QueryBegin, &tsBegin, sizeof(tsBegin), 0) == S_FALSE) { Sleep(0); }
+        while (g_D3D11Ctx->GetData(g_QueryEnd, &tsEnd, sizeof(tsEnd), 0) == S_FALSE) { Sleep(0); }
+
         float s = float(tsEnd - tsBegin) / float(tsDisjoint.Frequency);
 
         static uint64_t s_RayCounter;
@@ -393,7 +393,7 @@ static void RenderFrame()
         }
 
     }
-#endif
+#endif // #if DO_COMPUTE
 }
 
 
