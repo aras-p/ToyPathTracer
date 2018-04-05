@@ -18,15 +18,15 @@ Right now: can only do spheres, no bounding volume hierachy of any sorts, a lot 
 
 Implementations I'm playing with:
 
-* CPU (testing on "PC" AMD ThreadRipper 1950X 3.4GHz (SMT disabled, 16c/16t) and "Mac" late 2013 MacBookPro 2.3GHz (4c/8t)):
+* CPU. Testing on "PC" AMD ThreadRipper 1950X 3.4GHz (SMT disabled, 16c/16t) and "Mac" late 2013 MacBookPro 2.3GHz (4c/8t):
   * C++: PC 136, Mac 37.8 Mray/s,
   * C# (.NET Core): PC 67, Mac 17.5 Mray/s,
   * C# (Unity, Mono): PC 13.3, Mac 4.6 Mray/s,
   * C# (Unity, IL2CPP): PC 28.1, Mac 17.1 Mray/s,
   * C# (Unity, JobSystem+Burst+Mathematics targeting SSE4): PC 164, Mac 48.1 Mray/s. Note that this is super early version of Burst.
-* GPU (super simplistic direct ports, not optimized):
-  * Metal compute shader: Radeon Pro 580 1650 Mray/s, Intel Iris Pro: 191 Mray/s, GeForce GT 750M: 146 Mray/s,
-  * D3D11 compute shader: Radeon Pro WX 9100: 3700 Mray/s, GeForce GTX 1080 Ti: 2780 Mray/s, Radeon HD 7700: 417 Mray/s.
+* GPU. Super simplistic direct ports, not optimized:
+  * Metal compute shader. Radeon Pro 580: 1650 Mray/s, Intel Iris Pro: 191 Mray/s, GeForce GT 750M: 146 Mray/s,
+  * D3D11 compute shader. Radeon Pro WX 9100: 3700 Mray/s, GeForce GTX 1080 Ti: 2780 Mray/s, Radeon HD 7700: 417 Mray/s.
 
 A lot of stuff in the implementation is *totally* suboptimal or using the tech in a "wrong" way.
 
