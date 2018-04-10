@@ -58,7 +58,7 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
         float ocY = r.orig.getY() - spheres.centerY[i];
         float ocZ = r.orig.getZ() - spheres.centerZ[i];
         float b = ocX * r.dir.getX() + ocY * r.dir.getY() + ocZ * r.dir.getZ();
-        float c = ocX * ocX + ocY * ocY + ocZ * ocZ - spheres.radius[i] * spheres.radius[i];
+        float c = ocX * ocX + ocY * ocY + ocZ * ocZ - spheres.sqRadius[i];
         float discr = b * b - c;
         if (discr > 0)
         {

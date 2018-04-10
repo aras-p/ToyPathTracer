@@ -225,13 +225,12 @@ struct Sphere
 // data for all spheres in a "structure of arrays" layout
 struct SpheresSoA
 {
-    SpheresSoA(int c)
-        : count(c)
+    SpheresSoA(int c) : count(c)
     {
         centerX = new float[c];
         centerY = new float[c];
         centerZ = new float[c];
-        radius = new float[c];
+        sqRadius = new float[c];
         invRadius = new float[c];
     }
     ~SpheresSoA()
@@ -239,14 +238,13 @@ struct SpheresSoA
         delete[] centerX;
         delete[] centerY;
         delete[] centerZ;
-        delete[] radius;
+        delete[] sqRadius;
         delete[] invRadius;
     }
-
     float* centerX;
     float* centerY;
     float* centerZ;
-    float* radius;
+    float* sqRadius;
     float* invRadius;
     int count;
 };

@@ -291,7 +291,7 @@ void UpdateTest(float time, int frameCount, int screenWidth, int screenHeight)
         s_SpheresSoA.centerX[i] = s.center.getX();
         s_SpheresSoA.centerY[i] = s.center.getY();
         s_SpheresSoA.centerZ[i] = s.center.getZ();
-        s_SpheresSoA.radius[i] = s.radius;
+        s_SpheresSoA.sqRadius[i] = s.radius * s.radius;
         s_SpheresSoA.invRadius[i] = s.invRadius;
     }
 
