@@ -19,6 +19,8 @@ static Sphere s_Spheres[] =
 };
 const int kSphereCount = sizeof(s_Spheres) / sizeof(s_Spheres[0]);
 
+static SpheresSoA s_SpheresSoA(kSphereCount);
+
 struct Material
 {
     enum Type { Lambert, Metal, Dielectric };
@@ -51,20 +53,8 @@ const int kMaxDepth = 10;
 
 bool HitWorld(const Ray& r, float tMin, float tMax, Hit& outHit, int& outID)
 {
-    Hit tmpHit;
-    bool anything = false;
-    float closest = tMax;
-    for (int i = 0; i < kSphereCount; ++i)
-    {
-        if (HitSphere(r, s_Spheres[i], tMin, closest, tmpHit))
-        {
-            anything = true;
-            closest = tmpHit.t;
-            outHit = tmpHit;
-            outID = i;
-        }
-    }
-    return anything;
+    outID = HitSpheres(r, s_SpheresSoA, tMin, tMax, outHit);
+    return outID != -1;
 }
 
 
@@ -295,7 +285,15 @@ void UpdateTest(float time, int frameCount, int screenWidth, int screenHeight)
 #endif
 
     for (int i = 0; i < kSphereCount; ++i)
-        s_Spheres[i].UpdateDerivedData();
+    {
+        Sphere& s = s_Spheres[i];
+        s.UpdateDerivedData();
+        s_SpheresSoA.centerX[i] = s.center.getX();
+        s_SpheresSoA.centerY[i] = s.center.getY();
+        s_SpheresSoA.centerZ[i] = s.center.getZ();
+        s_SpheresSoA.radius[i] = s.radius;
+        s_SpheresSoA.invRadius[i] = s.invRadius;
+    }
 
     s_Cam = Camera(lookfrom, lookat, float3(0, 1, 0), 60, float(screenWidth) / float(screenHeight), aperture, distToFocus);
 }

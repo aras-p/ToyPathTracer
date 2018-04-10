@@ -222,7 +222,37 @@ struct Sphere
 };
 
 
-bool HitSphere(const Ray& r, const Sphere& s, float tMin, float tMax, Hit& outHit);
+// data for all spheres in a "structure of arrays" layout
+struct SpheresSoA
+{
+    SpheresSoA(int c)
+        : count(c)
+    {
+        centerX = new float[c];
+        centerY = new float[c];
+        centerZ = new float[c];
+        radius = new float[c];
+        invRadius = new float[c];
+    }
+    ~SpheresSoA()
+    {
+        delete[] centerX;
+        delete[] centerY;
+        delete[] centerZ;
+        delete[] radius;
+        delete[] invRadius;
+    }
+
+    float* centerX;
+    float* centerY;
+    float* centerZ;
+    float* radius;
+    float* invRadius;
+    int count;
+};
+
+
+int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, Hit& outHit);
 
 float RandomFloat01(uint32_t& state);
 float3 RandomInUnitDisk(uint32_t& state);
