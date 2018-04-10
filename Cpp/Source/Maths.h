@@ -160,17 +160,17 @@ VM_INLINE float3 normalize(float3 v) { return v * (1.0f / length(v)); }
 VM_INLINE float3 lerp(float3 a, float3 b, float t) { return a + (b-a)*t; }
 
 
-inline void AssertUnit(const float3& v)
+inline void AssertUnit(float3 v)
 {
     assert(fabsf(sqLength(v) - 1.0f) < 0.01f);
 }
 
-inline float3 reflect(const float3& v, const float3& n)
+inline float3 reflect(float3 v, float3 n)
 {
     return v - 2*dot(v,n)*n;
 }
 
-inline bool refract(const float3& v, const float3& n, float nint, float3& outRefracted)
+inline bool refract(float3 v, float3 n, float nint, float3& outRefracted)
 {
     AssertUnit(v);
     float dt = dot(v, n);
@@ -192,7 +192,7 @@ inline float schlick(float cosine, float ri)
 struct Ray
 {
     Ray() {}
-    Ray(const float3& orig_, const float3& dir_) : orig(orig_), dir(dir_) { AssertUnit(dir); }
+    Ray(float3 orig_, float3 dir_) : orig(orig_), dir(dir_) { AssertUnit(dir); }
 
     float3 pointAt(float t) const { return orig + dir * t; }
     
