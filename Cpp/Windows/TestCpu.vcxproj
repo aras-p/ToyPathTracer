@@ -173,6 +173,7 @@
     <ClInclude Include="..\Source\enkiTS\TaskScheduler_c.h" />
     <ClInclude Include="..\Source\enkiTS\Threads.h" />
     <ClInclude Include="..\Source\Maths.h" />
+    <ClInclude Include="..\Source\MathSimd.h" />
     <ClInclude Include="..\Source\Test.h" />
     <ClInclude Include="..\Source\stb_image.h" />
   </ItemGroup>
