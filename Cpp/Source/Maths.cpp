@@ -32,7 +32,7 @@ float3 RandomInUnitSphere(uint32_t& state)
     float3 p;
     do {
         p = 2.0*float3(RandomFloat01(state),RandomFloat01(state),RandomFloat01(state)) - float3(1,1,1);
-    } while (p.sqLength() >= 1.0);
+    } while (sqLength(p) >= 1.0);
     return p;
 }
 
