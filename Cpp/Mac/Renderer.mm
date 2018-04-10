@@ -6,7 +6,7 @@
 #include "../Source/Maths.h"
 #include "../Source/Test.h"
 
-#define DO_COMPUTE 1
+#define DO_COMPUTE 0
 
 
 static const NSUInteger kMaxBuffersInFlight = 3;

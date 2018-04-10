@@ -4,7 +4,7 @@
 #include <windows.h>
 #include <d3d11_1.h>
 
-#define DO_COMPUTE 1
+#define DO_COMPUTE 0
 
 
 #include <stdio.h>

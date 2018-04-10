@@ -19,6 +19,8 @@ static Sphere s_Spheres[] =
 };
 const int kSphereCount = sizeof(s_Spheres) / sizeof(s_Spheres[0]);
 
+static SpheresSoA s_SpheresSoA(kSphereCount);
+
 struct Material
 {
     enum Type { Lambert, Metal, Dielectric };
@@ -51,20 +53,8 @@ const int kMaxDepth = 10;
 
 bool HitWorld(const Ray& r, float tMin, float tMax, Hit& outHit, int& outID)
 {
-    Hit tmpHit;
-    bool anything = false;
-    float closest = tMax;
-    for (int i = 0; i < kSphereCount; ++i)
-    {
-        if (HitSphere(r, s_Spheres[i], tMin, closest, tmpHit))
-        {
-            anything = true;
-            closest = tmpHit.t;
-            outHit = tmpHit;
-            outID = i;
-        }
-    }
-    return anything;
+    outID = HitSpheres(r, s_SpheresSoA, tMin, tMax, outHit);
+    return outID != -1;
 }
 
 
@@ -83,7 +73,7 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
         for (int i = 0; i < kSphereCount; ++i)
         {
             const Material& smat = s_SphereMats[i];
-            if (smat.emissive.x <= 0 && smat.emissive.y <= 0 && smat.emissive.z <= 0)
+            if (smat.emissive.getX() <= 0 && smat.emissive.getY() <= 0 && smat.emissive.getZ() <= 0)
                 continue; // skip non-emissive
             if (&mat == &smat)
                 continue; // skip self
@@ -92,16 +82,16 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
             // create a random direction towards sphere
             // coord system for sampling: sw, su, sv
             float3 sw = normalize(s.center - rec.pos);
-            float3 su = normalize(cross(fabs(sw.x)>0.01f ? float3(0,1,0):float3(1,0,0), sw));
+            float3 su = normalize(cross(fabs(sw.getX())>0.01f ? float3(0,1,0):float3(1,0,0), sw));
             float3 sv = cross(sw, su);
             // sample sphere by solid angle
-            float cosAMax = sqrtf(1.0f - s.radius*s.radius / (rec.pos-s.center).sqLength());
+            float cosAMax = sqrtf(1.0f - s.radius*s.radius / sqLength(rec.pos-s.center));
             float eps1 = RandomFloat01(state), eps2 = RandomFloat01(state);
             float cosA = 1.0f - eps1 + eps1 * cosAMax;
             float sinA = sqrtf(1.0f - cosA*cosA);
             float phi = 2 * kPI * eps2;
             float3 l = su * cosf(phi) * sinA + sv * sin(phi) * sinA + sw * cosA;
-            l.normalize();
+            l = normalize(l);
             
             // shoot shadow ray
             Hit lightHit;
@@ -212,7 +202,7 @@ static float3 Trace(const Ray& r, int depth, int& inoutRayCount, uint32_t& state
         return float3(0.15f,0.21f,0.3f); // easier compare with Mitsuba's constant environment light
 #else
         float3 unitDir = r.dir;
-        float t = 0.5f*(unitDir.y + 1.0f);
+        float t = 0.5f*(unitDir.getY() + 1.0f);
         return ((1.0f-t)*float3(1.0f, 1.0f, 1.0f) + t*float3(0.5f, 0.7f, 1.0f)) * 0.3f;
 #endif
     }
@@ -272,9 +262,7 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
             
             float3 prev(backbuffer[0], backbuffer[1], backbuffer[2]);
             col = prev * lerpFac + col * (1-lerpFac);
-            backbuffer[0] = col.x;
-            backbuffer[1] = col.y;
-            backbuffer[2] = col.z;
+            col.store(backbuffer);
             backbuffer += 4;
         }
     }
@@ -297,7 +285,15 @@ void UpdateTest(float time, int frameCount, int screenWidth, int screenHeight)
 #endif
 
     for (int i = 0; i < kSphereCount; ++i)
-        s_Spheres[i].UpdateDerivedData();
+    {
+        Sphere& s = s_Spheres[i];
+        s.UpdateDerivedData();
+        s_SpheresSoA.centerX[i] = s.center.getX();
+        s_SpheresSoA.centerY[i] = s.center.getY();
+        s_SpheresSoA.centerZ[i] = s.center.getZ();
+        s_SpheresSoA.sqRadius[i] = s.radius * s.radius;
+        s_SpheresSoA.invRadius[i] = s.invRadius;
+    }
 
     s_Cam = Camera(lookfrom, lookat, float3(0, 1, 0), 60, float(screenWidth) / float(screenHeight), aperture, distToFocus);
 }
