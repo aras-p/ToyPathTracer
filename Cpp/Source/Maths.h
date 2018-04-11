@@ -3,14 +3,13 @@
 #include <math.h>
 #include <assert.h>
 #include <stdint.h>
+#include "Config.h"
 #include "MathSimd.h"
 
 #define kPI 3.1415926f
 
 // SSE/SIMD vector largely based on http://www.codersnotes.com/notes/maths-lib-2016/
-#define FLOAT3_USE_SSE 1
-
-#if FLOAT3_USE_SSE
+#if DO_FLOAT3_WITH_SSE
 
 // SHUFFLE3(v, 0,1,2) leaves the vector unchanged (v.xyz).
 // SHUFFLE3(v, 0,0,0) splats the X (v.xxx).
@@ -110,7 +109,7 @@ VM_INLINE float3 clamp(float3 t, float3 a, float3 b) { return min(max(t, a), b);
 VM_INLINE float sum(float3 v) { return v.getX() + v.getY() + v.getZ(); }
 VM_INLINE float dot(float3 a, float3 b) { return sum(a*b); }
 
-#else // #if FLOAT3_USE_SSE
+#else // #if DO_FLOAT3_WITH_SSE
 
 
 struct float3
@@ -146,7 +145,7 @@ VM_INLINE float3 cross(const float3& a, const float3& b)
                   a.x*b.y - a.y*b.x
                   );
 }
-#endif // #else of #if FLOAT3_USE_SSE
+#endif // #else of #if DO_FLOAT3_WITH_SSE
 
 VM_INLINE float length(float3 v) { return sqrtf(dot(v, v)); }
 VM_INLINE float sqLength(float3 v) { return dot(v, v); }

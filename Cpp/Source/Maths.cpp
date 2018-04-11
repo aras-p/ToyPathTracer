@@ -49,19 +49,27 @@ float3 RandomUnitVector(uint32_t& state)
 
 int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, Hit& outHit)
 {
-#define DO_HIT_SPHERES_SIMD 1
-#if DO_HIT_SPHERES_SIMD
+#if DO_HIT_SPHERES_SSE
     float4 hitPosX, hitPosY, hitPosZ;
     float4 hitNorX, hitNorY, hitNorZ;
     float4 hitT = float4(tMax);
     __m128i id = _mm_set1_epi32(-1);
 
+#if DO_FLOAT3_WITH_SSE
     float4 rOrigX = SHUFFLE4(r.orig, 0, 0, 0, 0);
     float4 rOrigY = SHUFFLE4(r.orig, 1, 1, 1, 1);
     float4 rOrigZ = SHUFFLE4(r.orig, 2, 2, 2, 2);
     float4 rDirX = SHUFFLE4(r.dir, 0, 0, 0, 0);
     float4 rDirY = SHUFFLE4(r.dir, 1, 1, 1, 1);
     float4 rDirZ = SHUFFLE4(r.dir, 2, 2, 2, 2);
+#else
+    float4 rOrigX = float4(r.orig.x);
+    float4 rOrigY = float4(r.orig.y);
+    float4 rOrigZ = float4(r.orig.z);
+    float4 rDirX = float4(r.dir.x);
+    float4 rDirY = float4(r.dir.y);
+    float4 rDirZ = float4(r.dir.z);
+#endif
     float4 tMin4 = float4(tMin);
     float4 tMax4 = float4(tMax);
     __m128i curId = _mm_set_epi32(3, 2, 1, 0);
@@ -149,7 +157,7 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
 
     return -1;
 
-#else
+#else // #if DO_HIT_SPHERES_SSE
 
     Hit tmpHit;
     int id = -1;
@@ -191,5 +199,5 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
     outHit = tmpHit;
     
     return id;
-#endif
+#endif // #else of #if DO_HIT_SPHERES_SSE
 }

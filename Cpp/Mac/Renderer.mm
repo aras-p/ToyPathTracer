@@ -6,12 +6,10 @@
 #include "../Source/Maths.h"
 #include "../Source/Test.h"
 
-#define DO_COMPUTE 0
-
 
 static const NSUInteger kMaxBuffersInFlight = 3;
 
-#if DO_COMPUTE
+#if DO_COMPUTE_GPU
 // Metal on Mac needs buffer offsets to be 256-byte aligned
 static int AlignedSize(int sz)
 {
@@ -40,7 +38,7 @@ struct ComputeParams
 
     id <MTLRenderPipelineState> _pipelineState;
     id <MTLDepthStencilState> _depthState;
-#if DO_COMPUTE
+#if DO_COMPUTE_GPU
     id <MTLComputePipelineState> _computeState;
     // all the data in separate buffers
     id <MTLBuffer> _computeSpheres;
@@ -88,7 +86,7 @@ struct ComputeParams
     id<MTLLibrary> defaultLibrary = [_device newDefaultLibrary];
     id <MTLFunction> vertexFunction = [defaultLibrary newFunctionWithName:@"vertexShader"];
     id <MTLFunction> fragmentFunction = [defaultLibrary newFunctionWithName:@"fragmentShader"];
-#if DO_COMPUTE
+#if DO_COMPUTE_GPU
     id <MTLFunction> computeFunction = [defaultLibrary newFunctionWithName:@"TraceGPU"];
     _computeState = [_device newComputePipelineStateWithFunction:computeFunction error:&error];
     if (!_computeState)
@@ -129,7 +127,7 @@ struct ComputeParams
     
     MTLTextureDescriptor* desc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA32Float width:kBackbufferWidth height:kBackbufferHeight mipmapped:NO];
     desc.usage = MTLTextureUsageShaderRead;
-#if DO_COMPUTE
+#if DO_COMPUTE_GPU
     desc.usage |= MTLTextureUsageShaderWrite;
     desc.storageMode = MTLStorageModePrivate;
 #endif
@@ -164,7 +162,7 @@ static size_t rayCounter = 0;
 
     UpdateTest(curT, totalCounter, kBackbufferWidth, kBackbufferHeight);
     
-#if DO_COMPUTE
+#if DO_COMPUTE_GPU
     _backbufferIndex = 1-_backbufferIndex;
     _uniformBufferIndex = (_uniformBufferIndex + 1) % kMaxBuffersInFlight;
     uint8_t* dataSpheres = (uint8_t*)[_computeSpheres contents];
@@ -203,7 +201,7 @@ static size_t rayCounter = 0;
     [enc setBuffer:_computeCounter offset:_uniformBufferIndex*counterSize atIndex:3];
     [enc setTexture:_backbufferIndex==0?_backbuffer2:_backbuffer atIndex: 0];
     [enc setTexture:_backbufferIndex==0?_backbuffer:_backbuffer2 atIndex: 1];
-    MTLSize groupSize = {16, 16, 1};
+    MTLSize groupSize = {kCSGroupSizeX, kCSGroupSizeY, 1};
     MTLSize groupCount = {kBackbufferWidth/groupSize.width, kBackbufferHeight/groupSize.height, 1};
     [enc dispatchThreadgroups:groupCount threadsPerThreadgroup:groupSize];
     [enc endEncoding];
@@ -216,7 +214,7 @@ static size_t rayCounter = 0;
     uint64_t time2 = mach_absolute_time();
     ++frameCounter;
     ++totalCounter;
-#if !DO_COMPUTE
+#if !DO_COMPUTE_GPU
     frameTime += (time2-time1);
 #else
     frameTime += _computeDur;
@@ -235,7 +233,7 @@ static size_t rayCounter = 0;
         rayCounter = 0;
     }
     
-#if !DO_COMPUTE
+#if !DO_COMPUTE_GPU
     [_backbuffer replaceRegion:MTLRegionMake2D(0,0,kBackbufferWidth,kBackbufferHeight) mipmapLevel:0 withBytes:_backbufferPixels bytesPerRow:kBackbufferWidth*16];
 #endif
 }
@@ -247,12 +245,12 @@ static size_t rayCounter = 0;
     id <MTLCommandBuffer> cmd = [_commandQueue commandBuffer];
 
     __block dispatch_semaphore_t block_sema = _inFlightSemaphore;
-#if DO_COMPUTE
+#if DO_COMPUTE_GPU
     int counterIndex = (_uniformBufferIndex+1)%kMaxBuffersInFlight;
 #endif
     [cmd addCompletedHandler:^(id<MTLCommandBuffer> buffer)
     {
-        #if DO_COMPUTE
+        #if DO_COMPUTE_GPU
         // There's no easy/proper way to do GPU timing on Metal (or at least I couldn't find any),
         // so I'm timing CPU side, from beginning of command buffer invocation to when we get the
         // callback that the GPU is done with it. Not 100% proper, but gets similar results to

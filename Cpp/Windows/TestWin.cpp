@@ -4,9 +4,6 @@
 #include <windows.h>
 #include <d3d11_1.h>
 
-#define DO_COMPUTE 0
-
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <time.h>
@@ -47,7 +44,7 @@ static ID3D11RasterizerState* g_RasterState;
 static int g_BackbufferIndex;
 
 
-#if DO_COMPUTE
+#if DO_COMPUTE_GPU
 #include "CompiledComputeShader.h"
 struct ComputeParams
 {
@@ -67,7 +64,7 @@ static ID3D11Buffer* g_DataParams;      static ID3D11ShaderResourceView* g_SRVPa
 static ID3D11Buffer* g_DataCounter;     static ID3D11UnorderedAccessView* g_UAVCounter;
 static int g_SphereCount, g_ObjSize, g_MatSize;
 static ID3D11Query *g_QueryBegin, *g_QueryEnd, *g_QueryDisjoint;
-#endif // #if DO_COMPUTE
+#endif // #if DO_COMPUTE_GPU
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR, _In_ int nCmdShow)
 {
@@ -90,7 +87,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR,
 
     g_D3D11Device->CreateVertexShader(g_VSBytecode, ARRAYSIZE(g_VSBytecode), NULL, &g_VertexShader);
     g_D3D11Device->CreatePixelShader(g_PSBytecode, ARRAYSIZE(g_PSBytecode), NULL, &g_PixelShader);
-#if DO_COMPUTE
+#if DO_COMPUTE_GPU
     g_D3D11Device->CreateComputeShader(g_CSBytecode, ARRAYSIZE(g_CSBytecode), NULL, &g_ComputeShader);
 #endif
 
@@ -102,7 +99,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR,
     texDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
     texDesc.SampleDesc.Count = 1;
     texDesc.SampleDesc.Quality = 0;
-#if DO_COMPUTE
+#if DO_COMPUTE_GPU
     texDesc.Usage = D3D11_USAGE_DEFAULT;
     texDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
     texDesc.CPUAccessFlags = 0;
@@ -133,7 +130,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR,
     rasterDesc.CullMode = D3D11_CULL_NONE;
     g_D3D11Device->CreateRasterizerState(&rasterDesc, &g_RasterState);
 
-#if DO_COMPUTE
+#if DO_COMPUTE_GPU
     D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
 
     int camSize;
@@ -191,7 +188,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR,
     g_D3D11Device->CreateQuery(&qDesc, &g_QueryEnd);
     qDesc.Query = D3D11_QUERY_TIMESTAMP_DISJOINT;
     g_D3D11Device->CreateQuery(&qDesc, &g_QueryDisjoint);
-#endif // #if DO_COMPUTE
+#endif // #if DO_COMPUTE_GPU
 
 
     // Main message loop
@@ -253,7 +250,7 @@ static void RenderFrame()
     static int s_FrameCount = 0;
     LARGE_INTEGER time1;
 
-#if DO_COMPUTE
+#if DO_COMPUTE_GPU
     QueryPerformanceCounter(&time1);
     float t = float(clock()) / CLOCKS_PER_SEC;
     UpdateTest(t, s_FrameCount, kBackbufferWidth, kBackbufferHeight);
@@ -354,7 +351,7 @@ static void RenderFrame()
     g_D3D11Ctx->Draw(3, 0);
     g_D3D11SwapChain->Present(0, 0);
 
-#if DO_COMPUTE
+#if DO_COMPUTE_GPU
     g_D3D11Ctx->End(g_QueryDisjoint);
 
     // get GPU times
@@ -393,7 +390,7 @@ static void RenderFrame()
         }
 
     }
-#endif // #if DO_COMPUTE
+#endif // #if DO_COMPUTE_GPU
 }
 
 
