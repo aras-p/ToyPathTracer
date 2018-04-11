@@ -17,7 +17,7 @@
 struct float4
 {
     VM_INLINE float4() {}
-    VM_INLINE explicit float4(const float *p) { m = _mm_set_ps(p[3], p[2], p[1], p[0]); }
+    VM_INLINE explicit float4(const float *p) { m = _mm_loadu_ps(p); }
     VM_INLINE explicit float4(float x, float y, float z, float w) { m = _mm_set_ps(w, z, y, x); }
     VM_INLINE explicit float4(float v) { m = _mm_set_ps1(v); }
     VM_INLINE explicit float4(__m128 v) { m = v; }
@@ -43,7 +43,7 @@ VM_INLINE bool4 operator<=(float4 a, float4 b) { a.m = _mm_cmple_ps(a.m, b.m); r
 VM_INLINE bool4 operator>=(float4 a, float4 b) { a.m = _mm_cmpge_ps(a.m, b.m); return a; }
 VM_INLINE bool4 operator&(bool4 a, bool4 b) { a.m = _mm_and_ps(a.m, b.m); return a; }
 VM_INLINE bool4 operator|(bool4 a, bool4 b) { a.m = _mm_or_ps(a.m, b.m); return a; }
-VM_INLINE float4 operator- (float4 a) { return float4(_mm_setzero_ps()) - a; }
+VM_INLINE float4 operator- (float4 a) { a.m = _mm_xor_ps(a.m, _mm_set1_ps(-0.0f)); return a; }
 VM_INLINE float4 min(float4 a, float4 b) { a.m = _mm_min_ps(a.m, b.m); return a; }
 VM_INLINE float4 max(float4 a, float4 b) { a.m = _mm_max_ps(a.m, b.m); return a; }
 
