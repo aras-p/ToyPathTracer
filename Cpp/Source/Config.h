@@ -19,4 +19,4 @@
 #define DO_FLOAT3_WITH_SSE (!(DO_COMPUTE_GPU) && 1)
 
 // Should HitSpheres function use SSE?
-#define DO_HIT_SPHERES_SSE 0
+#define DO_HIT_SPHERES_SSE 1

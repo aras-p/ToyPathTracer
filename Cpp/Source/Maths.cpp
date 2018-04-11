@@ -50,8 +50,6 @@ float3 RandomUnitVector(uint32_t& state)
 int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, Hit& outHit)
 {
 #if DO_HIT_SPHERES_SSE
-    float4 hitPosX, hitPosY, hitPosZ;
-    float4 hitNorX, hitNorY, hitNorZ;
     float4 hitT = float4(tMax);
     __m128i id = _mm_set1_epi32(-1);
 
@@ -108,51 +106,42 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
                 // also move tMax to current intersection
                 id = select(id, curId, msk);
                 tMax4 = select(tMax4, t, msk);
-                float4 posX = rOrigX + rDirX * t;
-                float4 posY = rOrigY + rDirY * t;
-                float4 posZ = rOrigZ + rDirZ * t;
-                hitPosX = select(hitPosX, posX, msk);
-                hitPosY = select(hitPosY, posY, msk);
-                hitPosZ = select(hitPosZ, posZ, msk);
-                float4 sInvRadius = float4(spheres.invRadius + i);
-                hitNorX = select(hitNorX, (posX - sCenterX) * sInvRadius, msk);
-                hitNorY = select(hitNorY, (posY - sCenterY) * sInvRadius, msk);
-                hitNorZ = select(hitNorZ, (posZ - sCenterZ) * sInvRadius, msk);
                 hitT = select(hitT, t, msk);
             }
         }
         curId = _mm_add_epi32(curId, _mm_set1_epi32(kSimdWidth));
     }
     // now we have up to 4 hits, find and return closest one
-    //@TODO: pretty sure this is super sub-optimal :)
     float minT = hmin(hitT);
-    if (hitT.getX() == minT)
+    if (minT < tMax) // any actual hits?
     {
-        outHit.pos = float3(hitPosX.getX(), hitPosY.getX(), hitPosZ.getX());
-        outHit.normal = float3(hitNorX.getX(), hitNorY.getX(), hitNorZ.getX());
-        outHit.t = hitT.getX();
-        return (int16_t)_mm_extract_epi16(id, 0);
-    }
-    if (hitT.getY() == minT)
-    {
-        outHit.pos = float3(hitPosX.getY(), hitPosY.getY(), hitPosZ.getY());
-        outHit.normal = float3(hitNorX.getY(), hitNorY.getY(), hitNorZ.getY());
-        outHit.t = hitT.getY();
-        return (int16_t)_mm_extract_epi16(id, 2);
-    }
-    if (hitT.getZ() == minT)
-    {
-        outHit.pos = float3(hitPosX.getZ(), hitPosY.getZ(), hitPosZ.getZ());
-        outHit.normal = float3(hitNorX.getZ(), hitNorY.getZ(), hitNorZ.getZ());
-        outHit.t = hitT.getZ();
-        return (int16_t)_mm_extract_epi16(id, 4);
-    }
-    if (hitT.getW() == minT)
-    {
-        outHit.pos = float3(hitPosX.getW(), hitPosY.getW(), hitPosZ.getW());
-        outHit.normal = float3(hitNorX.getW(), hitNorY.getW(), hitNorZ.getW());
-        outHit.t = hitT.getW();
-        return (int16_t)_mm_extract_epi16(id, 6);
+        int minMask = mask(hitT == float4(minT));
+        if (minMask != 0)
+        {
+            int id_scalar[4];
+            float hitT_scalar[4];
+            _mm_storeu_si128((__m128i *)id_scalar, id);
+            _mm_storeu_ps(hitT_scalar, hitT.m);
+
+            // In general, you would do this with a bit scan (first set/trailing zero count).
+            // But who cares, it's only 16 options.
+            static const int laneId[16] =
+            {
+                0, 0, 1, 0, // 00xx
+                2, 0, 1, 0, // 01xx
+                3, 0, 1, 0, // 10xx
+                2, 0, 1, 0, // 11xx
+            };
+
+            int lane = laneId[minMask];
+            int hitId = id_scalar[lane];
+            float finalHitT = hitT_scalar[lane];
+
+            outHit.pos = r.pointAt(finalHitT);
+            outHit.normal = (outHit.pos - float3(spheres.centerX[hitId], spheres.centerY[hitId], spheres.centerZ[hitId])) * spheres.invRadius[hitId];
+            outHit.t = finalHitT;
+            return hitId;
+        }
     }
 
     return -1;
