@@ -232,7 +232,10 @@ ATOM MyRegisterClass(HINSTANCE hInstance)
 BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 {
     g_HInstance = hInstance;
-    HWND hWnd = CreateWindowW(L"TestClass", L"Test", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, 0, CW_USEDEFAULT, 0, nullptr, nullptr, hInstance, nullptr);
+    RECT rc = { 0, 0, kBackbufferWidth, kBackbufferHeight };
+    DWORD style = WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_MINIMIZEBOX;
+    AdjustWindowRect(&rc, style, FALSE);
+    HWND hWnd = CreateWindowW(L"TestClass", L"Test", style, CW_USEDEFAULT, CW_USEDEFAULT, rc.right-rc.left, rc.bottom-rc.top, nullptr, nullptr, hInstance, nullptr);
     if (!hWnd)
         return FALSE;
     g_Wnd = hWnd;
