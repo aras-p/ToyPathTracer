@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 public struct float3
 {
@@ -67,6 +68,7 @@ public class MathUtil
         return x;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     public static float RandomFloat01(ref uint state)
     {
         return (XorShift32(ref state) & 0xFFFFFF) / 16777216.0f;
@@ -135,7 +137,8 @@ public struct Sphere
     public Sphere(float3 center_, float radius_) { center = center_; radius = radius_; invRadius = 1.0f / radius_; }
     public void UpdateDerivedData() { invRadius = 1.0f / radius; }
 
-    public bool HitSphere(Ray r, float tMin, float tMax, ref Hit outHit)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    public bool HitSphere(ref Ray r, float tMin, float tMax, ref Hit outHit)
     {
         Debug.Assert(invRadius == 1.0f / radius);
         Debug.Assert(r.dir.IsNormalized);
