@@ -5,6 +5,9 @@
 #include "enkiTS/TaskScheduler_c.h"
 #include <atomic>
 
+// 46 spheres (2 emissive) when enabled; 9 spheres (1 emissive) when disabled
+#define DO_BIG_SCENE 1
+
 static Sphere s_Spheres[] =
 {
     {float3(0,-100.5,-1), 100},
@@ -16,6 +19,13 @@ static Sphere s_Spheres[] =
     {float3(-2,0,1), 0.5f},
     {float3(0.5f,1,0.5f), 0.5f},
     {float3(-1.5f,1.5f,0.f), 0.3f},
+#if DO_BIG_SCENE
+    {float3(4,0,-3), 0.5f}, {float3(3,0,-3), 0.5f}, {float3(2,0,-3), 0.5f}, {float3(1,0,-3), 0.5f}, {float3(0,0,-3), 0.5f}, {float3(-1,0,-3), 0.5f}, {float3(-2,0,-3), 0.5f}, {float3(-3,0,-3), 0.5f}, {float3(-4,0,-3), 0.5f},
+    {float3(4,0,-4), 0.5f}, {float3(3,0,-4), 0.5f}, {float3(2,0,-4), 0.5f}, {float3(1,0,-4), 0.5f}, {float3(0,0,-4), 0.5f}, {float3(-1,0,-4), 0.5f}, {float3(-2,0,-4), 0.5f}, {float3(-3,0,-4), 0.5f}, {float3(-4,0,-4), 0.5f},
+    {float3(4,0,-5), 0.5f}, {float3(3,0,-5), 0.5f}, {float3(2,0,-5), 0.5f}, {float3(1,0,-5), 0.5f}, {float3(0,0,-5), 0.5f}, {float3(-1,0,-5), 0.5f}, {float3(-2,0,-5), 0.5f}, {float3(-3,0,-5), 0.5f}, {float3(-4,0,-5), 0.5f},
+    {float3(4,0,-6), 0.5f}, {float3(3,0,-6), 0.5f}, {float3(2,0,-6), 0.5f}, {float3(1,0,-6), 0.5f}, {float3(0,0,-6), 0.5f}, {float3(-1,0,-6), 0.5f}, {float3(-2,0,-6), 0.5f}, {float3(-3,0,-6), 0.5f}, {float3(-4,0,-6), 0.5f},
+    {float3(1.5f,1.5f,-2), 0.3f},
+#endif // #if DO_BIG_SCENE
 };
 const int kSphereCount = sizeof(s_Spheres) / sizeof(s_Spheres[0]);
 
@@ -42,6 +52,13 @@ static Material s_SphereMats[kSphereCount] =
     { Material::Metal, float3(0.4f, 0.8f, 0.4f), float3(0,0,0), 0.6f, 0 },
     { Material::Dielectric, float3(0.4f, 0.4f, 0.4f), float3(0,0,0), 0, 1.5f },
     { Material::Lambert, float3(0.8f, 0.6f, 0.2f), float3(30,25,15), 0, 0 },
+#if DO_BIG_SCENE
+    { Material::Lambert, float3(0.1f, 0.1f, 0.1f), float3(0,0,0), 0, 0, }, { Material::Lambert, float3(0.2f, 0.2f, 0.2f), float3(0,0,0), 0, 0, }, { Material::Lambert, float3(0.3f, 0.3f, 0.3f), float3(0,0,0), 0, 0, }, { Material::Lambert, float3(0.4f, 0.4f, 0.4f), float3(0,0,0), 0, 0, }, { Material::Lambert, float3(0.5f, 0.5f, 0.5f), float3(0,0,0), 0, 0, }, { Material::Lambert, float3(0.6f, 0.6f, 0.6f), float3(0,0,0), 0, 0, }, { Material::Lambert, float3(0.7f, 0.7f, 0.7f), float3(0,0,0), 0, 0, }, { Material::Lambert, float3(0.8f, 0.8f, 0.8f), float3(0,0,0), 0, 0, }, { Material::Lambert, float3(0.9f, 0.9f, 0.9f), float3(0,0,0), 0, 0, },
+    { Material::Metal, float3(0.1f, 0.1f, 0.1f), float3(0,0,0), 0, 0, }, { Material::Metal, float3(0.2f, 0.2f, 0.2f), float3(0,0,0), 0, 0, }, { Material::Metal, float3(0.3f, 0.3f, 0.3f), float3(0,0,0), 0, 0, }, { Material::Metal, float3(0.4f, 0.4f, 0.4f), float3(0,0,0), 0, 0, }, { Material::Metal, float3(0.5f, 0.5f, 0.5f), float3(0,0,0), 0, 0, }, { Material::Metal, float3(0.6f, 0.6f, 0.6f), float3(0,0,0), 0, 0, }, { Material::Metal, float3(0.7f, 0.7f, 0.7f), float3(0,0,0), 0, 0, }, { Material::Metal, float3(0.8f, 0.8f, 0.8f), float3(0,0,0), 0, 0, }, { Material::Metal, float3(0.9f, 0.9f, 0.9f), float3(0,0,0), 0, 0, },
+    { Material::Metal, float3(0.8f, 0.1f, 0.1f), float3(0,0,0), 0, 0, }, { Material::Metal, float3(0.8f, 0.5f, 0.1f), float3(0,0,0), 0, 0, }, { Material::Metal, float3(0.8f, 0.8f, 0.1f), float3(0,0,0), 0, 0, }, { Material::Metal, float3(0.4f, 0.8f, 0.1f), float3(0,0,0), 0, 0, }, { Material::Metal, float3(0.1f, 0.8f, 0.1f), float3(0,0,0), 0, 0, }, { Material::Metal, float3(0.1f, 0.8f, 0.5f), float3(0,0,0), 0, 0, }, { Material::Metal, float3(0.1f, 0.8f, 0.8f), float3(0,0,0), 0, 0, }, { Material::Metal, float3(0.1f, 0.1f, 0.8f), float3(0,0,0), 0, 0, }, { Material::Metal, float3(0.5f, 0.1f, 0.8f), float3(0,0,0), 0, 0, },
+    { Material::Lambert, float3(0.8f, 0.1f, 0.1f), float3(0,0,0), 0, 0, }, { Material::Lambert, float3(0.8f, 0.5f, 0.1f), float3(0,0,0), 0, 0, }, { Material::Lambert, float3(0.8f, 0.8f, 0.1f), float3(0,0,0), 0, 0, }, { Material::Lambert, float3(0.4f, 0.8f, 0.1f), float3(0,0,0), 0, 0, }, { Material::Lambert, float3(0.1f, 0.8f, 0.1f), float3(0,0,0), 0, 0, }, { Material::Lambert, float3(0.1f, 0.8f, 0.5f), float3(0,0,0), 0, 0, }, { Material::Lambert, float3(0.1f, 0.8f, 0.8f), float3(0,0,0), 0, 0, }, { Material::Lambert, float3(0.1f, 0.1f, 0.8f), float3(0,0,0), 0, 0, }, { Material::Metal, float3(0.5f, 0.1f, 0.8f), float3(0,0,0), 0, 0, },
+    { Material::Lambert, float3(0.1f, 0.2f, 0.5f), float3(3,10,20), 0, 0 },
+#endif
 };
 
 static Camera s_Cam;
@@ -67,7 +84,7 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
         float3 target = rec.pos + rec.normal + RandomUnitVector(state);
         scattered = Ray(rec.pos, normalize(target - rec.pos));
         attenuation = mat.albedo;
-        
+
         // sample lights
 #if DO_LIGHT_SAMPLING
         for (int i = 0; i < kSphereCount; ++i)
@@ -78,7 +95,7 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
             if (&mat == &smat)
                 continue; // skip self
             const Sphere& s = s_Spheres[i];
-            
+
             // create a random direction towards sphere
             // coord system for sampling: sw, su, sv
             float3 sw = normalize(s.center - rec.pos);
@@ -92,7 +109,7 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
             float phi = 2 * kPI * eps2;
             float3 l = su * cosf(phi) * sinA + sv * sin(phi) * sinA + sw * cosA;
             l = normalize(l);
-            
+
             // shoot shadow ray
             Hit lightHit;
             int hitID;
@@ -100,7 +117,7 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
             if (HitWorld(Ray(rec.pos, l), kMinT, kMaxT, lightHit, hitID) && hitID == i)
             {
                 float omega = 2 * kPI * (1-cosAMax);
-                
+
                 float3 rdir = r_in.dir;
                 AssertUnit(rdir);
                 float3 nl = dot(rec.normal, rdir) < 0 ? rec.normal : -rec.normal;
@@ -259,7 +276,7 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
                 col += Trace(r, 0, rayCount, state);
             }
             col *= 1.0f / float(DO_SAMPLES_PER_PIXEL);
-            
+
             float3 prev(backbuffer[0], backbuffer[1], backbuffer[2]);
             col = prev * lerpFac + col * (1-lerpFac);
             col.store(backbuffer);
@@ -283,6 +300,9 @@ void UpdateTest(float time, int frameCount, int screenWidth, int screenHeight)
 #else
     float aperture = 0.1f;
 #endif
+#if DO_BIG_SCENE
+    aperture *= 0.2f;
+#endif
 
     for (int i = 0; i < kSphereCount; ++i)
     {
@@ -299,7 +319,7 @@ void UpdateTest(float time, int frameCount, int screenWidth, int screenHeight)
 }
 
 void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, float* backbuffer, int& outRayCount)
-{    
+{
     JobData args;
     args.time = time;
     args.frameCount = frameCount;
