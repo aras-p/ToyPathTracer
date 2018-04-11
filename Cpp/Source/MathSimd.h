@@ -67,7 +67,7 @@ VM_INLINE bool all(bool4 v) { return mask(v) == 15; }
 
 VM_INLINE float4 select(float4 a, float4 b, bool4 cond)
 {
-#if defined(__SSE4_1__)
+#if defined(__SSE4_1__) || defined(_MSC_VER) // on windows assume we always have SSE4.1
     a.m = _mm_blendv_ps(a.m, b.m, cond.m);
 #else
     __m128 d = _mm_castsi128_ps(_mm_srai_epi32(_mm_castps_si128(cond.m), 31));
@@ -77,7 +77,7 @@ VM_INLINE float4 select(float4 a, float4 b, bool4 cond)
 }
 VM_INLINE __m128i select(__m128i a, __m128i b, bool4 cond)
 {
-#if defined(__SSE4_1__)
+#if defined(__SSE4_1__) || defined(_MSC_VER) // on windows assume we always have SSE4.1
     return _mm_blendv_epi8(a, b, _mm_castps_si128(cond.m));
 #else
     __m128i d = _mm_srai_epi32(_mm_castps_si128(cond.m), 31);
