@@ -51,6 +51,9 @@
     <ClInclude Include="..\Source\Config.h">
       <Filter>Source</Filter>
     </ClInclude>
+    <ClInclude Include="..\Source\MathSimd.h">
+      <Filter>Source</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <None Include="..\.editorconfig" />

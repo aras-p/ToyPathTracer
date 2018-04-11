@@ -3,22 +3,13 @@
 #include <math.h>
 #include <assert.h>
 #include <stdint.h>
+#include "Config.h"
+#include "MathSimd.h"
 
 #define kPI 3.1415926f
 
-#if defined(_MSC_VER)
-#define VM_INLINE __forceinline
-#else
-#define VM_INLINE __attribute__((unused, always_inline, nodebug)) inline
-#endif
-
-
 // SSE/SIMD vector largely based on http://www.codersnotes.com/notes/maths-lib-2016/
-#define FLOAT3_USE_SSE 1
-
-#if FLOAT3_USE_SSE
-
-#include <xmmintrin.h>
+#if DO_FLOAT3_WITH_SSE
 
 // SHUFFLE3(v, 0,1,2) leaves the vector unchanged (v.xyz).
 // SHUFFLE3(v, 0,0,0) splats the X (v.xxx).
@@ -29,17 +20,18 @@ struct float3
     VM_INLINE float3() {}
     VM_INLINE explicit float3(const float *p) { m = _mm_set_ps(p[2], p[2], p[1], p[0]); }
     VM_INLINE explicit float3(float x, float y, float z) { m = _mm_set_ps(z, z, y, x); }
+    VM_INLINE explicit float3(float v) { m = _mm_set1_ps(v); }
     VM_INLINE explicit float3(__m128 v) { m = v; }
-    
+
     VM_INLINE float getX() const { return _mm_cvtss_f32(m); }
     VM_INLINE float getY() const { return _mm_cvtss_f32(_mm_shuffle_ps(m, m, _MM_SHUFFLE(1, 1, 1, 1))); }
     VM_INLINE float getZ() const { return _mm_cvtss_f32(_mm_shuffle_ps(m, m, _MM_SHUFFLE(2, 2, 2, 2))); }
-    
+
     VM_INLINE float3 yzx() const { return SHUFFLE3(*this, 1, 2, 0); }
     VM_INLINE float3 zxy() const { return SHUFFLE3(*this, 2, 0, 1); }
-    
+
     VM_INLINE void store(float *p) const { p[0] = getX(); p[1] = getY(); p[2] = getZ(); }
-    
+
     void setX(float x)
     {
         m = _mm_move_ss(m, _mm_set_ss(x));
@@ -56,7 +48,7 @@ struct float3
         t = _mm_shuffle_ps(t, t, _MM_SHUFFLE(3, 0, 1, 0));
         m = _mm_move_ss(t, m);
     }
-    
+
     __m128 m;
 };
 
@@ -117,19 +109,20 @@ VM_INLINE float3 clamp(float3 t, float3 a, float3 b) { return min(max(t, a), b);
 VM_INLINE float sum(float3 v) { return v.getX() + v.getY() + v.getZ(); }
 VM_INLINE float dot(float3 a, float3 b) { return sum(a*b); }
 
-#else // #if FLOAT3_USE_SSE
+#else // #if DO_FLOAT3_WITH_SSE
+
 
 struct float3
 {
     float3() : x(0), y(0), z(0) {}
     float3(float x_, float y_, float z_) : x(x_), y(y_), z(z_) {}
-    
+
     float3 operator-() const { return float3(-x, -y, -z); }
     float3& operator+=(const float3& o) { x+=o.x; y+=o.y; z+=o.z; return *this; }
     float3& operator-=(const float3& o) { x-=o.x; y-=o.y; z-=o.z; return *this; }
     float3& operator*=(const float3& o) { x*=o.x; y*=o.y; z*=o.z; return *this; }
     float3& operator*=(float o) { x*=o; y*=o; z*=o; return *this; }
-    
+
     VM_INLINE float getX() const { return x; }
     VM_INLINE float getY() const { return y; }
     VM_INLINE float getZ() const { return z; }
@@ -152,7 +145,7 @@ VM_INLINE float3 cross(const float3& a, const float3& b)
                   a.x*b.y - a.y*b.x
                   );
 }
-#endif // #else of #if FLOAT3_USE_SSE
+#endif // #else of #if DO_FLOAT3_WITH_SSE
 
 VM_INLINE float length(float3 v) { return sqrtf(dot(v, v)); }
 VM_INLINE float sqLength(float3 v) { return dot(v, v); }
@@ -195,7 +188,7 @@ struct Ray
     Ray(float3 orig_, float3 dir_) : orig(orig_), dir(dir_) { AssertUnit(dir); }
 
     float3 pointAt(float t) const { return orig + dir * t; }
-    
+
     float3 orig;
     float3 dir;
 };
@@ -213,9 +206,9 @@ struct Sphere
 {
     Sphere() : radius(1.0f), invRadius(0.0f) {}
     Sphere(float3 center_, float radius_) : center(center_), radius(radius_), invRadius(0.0f) {}
-    
+
     void UpdateDerivedData() { invRadius = 1.0f/radius; }
-    
+
     float3 center;
     float radius;
     float invRadius;
@@ -225,13 +218,24 @@ struct Sphere
 // data for all spheres in a "structure of arrays" layout
 struct SpheresSoA
 {
-    SpheresSoA(int c) : count(c)
+    SpheresSoA(int c)
     {
-        centerX = new float[c];
-        centerY = new float[c];
-        centerZ = new float[c];
-        sqRadius = new float[c];
-        invRadius = new float[c];
+        count = c;
+        // we'll be processing spheres in kSimdWidth chunks, so make sure to allocate
+        // enough space
+        simdCount = (c + (kSimdWidth - 1)) / kSimdWidth * kSimdWidth;
+        centerX = new float[simdCount];
+        centerY = new float[simdCount];
+        centerZ = new float[simdCount];
+        sqRadius = new float[simdCount];
+        invRadius = new float[simdCount];
+        // set all data to "impossible sphere" state
+        for (int i = count; i < simdCount; ++i)
+        {
+            centerX[i] = centerY[i] = centerZ[i] = 10000.0f;
+            sqRadius[i] = 0.0f;
+            invRadius[i] = 0.0f;
+        }
     }
     ~SpheresSoA()
     {
@@ -246,6 +250,7 @@ struct SpheresSoA
     float* centerZ;
     float* sqRadius;
     float* invRadius;
+    int simdCount;
     int count;
 };
 
@@ -275,14 +280,14 @@ struct Camera
         horizontal = 2*halfWidth*focusDist*u;
         vertical = 2*halfHeight*focusDist*v;
     }
-    
+
     Ray GetRay(float s, float t, uint32_t& state) const
     {
         float3 rd = lensRadius * RandomInUnitDisk(state);
         float3 offset = u * rd.getX() + v * rd.getY();
         return Ray(origin + offset, normalize(lowerLeftCorner + s*horizontal + t*vertical - origin - offset));
     }
-    
+
     float3 origin;
     float3 lowerLeftCorner;
     float3 horizontal;

@@ -34,6 +34,7 @@
 		2B2D97C320519C7100520EC1 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		2B2D97C520519C7100520EC1 /* Test.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Test.entitlements; sourceTree = "<group>"; };
 		2B6AD0DB20736FF70025F674 /* Config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Config.h; path = ../Source/Config.h; sourceTree = "<group>"; };
+		2B8065FE207CDB540043116F /* MathSimd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MathSimd.h; path = ../Source/MathSimd.h; sourceTree = "<group>"; };
 		2BB9041D2064EB6D00C0A0EA /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
 		2BE32DC7205BEDA6003C05B4 /* Test.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Test.cpp; path = ../Source/Test.cpp; sourceTree = "<group>"; };
 		2BE32DC8205BEDA6003C05B4 /* Test.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Test.h; path = ../Source/Test.h; sourceTree = "<group>"; };
@@ -65,6 +66,7 @@
 			children = (
 				2BFC4E1420614A7B0007766C /* Maths.cpp */,
 				2BFC4E1520614A7B0007766C /* Maths.h */,
+				2B8065FE207CDB540043116F /* MathSimd.h */,
 				2BE32DCF205BFC31003C05B4 /* Atomics.h */,
 				2BE32DCC205BFC31003C05B4 /* LockLessMultiReadPipe.h */,
 				2BE32DCE205BFC31003C05B4 /* TaskScheduler_c.cpp */,
@@ -322,6 +324,7 @@
 		2B2D97C920519C7100520EC1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_X86_VECTOR_INSTRUCTIONS = sse4.1;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_FAST_MATH = YES;
@@ -335,6 +338,7 @@
 		2B2D97CA20519C7100520EC1 /* Release */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
+				CLANG_X86_VECTOR_INSTRUCTIONS = sse4.1;
 				CODE_SIGN_STYLE = Automatic;
 				COMBINE_HIDPI_IMAGES = YES;
 				GCC_FAST_MATH = YES;
