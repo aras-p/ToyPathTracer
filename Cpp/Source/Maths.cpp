@@ -49,6 +49,8 @@ float3 RandomUnitVector(uint32_t& state)
 
 int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, Hit& outHit)
 {
+#define DO_HIT_SPHERES_SIMD 1
+#if DO_HIT_SPHERES_SIMD
     float4 hitPosX, hitPosY, hitPosZ;
     float4 hitNorX, hitNorY, hitNorZ;
     float4 hitT = float4(tMax);
@@ -62,8 +64,11 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
     float4 rDirZ = SHUFFLE4(r.dir, 2, 2, 2, 2);
     float4 tMin4 = float4(tMin);
     float4 tMax4 = float4(tMax);
+    __m128i curId = _mm_set_epi32(3, 2, 1, 0);
+    // process 4 spheres at once
     for (int i = 0; i < spheres.simdCount; i += kSimdWidth)
     {
+        // load data for 4 spheres
         float4 sCenterX = float4(spheres.centerX + i);
         float4 sCenterY = float4(spheres.centerY + i);
         float4 sCenterZ = float4(spheres.centerZ + i);
@@ -75,52 +80,40 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
         float4 c = ocX * ocX + ocY * ocY + ocZ * ocZ - sSqRadius;
         float4 discr = b * b - c;
         bool4 discrPos = discr > float4(0.0f);
+        // if ray hits any of the 4 spheres
         if (any(discrPos))
         {
             float4 discrSq = sqrtf(discr);
 
-            float4 t = (-b - discrSq);
-            bool4 maskMin = t > tMin4;
-            bool4 maskMax = t < tMax4;
-            bool4 maskComb = discrPos & maskMin & maskMax;
-            if (mask(maskComb) != 0)
+            // ray could hit spheres at t0 & t1
+            float4 t0 = -b - discrSq;
+            float4 t1 = -b + discrSq;
+            bool4 msk0 = discrPos & (t0 > tMin4) & (t0 < tMax4);
+            bool4 msk1 = discrPos & (t1 > tMin4) & (t1 < tMax4);
+            // where sphere is hit at t0, take that; elswhere take t1 hit
+            float4 t = select(t1, t0, msk0);
+            bool4 msk = msk0 | msk1;
+            if (any(msk))
             {
-                id = select(id, _mm_set_epi32(i + 3, i + 2, i + 1, i + 0), maskComb);
-                tMax4 = select(tMax4, t, maskComb);
+                // compute intersection at t (id, position, normal), and overwrite current best
+                // results based on mask.
+                // also move tMax to current intersection
+                id = select(id, curId, msk);
+                tMax4 = select(tMax4, t, msk);
                 float4 posX = rOrigX + rDirX * t;
                 float4 posY = rOrigY + rDirY * t;
                 float4 posZ = rOrigZ + rDirZ * t;
-                hitPosX = select(hitPosX, posX, maskComb);
-                hitPosY = select(hitPosY, posY, maskComb);
-                hitPosZ = select(hitPosZ, posZ, maskComb);
+                hitPosX = select(hitPosX, posX, msk);
+                hitPosY = select(hitPosY, posY, msk);
+                hitPosZ = select(hitPosZ, posZ, msk);
                 float4 sInvRadius = float4(spheres.invRadius + i);
-                hitNorX = select(hitNorX, (posX - sCenterX) * sInvRadius, maskComb);
-                hitNorY = select(hitNorY, (posY - sCenterY) * sInvRadius, maskComb);
-                hitNorZ = select(hitNorZ, (posZ - sCenterZ) * sInvRadius, maskComb);
-                hitT = select(hitT, t, maskComb);
-            }
-            t = (-b + discrSq);
-            maskMin = t > tMin4;
-            maskMax = t < tMax4;
-            bool4 negatedPrevMask = bool4(_mm_xor_ps(maskComb.m, _mm_cmpeq_ps(maskComb.m, maskComb.m)));
-            maskComb = discrPos & maskMin & maskMax & negatedPrevMask;
-            if (mask(maskComb) != 0)
-            {
-                id = select(id, _mm_set_epi32(i + 3, i + 2, i + 1, i + 0), maskComb);
-                tMax4 = select(tMax4, t, maskComb);
-                float4 posX = rOrigX + rDirX * t;
-                float4 posY = rOrigY + rDirY * t;
-                float4 posZ = rOrigZ + rDirZ * t;
-                hitPosX = select(hitPosX, posX, maskComb);
-                hitPosY = select(hitPosY, posY, maskComb);
-                hitPosZ = select(hitPosZ, posZ, maskComb);
-                float4 sInvRadius = float4(spheres.invRadius + i);
-                hitNorX = select(hitNorX, (posX - sCenterX) * sInvRadius, maskComb);
-                hitNorY = select(hitNorY, (posY - sCenterY) * sInvRadius, maskComb);
-                hitNorZ = select(hitNorZ, (posZ - sCenterZ) * sInvRadius, maskComb);
-                hitT = select(hitT, t, maskComb);
+                hitNorX = select(hitNorX, (posX - sCenterX) * sInvRadius, msk);
+                hitNorY = select(hitNorY, (posY - sCenterY) * sInvRadius, msk);
+                hitNorZ = select(hitNorZ, (posZ - sCenterZ) * sInvRadius, msk);
+                hitT = select(hitT, t, msk);
             }
         }
+        curId = _mm_add_epi32(curId, _mm_set1_epi32(kSimdWidth));
     }
     // now we have up to 4 hits, find and return closest one
     //@TODO: pretty sure this is super sub-optimal :)
@@ -155,4 +148,48 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
     }
 
     return -1;
+
+#else
+
+    Hit tmpHit;
+    int id = -1;
+    for (int i = 0; i < spheres.count; ++i)
+    {
+        float ocX = r.orig.getX() - spheres.centerX[i];
+        float ocY = r.orig.getY() - spheres.centerY[i];
+        float ocZ = r.orig.getZ() - spheres.centerZ[i];
+        float b = ocX * r.dir.getX() + ocY * r.dir.getY() + ocZ * r.dir.getZ();
+        float c = ocX * ocX + ocY * ocY + ocZ * ocZ - spheres.sqRadius[i];
+        float discr = b * b - c;
+        if (discr > 0)
+        {
+            float discrSq = sqrtf(discr);
+            
+            float t = (-b - discrSq);
+            if (t > tMin && t < tMax)
+            {
+                id = i;
+                tMax = t;
+                tmpHit.pos = r.pointAt(t);
+                tmpHit.normal = (tmpHit.pos - float3(spheres.centerX[i], spheres.centerY[i], spheres.centerZ[i])) * spheres.invRadius[i];
+                tmpHit.t = t;
+            }
+            else
+            {
+                t = (-b + discrSq);
+                if (t > tMin && t < tMax)
+                {
+                    id = i;
+                    tMax = t;
+                    tmpHit.pos = r.pointAt(t);
+                    tmpHit.normal = (tmpHit.pos - float3(spheres.centerX[i], spheres.centerY[i], spheres.centerZ[i])) * spheres.invRadius[i];
+                    tmpHit.t = t;
+                }
+            }
+        }
+    }
+    outHit = tmpHit;
+    
+    return id;
+#endif
 }

@@ -42,6 +42,7 @@ VM_INLINE bool4 operator> (float4 a, float4 b) { a.m = _mm_cmpgt_ps(a.m, b.m); r
 VM_INLINE bool4 operator<=(float4 a, float4 b) { a.m = _mm_cmple_ps(a.m, b.m); return a; }
 VM_INLINE bool4 operator>=(float4 a, float4 b) { a.m = _mm_cmpge_ps(a.m, b.m); return a; }
 VM_INLINE bool4 operator&(bool4 a, bool4 b) { a.m = _mm_and_ps(a.m, b.m); return a; }
+VM_INLINE bool4 operator|(bool4 a, bool4 b) { a.m = _mm_or_ps(a.m, b.m); return a; }
 VM_INLINE float4 operator- (float4 a) { return float4(_mm_setzero_ps()) - a; }
 VM_INLINE float4 min(float4 a, float4 b) { a.m = _mm_min_ps(a.m, b.m); return a; }
 VM_INLINE float4 max(float4 a, float4 b) { a.m = _mm_max_ps(a.m, b.m); return a; }
@@ -59,8 +60,11 @@ VM_INLINE unsigned mask(float4 v) { return _mm_movemask_ps(v.m) & 15; }
 VM_INLINE bool any(bool4 v) { return mask(v) != 0; }
 VM_INLINE bool all(bool4 v) { return mask(v) == 15; }
 
-
+// "select", i.e. hibit(cond) ? b : a
+// on SSE4.1 and up this can be done easily via "blend" instruction;
+// on older SSEs has to do a bunch of hoops, see
 // https://fgiesen.wordpress.com/2016/04/03/sse-mind-the-gap/
+
 VM_INLINE float4 select(float4 a, float4 b, bool4 cond)
 {
 #if defined(__SSE4_1__)
