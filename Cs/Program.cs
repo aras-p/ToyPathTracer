@@ -63,7 +63,6 @@ class Program
     {
         x = Math.Max(x, 0.0f);
         x = Math.Max(1.055f * (float)MathF.Pow(x, 0.416666667f) - 0.055f, 0.0f);
-        x = Math.Max(1.055f * (float)MathF.Pow(x, 0.416666667f) - 0.055f, 0.0f);
         uint u = Math.Min((uint)(x * 255.9f), 255u);
         return u;
     }
