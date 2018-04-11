@@ -69,7 +69,6 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
     float4 rDirZ = float4(r.dir.z);
 #endif
     float4 tMin4 = float4(tMin);
-    float4 tMax4 = float4(tMax);
     __m128i curId = _mm_set_epi32(3, 2, 1, 0);
     // process 4 spheres at once
     for (int i = 0; i < spheres.simdCount; i += kSimdWidth)
@@ -94,20 +93,14 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
             // ray could hit spheres at t0 & t1
             float4 t0 = -b - discrSq;
             float4 t1 = -b + discrSq;
-            bool4 msk0 = discrPos & (t0 > tMin4) & (t0 < tMax4);
-            bool4 msk1 = discrPos & (t1 > tMin4) & (t1 < tMax4);
+            bool4 msk0 = discrPos & (t0 > tMin4) & (t0 < hitT);
+            bool4 msk1 = discrPos & (t1 > tMin4) & (t1 < hitT);
             // where sphere is hit at t0, take that; elswhere take t1 hit
             float4 t = select(t1, t0, msk0);
             bool4 msk = msk0 | msk1;
-            if (any(msk))
-            {
-                // compute intersection at t (id, position, normal), and overwrite current best
-                // results based on mask.
-                // also move tMax to current intersection
-                id = select(id, curId, msk);
-                tMax4 = select(tMax4, t, msk);
-                hitT = select(hitT, t, msk);
-            }
+            // if hit, take it
+            id = select(id, curId, msk);
+            hitT = select(hitT, t, msk);
         }
         curId = _mm_add_epi32(curId, _mm_set1_epi32(kSimdWidth));
     }
@@ -148,7 +141,7 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
 
 #else // #if DO_HIT_SPHERES_SSE
 
-    float hitT = 0.0f;
+    float hitT = tMax;
     int id = -1;
     for (int i = 0; i < spheres.count; ++i)
     {
@@ -163,19 +156,17 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
             float discrSq = sqrtf(discr);
             
             float t = (-b - discrSq);
-            if (t > tMin && t < tMax)
+            if (t > tMin && t < hitT)
             {
                 id = i;
-                tMax = t;
                 hitT = t;
             }
             else
             {
                 t = (-b + discrSq);
-                if (t > tMin && t < tMax)
+                if (t > tMin && t < hitT)
                 {
                     id = i;
-                    tMax = t;
                     hitT = t;
                 }
             }
