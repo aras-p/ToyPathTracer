@@ -78,12 +78,13 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
         float4 sCenterY = float4(spheres.centerY + i);
         float4 sCenterZ = float4(spheres.centerZ + i);
         float4 sSqRadius = float4(spheres.sqRadius + i);
-        float4 ocX = rOrigX - sCenterX;
-        float4 ocY = rOrigY - sCenterY;
-        float4 ocZ = rOrigZ - sCenterZ;
-        float4 b = ocX * rDirX + ocY * rDirY + ocZ * rDirZ;
-        float4 c = ocX * ocX + ocY * ocY + ocZ * ocZ - sSqRadius;
-        float4 discr = b * b - c;
+        // note: we flip this vector and calculate -b (nb) since that happens to be slightly preferable computationally
+        float4 coX = sCenterX - rOrigX;
+        float4 coY = sCenterY - rOrigY;
+        float4 coZ = sCenterZ - rOrigZ;
+        float4 nb = coX * rDirX + coY * rDirY + coZ * rDirZ;
+        float4 c = coX * coX + coY * coY + coZ * coZ - sSqRadius;
+        float4 discr = nb * nb - c;
         bool4 discrPos = discr > float4(0.0f);
         // if ray hits any of the 4 spheres
         if (any(discrPos))
@@ -91,8 +92,8 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
             float4 discrSq = sqrtf(discr);
 
             // ray could hit spheres at t0 & t1
-            float4 t0 = -b - discrSq;
-            float4 t1 = -b + discrSq;
+            float4 t0 = nb - discrSq;
+            float4 t1 = nb + discrSq;
             bool4 msk0 = discrPos & (t0 > tMin4) & (t0 < hitT);
             bool4 msk1 = discrPos & (t1 > tMin4) & (t1 < hitT);
             // where sphere is hit at t0, take that; elswhere take t1 hit
