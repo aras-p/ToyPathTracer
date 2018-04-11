@@ -159,7 +159,7 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
 
 #else // #if DO_HIT_SPHERES_SSE
 
-    Hit tmpHit;
+    float hitT = 0.0f;
     int id = -1;
     for (int i = 0; i < spheres.count; ++i)
     {
@@ -178,9 +178,7 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
             {
                 id = i;
                 tMax = t;
-                tmpHit.pos = r.pointAt(t);
-                tmpHit.normal = (tmpHit.pos - float3(spheres.centerX[i], spheres.centerY[i], spheres.centerZ[i])) * spheres.invRadius[i];
-                tmpHit.t = t;
+                hitT = t;
             }
             else
             {
@@ -189,15 +187,19 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
                 {
                     id = i;
                     tMax = t;
-                    tmpHit.pos = r.pointAt(t);
-                    tmpHit.normal = (tmpHit.pos - float3(spheres.centerX[i], spheres.centerY[i], spheres.centerZ[i])) * spheres.invRadius[i];
-                    tmpHit.t = t;
+                    hitT = t;
                 }
             }
         }
     }
-    outHit = tmpHit;
-    
-    return id;
+    if (id != -1)
+    {
+        outHit.pos = r.pointAt(hitT);
+        outHit.normal = (outHit.pos - float3(spheres.centerX[id], spheres.centerY[id], spheres.centerZ[id])) * spheres.invRadius[id];
+        outHit.t = hitT;
+        return id;
+    }
+    else
+        return -1;
 #endif // #else of #if DO_HIT_SPHERES_SSE
 }
