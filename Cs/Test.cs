@@ -186,6 +186,7 @@ class Test
         return true;
     }
 
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
     float3 Trace(ref Ray r, int depth, ref int inoutRayCount, ref uint state, bool doMaterialE = true)
     {
         Hit rec = default(Hit);
@@ -245,11 +246,15 @@ class Test
                 }
                 col *= 1.0f / (float)DO_SAMPLES_PER_PIXEL;
 
-                float3 prev = new float3(backbuffer[backbufferIdx + 0], backbuffer[backbufferIdx + 1], backbuffer[backbufferIdx + 2]);
+                ref float bb1 = ref backbuffer[backbufferIdx + 0];
+                ref float bb2 = ref backbuffer[backbufferIdx + 1];
+                ref float bb3 = ref backbuffer[backbufferIdx + 2];
+
+                float3 prev = new float3(bb1, bb2, bb3);
                 col = prev * lerpFac + col * (1 - lerpFac);
-                backbuffer[backbufferIdx + 0] = col.x;
-                backbuffer[backbufferIdx + 1] = col.y;
-                backbuffer[backbufferIdx + 2] = col.z;
+                bb1 = col.x;
+                bb2 = col.y;
+                bb3 = col.z;
                 backbufferIdx += 4;
             }
         }
