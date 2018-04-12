@@ -109,8 +109,8 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
             float cosA = 1.0f - eps1 + eps1 * cosAMax;
             float sinA = sqrtf(1.0f - cosA*cosA);
             float phi = 2 * kPI * eps2;
-            float3 l = su * cosf(phi) * sinA + sv * sin(phi) * sinA + sw * cosA;
-            l = normalize(l);
+            float3 l = su * (cosf(phi) * sinA) + sv * (sinf(phi) * sinA) + sw * cosA;
+            //l = normalize(l); // NOTE(fg): This is already normalized, by construction.
 
             // shoot shadow ray
             Hit lightHit;
