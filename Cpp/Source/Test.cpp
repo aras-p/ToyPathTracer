@@ -61,6 +61,9 @@ static Material s_SphereMats[kSphereCount] =
 #endif
 };
 
+static int s_EmissiveSpheres[kSphereCount];
+static int s_EmissiveSphereCount;
+
 static Camera s_Cam;
 
 const float kMinT = 0.001f;
@@ -87,11 +90,10 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
 
         // sample lights
 #if DO_LIGHT_SAMPLING
-        for (int i = 0; i < kSphereCount; ++i)
+        for (int j = 0; j < s_EmissiveSphereCount; ++j)
         {
+            int i = s_EmissiveSpheres[j];
             const Material& smat = s_SphereMats[i];
-            if (smat.emissive.getX() <= 0 && smat.emissive.getY() <= 0 && smat.emissive.getZ() <= 0)
-                continue; // skip non-emissive
             if (&mat == &smat)
                 continue; // skip self
             const Sphere& s = s_Spheres[i];
@@ -107,8 +109,8 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
             float cosA = 1.0f - eps1 + eps1 * cosAMax;
             float sinA = sqrtf(1.0f - cosA*cosA);
             float phi = 2 * kPI * eps2;
-            float3 l = su * cosf(phi) * sinA + sv * sin(phi) * sinA + sw * cosA;
-            l = normalize(l);
+            float3 l = su * (cosf(phi) * sinA) + sv * (sinf(phi) * sinA) + sw * cosA;
+            //l = normalize(l); // NOTE(fg): This is already normalized, by construction.
 
             // shoot shadow ray
             Hit lightHit;
@@ -304,6 +306,7 @@ void UpdateTest(float time, int frameCount, int screenWidth, int screenHeight)
     aperture *= 0.2f;
 #endif
 
+    s_EmissiveSphereCount = 0;
     for (int i = 0; i < kSphereCount; ++i)
     {
         Sphere& s = s_Spheres[i];
@@ -313,6 +316,14 @@ void UpdateTest(float time, int frameCount, int screenWidth, int screenHeight)
         s_SpheresSoA.centerZ[i] = s.center.getZ();
         s_SpheresSoA.sqRadius[i] = s.radius * s.radius;
         s_SpheresSoA.invRadius[i] = s.invRadius;
+
+        // Remember IDs of emissive spheres (light sources)
+        const Material& smat = s_SphereMats[i];
+        if (smat.emissive.getX() > 0 || smat.emissive.getY() > 0 || smat.emissive.getZ() > 0)
+        {
+            s_EmissiveSpheres[s_EmissiveSphereCount] = i;
+            s_EmissiveSphereCount++;
+        }
     }
 
     s_Cam = Camera(lookfrom, lookat, float3(0, 1, 0), 60, float(screenWidth) / float(screenHeight), aperture, distToFocus);

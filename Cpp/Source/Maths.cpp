@@ -50,8 +50,6 @@ float3 RandomUnitVector(uint32_t& state)
 int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, Hit& outHit)
 {
 #if DO_HIT_SPHERES_SSE
-    float4 hitPosX, hitPosY, hitPosZ;
-    float4 hitNorX, hitNorY, hitNorZ;
     float4 hitT = float4(tMax);
     __m128i id = _mm_set1_epi32(-1);
 
@@ -71,7 +69,6 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
     float4 rDirZ = float4(r.dir.z);
 #endif
     float4 tMin4 = float4(tMin);
-    float4 tMax4 = float4(tMax);
     __m128i curId = _mm_set_epi32(3, 2, 1, 0);
     // process 4 spheres at once
     for (int i = 0; i < spheres.simdCount; i += kSimdWidth)
@@ -81,12 +78,13 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
         float4 sCenterY = float4(spheres.centerY + i);
         float4 sCenterZ = float4(spheres.centerZ + i);
         float4 sSqRadius = float4(spheres.sqRadius + i);
-        float4 ocX = rOrigX - sCenterX;
-        float4 ocY = rOrigY - sCenterY;
-        float4 ocZ = rOrigZ - sCenterZ;
-        float4 b = ocX * rDirX + ocY * rDirY + ocZ * rDirZ;
-        float4 c = ocX * ocX + ocY * ocY + ocZ * ocZ - sSqRadius;
-        float4 discr = b * b - c;
+        // note: we flip this vector and calculate -b (nb) since that happens to be slightly preferable computationally
+        float4 coX = sCenterX - rOrigX;
+        float4 coY = sCenterY - rOrigY;
+        float4 coZ = sCenterZ - rOrigZ;
+        float4 nb = coX * rDirX + coY * rDirY + coZ * rDirZ;
+        float4 c = coX * coX + coY * coY + coZ * coZ - sSqRadius;
+        float4 discr = nb * nb - c;
         bool4 discrPos = discr > float4(0.0f);
         // if ray hits any of the 4 spheres
         if (any(discrPos))
@@ -94,110 +92,88 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
             float4 discrSq = sqrtf(discr);
 
             // ray could hit spheres at t0 & t1
-            float4 t0 = -b - discrSq;
-            float4 t1 = -b + discrSq;
-            bool4 msk0 = discrPos & (t0 > tMin4) & (t0 < tMax4);
-            bool4 msk1 = discrPos & (t1 > tMin4) & (t1 < tMax4);
-            // where sphere is hit at t0, take that; elswhere take t1 hit
-            float4 t = select(t1, t0, msk0);
-            bool4 msk = msk0 | msk1;
-            if (any(msk))
-            {
-                // compute intersection at t (id, position, normal), and overwrite current best
-                // results based on mask.
-                // also move tMax to current intersection
-                id = select(id, curId, msk);
-                tMax4 = select(tMax4, t, msk);
-                float4 posX = rOrigX + rDirX * t;
-                float4 posY = rOrigY + rDirY * t;
-                float4 posZ = rOrigZ + rDirZ * t;
-                hitPosX = select(hitPosX, posX, msk);
-                hitPosY = select(hitPosY, posY, msk);
-                hitPosZ = select(hitPosZ, posZ, msk);
-                float4 sInvRadius = float4(spheres.invRadius + i);
-                hitNorX = select(hitNorX, (posX - sCenterX) * sInvRadius, msk);
-                hitNorY = select(hitNorY, (posY - sCenterY) * sInvRadius, msk);
-                hitNorZ = select(hitNorZ, (posZ - sCenterZ) * sInvRadius, msk);
-                hitT = select(hitT, t, msk);
-            }
+            float4 t0 = nb - discrSq;
+            float4 t1 = nb + discrSq;
+
+            float4 t = select(t1, t0, t0 > tMin4); // if t0 is above min, take it (since it's the earlier hit); else try t1.
+            bool4 msk = discrPos & (t > tMin4) & (t < hitT);
+            // if hit, take it
+            id = select(id, curId, msk);
+            hitT = select(hitT, t, msk);
         }
         curId = _mm_add_epi32(curId, _mm_set1_epi32(kSimdWidth));
     }
     // now we have up to 4 hits, find and return closest one
-    //@TODO: pretty sure this is super sub-optimal :)
     float minT = hmin(hitT);
-    if (hitT.getX() == minT)
+    if (minT < tMax) // any actual hits?
     {
-        outHit.pos = float3(hitPosX.getX(), hitPosY.getX(), hitPosZ.getX());
-        outHit.normal = float3(hitNorX.getX(), hitNorY.getX(), hitNorZ.getX());
-        outHit.t = hitT.getX();
-        return (int16_t)_mm_extract_epi16(id, 0);
-    }
-    if (hitT.getY() == minT)
-    {
-        outHit.pos = float3(hitPosX.getY(), hitPosY.getY(), hitPosZ.getY());
-        outHit.normal = float3(hitNorX.getY(), hitNorY.getY(), hitNorZ.getY());
-        outHit.t = hitT.getY();
-        return (int16_t)_mm_extract_epi16(id, 2);
-    }
-    if (hitT.getZ() == minT)
-    {
-        outHit.pos = float3(hitPosX.getZ(), hitPosY.getZ(), hitPosZ.getZ());
-        outHit.normal = float3(hitNorX.getZ(), hitNorY.getZ(), hitNorZ.getZ());
-        outHit.t = hitT.getZ();
-        return (int16_t)_mm_extract_epi16(id, 4);
-    }
-    if (hitT.getW() == minT)
-    {
-        outHit.pos = float3(hitPosX.getW(), hitPosY.getW(), hitPosZ.getW());
-        outHit.normal = float3(hitNorX.getW(), hitNorY.getW(), hitNorZ.getW());
-        outHit.t = hitT.getW();
-        return (int16_t)_mm_extract_epi16(id, 6);
+        int minMask = mask(hitT == float4(minT));
+        if (minMask != 0)
+        {
+            int id_scalar[4];
+            float hitT_scalar[4];
+            _mm_storeu_si128((__m128i *)id_scalar, id);
+            _mm_storeu_ps(hitT_scalar, hitT.m);
+
+            // In general, you would do this with a bit scan (first set/trailing zero count).
+            // But who cares, it's only 16 options.
+            static const int laneId[16] =
+            {
+                0, 0, 1, 0, // 00xx
+                2, 0, 1, 0, // 01xx
+                3, 0, 1, 0, // 10xx
+                2, 0, 1, 0, // 11xx
+            };
+
+            int lane = laneId[minMask];
+            int hitId = id_scalar[lane];
+            float finalHitT = hitT_scalar[lane];
+
+            outHit.pos = r.pointAt(finalHitT);
+            outHit.normal = (outHit.pos - float3(spheres.centerX[hitId], spheres.centerY[hitId], spheres.centerZ[hitId])) * spheres.invRadius[hitId];
+            outHit.t = finalHitT;
+            return hitId;
+        }
     }
 
     return -1;
 
 #else // #if DO_HIT_SPHERES_SSE
 
-    Hit tmpHit;
+    float hitT = tMax;
     int id = -1;
     for (int i = 0; i < spheres.count; ++i)
     {
-        float ocX = r.orig.getX() - spheres.centerX[i];
-        float ocY = r.orig.getY() - spheres.centerY[i];
-        float ocZ = r.orig.getZ() - spheres.centerZ[i];
-        float b = ocX * r.dir.getX() + ocY * r.dir.getY() + ocZ * r.dir.getZ();
-        float c = ocX * ocX + ocY * ocY + ocZ * ocZ - spheres.sqRadius[i];
-        float discr = b * b - c;
+        float coX = spheres.centerX[i] - r.orig.getX();
+        float coY = spheres.centerY[i] - r.orig.getY();
+        float coZ = spheres.centerZ[i] - r.orig.getZ();
+        float nb = coX * r.dir.getX() + coY * r.dir.getY() + coZ * r.dir.getZ();
+        float c = coX * coX + coY * coY + coZ * coZ - spheres.sqRadius[i];
+        float discr = nb * nb - c;
         if (discr > 0)
         {
             float discrSq = sqrtf(discr);
-            
-            float t = (-b - discrSq);
-            if (t > tMin && t < tMax)
+
+            // Try earlier t
+            float t = nb - discrSq;
+            if (t <= tMin) // before min, try later t!
+                t = nb + discrSq;
+
+            if (t > tMin && t < hitT)
             {
                 id = i;
-                tMax = t;
-                tmpHit.pos = r.pointAt(t);
-                tmpHit.normal = (tmpHit.pos - float3(spheres.centerX[i], spheres.centerY[i], spheres.centerZ[i])) * spheres.invRadius[i];
-                tmpHit.t = t;
-            }
-            else
-            {
-                t = (-b + discrSq);
-                if (t > tMin && t < tMax)
-                {
-                    id = i;
-                    tMax = t;
-                    tmpHit.pos = r.pointAt(t);
-                    tmpHit.normal = (tmpHit.pos - float3(spheres.centerX[i], spheres.centerY[i], spheres.centerZ[i])) * spheres.invRadius[i];
-                    tmpHit.t = t;
-                }
+                hitT = t;
             }
         }
     }
-    outHit = tmpHit;
-    
-    return id;
+    if (id != -1)
+    {
+        outHit.pos = r.pointAt(hitT);
+        outHit.normal = (outHit.pos - float3(spheres.centerX[id], spheres.centerY[id], spheres.centerZ[id])) * spheres.invRadius[id];
+        outHit.t = hitT;
+        return id;
+    }
+    else
+        return -1;
 #endif // #else of #if DO_HIT_SPHERES_SSE
 }
