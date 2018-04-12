@@ -55,7 +55,7 @@ VM_INLINE float hmin(float4 v)
 }
 
 // Returns a 4-bit code where bit0..bit3 is X..W
-VM_INLINE unsigned mask(float4 v) { return _mm_movemask_ps(v.m) & 15; }
+VM_INLINE unsigned mask(float4 v) { return _mm_movemask_ps(v.m); }
 // Once we have a comparison, we can branch based on its results:
 VM_INLINE bool any(bool4 v) { return mask(v) != 0; }
 VM_INLINE bool all(bool4 v) { return mask(v) == 15; }
