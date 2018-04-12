@@ -144,30 +144,25 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
     int id = -1;
     for (int i = 0; i < spheres.count; ++i)
     {
-        float ocX = r.orig.getX() - spheres.centerX[i];
-        float ocY = r.orig.getY() - spheres.centerY[i];
-        float ocZ = r.orig.getZ() - spheres.centerZ[i];
-        float b = ocX * r.dir.getX() + ocY * r.dir.getY() + ocZ * r.dir.getZ();
-        float c = ocX * ocX + ocY * ocY + ocZ * ocZ - spheres.sqRadius[i];
-        float discr = b * b - c;
+        float coX = spheres.centerX[i] - r.orig.getX();
+        float coY = spheres.centerY[i] - r.orig.getY();
+        float coZ = spheres.centerZ[i] - r.orig.getZ();
+        float nb = coX * r.dir.getX() + coY * r.dir.getY() + coZ * r.dir.getZ();
+        float c = coX * coX + coY * coY + coZ * coZ - spheres.sqRadius[i];
+        float discr = nb * nb - c;
         if (discr > 0)
         {
             float discrSq = sqrtf(discr);
-            
-            float t = (-b - discrSq);
+
+            // Try earlier t
+            float t = nb - discrSq;
+            if (t <= tMin) // before min, try later t!
+                t = nb + discrSq;
+
             if (t > tMin && t < hitT)
             {
                 id = i;
                 hitT = t;
-            }
-            else
-            {
-                t = (-b + discrSq);
-                if (t > tMin && t < hitT)
-                {
-                    id = i;
-                    hitT = t;
-                }
             }
         }
     }
