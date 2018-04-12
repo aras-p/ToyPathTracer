@@ -94,11 +94,9 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
             // ray could hit spheres at t0 & t1
             float4 t0 = nb - discrSq;
             float4 t1 = nb + discrSq;
-            bool4 msk0 = discrPos & (t0 > tMin4) & (t0 < hitT);
-            bool4 msk1 = discrPos & (t1 > tMin4) & (t1 < hitT);
-            // where sphere is hit at t0, take that; elswhere take t1 hit
-            float4 t = select(t1, t0, msk0);
-            bool4 msk = msk0 | msk1;
+
+            float4 t = select(t1, t0, t0 > tMin4); // if t0 is above min, take it (since it's the earlier hit); else try t1.
+            bool4 msk = discrPos & (t > tMin4) & (t < hitT);
             // if hit, take it
             id = select(id, curId, msk);
             hitT = select(hitT, t, msk);
