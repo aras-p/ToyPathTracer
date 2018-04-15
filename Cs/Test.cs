@@ -9,6 +9,7 @@ using static float3;
 using static MathUtil;
 using System.Threading.Tasks;
 using System.Threading;
+using System.Runtime.CompilerServices;
 
 struct Material
 {
@@ -60,14 +61,14 @@ class Test
     const int kMaxDepth = 10;
 
 
-    bool HitWorld(Ray r, float tMin, float tMax, ref Hit outHit, ref int outID)
+    bool HitWorld(ref Ray r, float tMin, float tMax, ref Hit outHit, ref int outID)
     {
         Hit tmpHit = default(Hit);
         bool anything = false;
         float closest = tMax;
         for (int i = 0; i < s_Spheres.Length; ++i)
         {
-            if (s_Spheres[i].HitSphere(r, tMin, closest, ref tmpHit))
+            if (s_Spheres[i].HitSphere(ref r, tMin, closest, ref tmpHit))
             {
                 anything = true;
                 closest = tmpHit.t;
@@ -78,7 +79,7 @@ class Test
         return anything;
     }
 
-    bool Scatter(Material mat, Ray r_in, Hit rec, out float3 attenuation, out Ray scattered, out float3 outLightE, ref int inoutRayCount, ref uint state)
+    bool Scatter(ref Material mat, ref Ray r_in, Hit rec, out float3 attenuation, out Ray scattered, out float3 outLightE, ref int inoutRayCount, ref uint state)
     {
         outLightE = new float3(0, 0, 0);
         if (mat.type == Material.Type.Lambert)
@@ -92,7 +93,8 @@ class Test
 #if DO_LIGHT_SAMPLING
             for (int i = 0; i < s_Spheres.Length; ++i)
             {
-                if (!s_SphereMats[i].HasEmission)
+                ref Material sphereMat = ref s_SphereMats[i];
+                if (!sphereMat.HasEmission)
                     continue; // skip non-emissive
                 //@TODO if (&mat == &smat)
                 //    continue; // skip self
@@ -116,14 +118,15 @@ class Test
                 Hit lightHit = default(Hit);
                 int hitID = 0;
                 ++inoutRayCount;
-                if (HitWorld(new Ray(rec.pos, l), kMinT, kMaxT, ref lightHit, ref hitID) && hitID == i)
+                var ray = new Ray(rec.pos, l);
+                if (HitWorld(ref ray, kMinT, kMaxT, ref lightHit, ref hitID) && hitID == i)
                 {
                     float omega = 2 * PI * (1 - cosAMax);
 
                     float3 rdir = r_in.dir;
                     Debug.Assert(rdir.IsNormalized);
                     float3 nl = Dot(rec.normal, rdir) < 0 ? rec.normal : -rec.normal;
-                    outLightE += (mat.albedo * s_SphereMats[i].emissive) * (MathF.Max(0.0f, Dot(l, nl)) * omega / PI);
+                    outLightE += (mat.albedo * sphereMat.emissive) * (MathF.Max(0.0f, Dot(l, nl)) * omega / PI);
                 }
             }
 #endif
@@ -183,25 +186,26 @@ class Test
         return true;
     }
 
-    float3 Trace(Ray r, int depth, ref int inoutRayCount, ref uint state, bool doMaterialE = true)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    float3 Trace(ref Ray r, int depth, ref int inoutRayCount, ref uint state, bool doMaterialE = true)
     {
         Hit rec = default(Hit);
         int id = 0;
         ++inoutRayCount;
-        if (HitWorld(r, kMinT, kMaxT, ref rec, ref id))
+        if (HitWorld(ref r, kMinT, kMaxT, ref rec, ref id))
         {
             Ray scattered;
             float3 attenuation;
             float3 lightE;
-            var mat = s_SphereMats[id];
+            ref Material mat = ref s_SphereMats[id];
             var matE = mat.emissive;
-            if (depth < kMaxDepth && Scatter(mat, r, rec, out attenuation, out scattered, out lightE, ref inoutRayCount, ref state))
+            if (depth < kMaxDepth && Scatter(ref mat, ref r, rec, out attenuation, out scattered, out lightE, ref inoutRayCount, ref state))
             {
                 #if DO_LIGHT_SAMPLING
                 if (!doMaterialE) matE = new float3(0, 0, 0);
                 doMaterialE = (mat.type != Material.Type.Lambert);
                 #endif
-                return matE + lightE + attenuation * Trace(scattered, depth + 1, ref inoutRayCount, ref state, doMaterialE);
+                return matE + lightE + attenuation * Trace(ref scattered, depth + 1, ref inoutRayCount, ref state, doMaterialE);
             }
             else
             {
@@ -238,15 +242,19 @@ class Test
                     float u = (x + RandomFloat01(ref state)) * invWidth;
                     float v = (y + RandomFloat01(ref state)) * invHeight;
                     Ray r = cam.GetRay(u, v, ref state);
-                    col += Trace(r, 0, ref rayCount, ref state);
+                    col += Trace(ref r, 0, ref rayCount, ref state);
                 }
                 col *= 1.0f / (float)DO_SAMPLES_PER_PIXEL;
 
-                float3 prev = new float3(backbuffer[backbufferIdx + 0], backbuffer[backbufferIdx + 1], backbuffer[backbufferIdx + 2]);
+                ref float bb1 = ref backbuffer[backbufferIdx + 0];
+                ref float bb2 = ref backbuffer[backbufferIdx + 1];
+                ref float bb3 = ref backbuffer[backbufferIdx + 2];
+
+                float3 prev = new float3(bb1, bb2, bb3);
                 col = prev * lerpFac + col * (1 - lerpFac);
-                backbuffer[backbufferIdx + 0] = col.x;
-                backbuffer[backbufferIdx + 1] = col.y;
-                backbuffer[backbufferIdx + 2] = col.z;
+                bb1 = col.x;
+                bb2 = col.y;
+                bb3 = col.z;
                 backbufferIdx += 4;
             }
         }
