@@ -11,7 +11,7 @@
 #define DO_MITSUBA_COMPARE 0
 
 // Should path tracing be done on the GPU with a compute shader?
-#define DO_COMPUTE_GPU 0
+#define DO_COMPUTE_GPU 1
 #define kCSGroupSizeX 16
 #define kCSGroupSizeY 16
 

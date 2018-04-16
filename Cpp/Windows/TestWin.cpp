@@ -56,11 +56,13 @@ struct ComputeParams
     float invWidth;
     float invHeight;
     float lerpFac;
+    int emissiveCount;
 };
 static ID3D11ComputeShader* g_ComputeShader;
 static ID3D11Buffer* g_DataSpheres;     static ID3D11ShaderResourceView* g_SRVSpheres;
 static ID3D11Buffer* g_DataMaterials;   static ID3D11ShaderResourceView* g_SRVMaterials;
 static ID3D11Buffer* g_DataParams;      static ID3D11ShaderResourceView* g_SRVParams;
+static ID3D11Buffer* g_DataEmissives;   static ID3D11ShaderResourceView* g_SRVEmissives;
 static ID3D11Buffer* g_DataCounter;     static ID3D11UnorderedAccessView* g_UAVCounter;
 static int g_SphereCount, g_ObjSize, g_MatSize;
 static ID3D11Query *g_QueryBegin, *g_QueryEnd, *g_QueryDisjoint;
@@ -164,6 +166,12 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR,
     srvDesc.Buffer.NumElements = 1;
     g_D3D11Device->CreateShaderResourceView(g_DataParams, &srvDesc, &g_SRVParams);
 
+    bdesc.ByteWidth = g_SphereCount * 4;
+    bdesc.StructureByteStride = 4;
+    g_D3D11Device->CreateBuffer(&bdesc, NULL, &g_DataEmissives);
+    srvDesc.Buffer.NumElements = g_SphereCount;
+    g_D3D11Device->CreateShaderResourceView(g_DataEmissives, &srvDesc, &g_SRVEmissives);
+
     bdesc.ByteWidth = 4;
     bdesc.BindFlags |= D3D11_BIND_UNORDERED_ACCESS;
     bdesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_ALLOW_RAW_VIEWS;
@@ -261,8 +269,9 @@ static void RenderFrame()
     g_BackbufferIndex = 1 - g_BackbufferIndex;
     void* dataSpheres = alloca(g_SphereCount * g_ObjSize);
     void* dataMaterials = alloca(g_SphereCount * g_MatSize);
+    void* dataEmissives = alloca(g_SphereCount * 4);
     ComputeParams dataParams;
-    GetSceneDesc(dataSpheres, dataMaterials, &dataParams.cam);
+    GetSceneDesc(dataSpheres, dataMaterials, &dataParams.cam, dataEmissives, &dataParams.emissiveCount);
 
     dataParams.sphereCount = g_SphereCount;
     dataParams.screenWidth = kBackbufferWidth;
@@ -282,12 +291,14 @@ static void RenderFrame()
     g_D3D11Ctx->UpdateSubresource(g_DataSpheres, 0, NULL, dataSpheres, 0, 0);
     g_D3D11Ctx->UpdateSubresource(g_DataMaterials, 0, NULL, dataMaterials, 0, 0);
     g_D3D11Ctx->UpdateSubresource(g_DataParams, 0, NULL, &dataParams, 0, 0);
+    g_D3D11Ctx->UpdateSubresource(g_DataEmissives, 0, NULL, dataEmissives, 0, 0);
 
     ID3D11ShaderResourceView* srvs[] = {
         g_BackbufferIndex == 0 ? g_BackbufferSRV2 : g_BackbufferSRV,
         g_SRVSpheres,
         g_SRVMaterials,
-        g_SRVParams
+        g_SRVParams,
+        g_SRVEmissives
     };
     g_D3D11Ctx->CSSetShaderResources(0, ARRAYSIZE(srvs), srvs);
     ID3D11UnorderedAccessView* uavs[] = {

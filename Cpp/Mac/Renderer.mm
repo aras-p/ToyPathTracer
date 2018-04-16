@@ -26,6 +26,7 @@ struct ComputeParams
     float invWidth;
     float invHeight;
     float lerpFac;
+    int emissiveCount;
 };
 #endif
 
@@ -44,6 +45,7 @@ struct ComputeParams
     id <MTLBuffer> _computeSpheres;
     id <MTLBuffer> _computeMaterials;
     id <MTLBuffer> _computeParams;
+    id <MTLBuffer> _computeEmissives;
     id <MTLBuffer> _computeCounter;
     int _sphereCount;
     int _objSize;
@@ -100,6 +102,7 @@ struct ComputeParams
     _computeSpheres = [_device newBufferWithLength:AlignedSize(_sphereCount*_objSize)*kMaxBuffersInFlight options:MTLResourceStorageModeManaged];
     _computeMaterials = [_device newBufferWithLength:AlignedSize(_sphereCount*_matSize)*kMaxBuffersInFlight options:MTLResourceStorageModeManaged];
     _computeParams = [_device newBufferWithLength:AlignedSize(sizeof(ComputeParams))*kMaxBuffersInFlight options:MTLResourceStorageModeManaged];
+    _computeEmissives = [_device newBufferWithLength:AlignedSize(_sphereCount*4)*kMaxBuffersInFlight options:MTLResourceStorageModeManaged];
     _computeCounter = [_device newBufferWithLength:AlignedSize(4)*kMaxBuffersInFlight options:MTLStorageModeShared];
     _uniformBufferIndex = 0;
 #endif
@@ -168,13 +171,15 @@ static size_t rayCounter = 0;
     uint8_t* dataSpheres = (uint8_t*)[_computeSpheres contents];
     uint8_t* dataMaterials = (uint8_t*)[_computeMaterials contents];
     uint8_t* dataParams = (uint8_t*)[_computeParams contents];
+    uint8_t* dataEmissives = (uint8_t*)[_computeEmissives contents];
     uint8_t* dataCounter = (uint8_t*)[_computeCounter contents];
     int spheresSize = AlignedSize(_sphereCount * _objSize);
     int matsSize = AlignedSize(_sphereCount * _matSize);
     int paramsSize = AlignedSize(sizeof(ComputeParams));
+    int emissivesSize = AlignedSize(_sphereCount * 4);
     int counterSize = AlignedSize(4);
     ComputeParams* params = (ComputeParams*)(dataParams+_uniformBufferIndex*paramsSize);
-    GetSceneDesc(dataSpheres+_uniformBufferIndex*spheresSize, dataMaterials+_uniformBufferIndex*matsSize, params);
+    GetSceneDesc(dataSpheres+_uniformBufferIndex*spheresSize, dataMaterials+_uniformBufferIndex*matsSize, params, dataEmissives+_uniformBufferIndex*emissivesSize, &params->emissiveCount);
     params->sphereCount = _sphereCount;
     params->screenWidth = kBackbufferWidth;
     params->screenHeight = kBackbufferHeight;
@@ -191,6 +196,7 @@ static size_t rayCounter = 0;
     *(int*)(dataCounter+_uniformBufferIndex*counterSize) = 0;
     [_computeSpheres didModifyRange:NSMakeRange(_uniformBufferIndex*spheresSize, spheresSize)];
     [_computeMaterials didModifyRange:NSMakeRange(_uniformBufferIndex*matsSize, matsSize)];
+    [_computeEmissives didModifyRange:NSMakeRange(_uniformBufferIndex*emissivesSize, emissivesSize)];
     [_computeParams didModifyRange:NSMakeRange(_uniformBufferIndex*paramsSize, paramsSize)];
 
     id<MTLComputeCommandEncoder> enc = [cmd computeCommandEncoder];
@@ -198,7 +204,8 @@ static size_t rayCounter = 0;
     [enc setBuffer:_computeSpheres offset:_uniformBufferIndex*spheresSize atIndex:0];
     [enc setBuffer:_computeMaterials offset:_uniformBufferIndex*matsSize atIndex:1];
     [enc setBuffer:_computeParams offset:_uniformBufferIndex*paramsSize atIndex:2];
-    [enc setBuffer:_computeCounter offset:_uniformBufferIndex*counterSize atIndex:3];
+    [enc setBuffer:_computeEmissives offset:_uniformBufferIndex*emissivesSize atIndex:3];
+    [enc setBuffer:_computeCounter offset:_uniformBufferIndex*counterSize atIndex:4];
     [enc setTexture:_backbufferIndex==0?_backbuffer2:_backbuffer atIndex: 0];
     [enc setTexture:_backbufferIndex==0?_backbuffer:_backbuffer2 atIndex: 1];
     MTLSize groupSize = {kCSGroupSizeX, kCSGroupSizeY, 1};

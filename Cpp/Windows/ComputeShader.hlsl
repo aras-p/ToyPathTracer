@@ -118,34 +118,41 @@ Ray CameraGetRay(Camera cam, float s, float t, inout uint state)
 }
 
 
-bool HitSphere(Ray r, Sphere s, float tMin, float tMax, inout Hit outHit)
+int HitSpheres(Ray r, StructuredBuffer<Sphere> spheres, int sphereCount, float tMin, float tMax, inout Hit outHit)
 {
-    float3 oc = r.orig - s.center;
-    float b = dot(oc, r.dir);
-    float c = dot(oc, oc) - s.radius*s.radius;
-    float discr = b * b - c;
-    if (discr > 0)
+    float hitT = tMax;
+    int id = -1;
+    for (int i = 0; i < sphereCount; ++i)
     {
-        float discrSq = sqrt(discr);
+        Sphere s = spheres[i];
+        float3 co = s.center - r.orig;
+        float nb = dot(co, r.dir);
+        float c = dot(co, co) - s.radius*s.radius;
+        float discr = nb * nb - c;
+        if (discr > 0)
+        {
+            float discrSq = sqrt(discr);
 
-        float t = (-b - discrSq);
-        if (t < tMax && t > tMin)
-        {
-            outHit.pos = RayPointAt(r, t);
-            outHit.normal = (outHit.pos - s.center) * s.invRadius;
-            outHit.t = t;
-            return true;
-        }
-        t = (-b + discrSq);
-        if (t < tMax && t > tMin)
-        {
-            outHit.pos = RayPointAt(r, t);
-            outHit.normal = (outHit.pos - s.center) * s.invRadius;
-            outHit.t = t;
-            return true;
+            // Try earlier t
+            float t = nb - discrSq;
+            if (t <= tMin) // before min, try later t!
+                t = nb + discrSq;
+
+            if (t > tMin && t < hitT)
+            {
+                id = i;
+                hitT = t;
+            }
         }
     }
-    return false;
+
+    if (id != -1)
+    {
+        outHit.pos = RayPointAt(r, hitT);
+        outHit.normal = (outHit.pos - spheres[id].center) * spheres[id].invRadius;
+        outHit.t = hitT;
+    }
+    return id;
 }
 
 struct Params
@@ -158,6 +165,7 @@ struct Params
     float invWidth;
     float invHeight;
     float lerpFac;
+    int emissiveCount;
 };
 
 
@@ -168,23 +176,11 @@ struct Params
 
 static int HitWorld(StructuredBuffer<Sphere> spheres, int sphereCount, Ray r, float tMin, float tMax, inout Hit outHit)
 {
-    Hit tmpHit;
-    int id = -1;
-    float closest = tMax;
-    for (int i = 0; i < sphereCount; ++i)
-    {
-        if (HitSphere(r, spheres[i], tMin, closest, tmpHit))
-        {
-            closest = tmpHit.t;
-            outHit = tmpHit;
-            id = i;
-        }
-    }
-    return id;
+    return HitSpheres(r, spheres, sphereCount, tMin, tMax, outHit);
 }
 
 
-static bool Scatter(StructuredBuffer<Sphere> spheres, StructuredBuffer<Material> materials, int sphereCount, int matID, Ray r_in, Hit rec, out float3 attenuation, out Ray scattered, out float3 outLightE, inout int inoutRayCount, inout uint state)
+static bool Scatter(StructuredBuffer<Sphere> spheres, StructuredBuffer<Material> materials, int sphereCount, StructuredBuffer<int> emissives, int emissiveCount, int matID, Ray r_in, Hit rec, out float3 attenuation, out Ray scattered, out float3 outLightE, inout int inoutRayCount, inout uint state)
 {
     outLightE = float3(0, 0, 0);
     Material mat = materials[matID];
@@ -197,14 +193,12 @@ static bool Scatter(StructuredBuffer<Sphere> spheres, StructuredBuffer<Material>
 
         // sample lights
 #if DO_LIGHT_SAMPLING
-        for (int i = 0; i < sphereCount; ++i)
+        for (int j = 0; j < emissiveCount; ++j)
         {
-            Material smat = materials[i];
-            float3 smatE = smat.emissive;
-            if (smatE.x <= 0 && smatE.y <= 0 && smatE.z <= 0)
-                continue; // skip non-emissive
+            int i = emissives[j];
             if (matID == i)
                 continue; // skip self
+            Material smat = materials[i];
             Sphere s = spheres[i];
 
             // create a random direction towards sphere
@@ -219,7 +213,6 @@ static bool Scatter(StructuredBuffer<Sphere> spheres, StructuredBuffer<Material>
             float sinA = sqrt(1.0f - cosA * cosA);
             float phi = 2 * 3.1415926 * eps2;
             float3 l = su * cos(phi) * sinA + sv * sin(phi) * sinA + sw * cosA;
-            l = normalize(l);
 
             // shoot shadow ray
             Hit lightHit;
@@ -293,7 +286,7 @@ static bool Scatter(StructuredBuffer<Sphere> spheres, StructuredBuffer<Material>
     return true;
 }
 
-static float3 Trace(StructuredBuffer<Sphere> spheres, StructuredBuffer<Material> materials, int sphereCount, Ray r, inout int inoutRayCount, inout uint state)
+static float3 Trace(StructuredBuffer<Sphere> spheres, StructuredBuffer<Material> materials, int sphereCount, StructuredBuffer<int> emissives, int emissiveCount, Ray r, inout int inoutRayCount, inout uint state)
 {
     float3 col = 0;
     float3 curAtten = 1;
@@ -311,7 +304,7 @@ static float3 Trace(StructuredBuffer<Sphere> spheres, StructuredBuffer<Material>
             float3 lightE;
             Material mat = materials[id];
             float3 matE = mat.emissive;
-            if (Scatter(spheres, materials, sphereCount, id, r, rec, attenuation, scattered, lightE, inoutRayCount, state))
+            if (Scatter(spheres, materials, sphereCount, emissives, emissiveCount, id, r, rec, attenuation, scattered, lightE, inoutRayCount, state))
             {
 #if DO_LIGHT_SAMPLING
                 if (!doMaterialE) matE = 0;
@@ -349,6 +342,7 @@ RWTexture2D<float4> dstImage : register(u0);
 StructuredBuffer<Sphere> g_Spheres : register(t1);
 StructuredBuffer<Material> g_Materials : register(t2);
 StructuredBuffer<Params> g_Params : register(t3);
+StructuredBuffer<int> g_Emissives : register(t4);
 RWByteAddressBuffer g_OutRayCount : register(u1);
 
 [numthreads(kCSGroupSizeX, kCSGroupSizeY, 1)]
@@ -364,7 +358,7 @@ void main(
         float u = float(gid.x + RandomFloat01(rngState)) * params.invWidth;
         float v = float(gid.y + RandomFloat01(rngState)) * params.invHeight;
         Ray r = CameraGetRay(params.cam, u, v, rngState);
-        col += Trace(g_Spheres, g_Materials, params.sphereCount, r, rayCount, rngState);
+        col += Trace(g_Spheres, g_Materials, params.sphereCount, g_Emissives, params.emissiveCount, r, rayCount, rngState);
     }
     col *= 1.0f / float(DO_SAMPLES_PER_PIXEL);
 

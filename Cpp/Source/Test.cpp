@@ -355,9 +355,11 @@ void GetObjectCount(int& outCount, int& outObjectSize, int& outMaterialSize, int
     outCamSize = sizeof(Camera);
 }
 
-void GetSceneDesc(void* outObjects, void* outMaterials, void* outCam)
+void GetSceneDesc(void* outObjects, void* outMaterials, void* outCam, void* outEmissives, int* outEmissiveCount)
 {
     memcpy(outObjects, s_Spheres, kSphereCount * sizeof(s_Spheres[0]));
     memcpy(outMaterials, s_SphereMats, kSphereCount * sizeof(s_SphereMats[0]));
     memcpy(outCam, &s_Cam, sizeof(s_Cam));
+    memcpy(outEmissives, s_EmissiveSpheres, s_EmissiveSphereCount * sizeof(s_EmissiveSpheres[0]));
+    *outEmissiveCount = s_EmissiveSphereCount;
 }

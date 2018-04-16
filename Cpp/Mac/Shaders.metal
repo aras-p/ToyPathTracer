@@ -145,34 +145,41 @@ Ray CameraGetRay(constant const Camera& cam, float s, float t, thread uint32_t& 
     return Ray(cam.origin + offset, normalize(cam.lowerLeftCorner + s*cam.horizontal + t*cam.vertical - cam.origin - offset));
 }
 
-bool HitSphere(Ray r, constant const Sphere& s, float tMin, float tMax, thread Hit& outHit)
+int HitSpheres(Ray r, constant const Sphere* spheres, int sphereCount, float tMin, float tMax, thread Hit& outHit)
 {
-    float3 oc = r.orig - s.center;
-    float b = dot(oc, r.dir);
-    float c = dot(oc, oc) - s.radius*s.radius;
-    float discr = b*b - c;
-    if (discr > 0)
+    float hitT = tMax;
+    int id = -1;
+    for (int i = 0; i < sphereCount; ++i)
     {
-        float discrSq = sqrt(discr);
-        
-        float t = (-b - discrSq);
-        if (t < tMax && t > tMin)
+        constant const Sphere& s = spheres[i];
+        float3 co = s.center - r.orig;
+        float nb = dot(co, r.dir);
+        float c = dot(co, co) - s.radius*s.radius;
+        float discr = nb*nb - c;
+        if (discr > 0)
         {
-            outHit.pos = r.pointAt(t);
-            outHit.normal = (outHit.pos - s.center) * s.invRadius;
-            outHit.t = t;
-            return true;
-        }
-        t = (-b + discrSq);
-        if (t < tMax && t > tMin)
-        {
-            outHit.pos = r.pointAt(t);
-            outHit.normal = (outHit.pos - s.center) * s.invRadius;
-            outHit.t = t;
-            return true;
+            float discrSq = sqrt(discr);
+            
+            // Try earlier t
+            float t = nb - discrSq;
+            if (t <= tMin) // before min, try later t!
+                t = nb + discrSq;
+
+            if (t > tMin && t < hitT)
+            {
+                id = i;
+                hitT = t;
+            }
         }
     }
-    return false;
+
+    if (id != -1)
+    {
+        outHit.pos = r.pointAt(hitT);
+        outHit.normal = (outHit.pos - spheres[id].center) * spheres[id].invRadius;
+        outHit.t = hitT;
+    }
+    return id;
 }
 
 struct Params
@@ -185,6 +192,7 @@ struct Params
     float invWidth;
     float invHeight;
     float lerpFac;
+    int emissiveCount;
 };
 
 #define kMinT 0.001f
@@ -193,22 +201,10 @@ struct Params
 
 static int HitWorld(constant const Sphere* spheres, int sphereCount, Ray r, float tMin, float tMax, thread Hit& outHit)
 {
-    Hit tmpHit;
-    int id = -1;
-    float closest = tMax;
-    for (int i = 0; i < sphereCount; ++i)
-    {
-        if (HitSphere(r, spheres[i], tMin, closest, tmpHit))
-        {
-            closest = tmpHit.t;
-            outHit = tmpHit;
-            id = i;
-        }
-    }
-    return id;
+    return HitSpheres(r, spheres, sphereCount, tMin, tMax, outHit);
 }
 
-static bool Scatter(constant const Sphere* spheres, constant const Material* materials, int sphereCount, int matID, Ray r_in, Hit rec, thread float3& attenuation, thread Ray& scattered, thread float3& outLightE, thread int& inoutRayCount, thread uint32_t& state)
+static bool Scatter(constant const Sphere* spheres, constant const Material* materials, int sphereCount, constant int* emissives, int emissiveCount, int matID, Ray r_in, Hit rec, thread float3& attenuation, thread Ray& scattered, thread float3& outLightE, thread int& inoutRayCount, thread uint32_t& state)
 {
     outLightE = float3(0,0,0);
     constant const Material& mat = materials[matID];
@@ -221,14 +217,12 @@ static bool Scatter(constant const Sphere* spheres, constant const Material* mat
         
         // sample lights
 #if DO_LIGHT_SAMPLING
-        for (int i = 0; i < sphereCount; ++i)
+        for (int j = 0; j < emissiveCount; ++j)
         {
-            constant const Material& smat = materials[i];
-            float3 smatE = smat.emissive;
-            if (smatE.x <= 0 && smatE.y <= 0 && smatE.z <= 0)
-                continue; // skip non-emissive
+            int i = emissives[j];
             if (matID == i)
                 continue; // skip self
+            constant const Material& smat = materials[i];
             constant const Sphere& s = spheres[i];
             
             // create a random direction towards sphere
@@ -243,7 +237,6 @@ static bool Scatter(constant const Sphere* spheres, constant const Material* mat
             float sinA = sqrt(1.0f - cosA*cosA);
             float phi = 2 * 3.1415926 * eps2;
             float3 l = su * cos(phi) * sinA + sv * sin(phi) * sinA + sw * cosA;
-            l = normalize(l);
             
             // shoot shadow ray
             Hit lightHit;
@@ -311,7 +304,7 @@ static bool Scatter(constant const Sphere* spheres, constant const Material* mat
     return true;
 }
 
-static float3 Trace(constant const Sphere* spheres, constant const Material* materials, int sphereCount, Ray r, thread int& inoutRayCount, thread uint32_t& state)
+static float3 Trace(constant const Sphere* spheres, constant const Material* materials, int sphereCount, constant int* emissives, int emissiveCount, Ray r, thread int& inoutRayCount, thread uint32_t& state)
 {
     float3 col = 0;
     float3 curAtten = 1;
@@ -334,7 +327,7 @@ static float3 Trace(constant const Sphere* spheres, constant const Material* mat
             float3 lightE;
             constant const Material& mat = materials[id];
             float3 matE = mat.emissive;
-            if (Scatter(spheres, materials, sphereCount, id, r, rec, attenuation, scattered, lightE, inoutRayCount, state))
+            if (Scatter(spheres, materials, sphereCount, emissives, emissiveCount, id, r, rec, attenuation, scattered, lightE, inoutRayCount, state))
             {
 #if DO_LIGHT_SAMPLING
                 if (!doMaterialE) matE = 0;
@@ -375,7 +368,8 @@ kernel void TraceGPU(
                      constant Sphere* spheres [[buffer(0)]],
                      constant Material* materials [[buffer(1)]],
                      constant Params* params [[buffer(2)]],
-                     device atomic_int* outRayCount [[buffer(3)]])
+                     constant int* emissives [[buffer(3)]],
+                     device atomic_int* outRayCount [[buffer(4)]])
 {
     int rayCount = 0;
     float3 col(0, 0, 0);
@@ -385,7 +379,7 @@ kernel void TraceGPU(
         float u = float(gid.x + RandomFloat01(rngState)) * params->invWidth;
         float v = float(gid.y + RandomFloat01(rngState)) * params->invHeight;
         Ray r = CameraGetRay(params->cam, u, v, rngState);
-        col += Trace(spheres, materials, params->sphereCount, r, rayCount, rngState);
+        col += Trace(spheres, materials, params->sphereCount, emissives, params->emissiveCount, r, rayCount, rngState);
     }
     col *= 1.0f / float(DO_SAMPLES_PER_PIXEL);
     
