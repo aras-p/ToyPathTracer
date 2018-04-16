@@ -1,6 +1,8 @@
 //#define DO_ANIMATE
 #define DO_LIGHT_SAMPLING
 #define DO_THREADED
+// 46 spheres (2 emissive) when enabled; 9 spheres (1 emissive) when disabled
+#define DO_BIG_SCENE
 
 using static MathUtil;
 using Unity.Mathematics;
@@ -38,6 +40,13 @@ class Test
         new Sphere(new float3(-2,0,1), 0.5f),
         new Sphere(new float3(0.5f,1,0.5f), 0.5f),
         new Sphere(new float3(-1.5f,1.5f,0f), 0.3f),
+        #if DO_BIG_SCENE
+        new Sphere(new float3(4,0,-3), 0.5f), new Sphere(new float3(3,0,-3), 0.5f), new Sphere(new float3(2,0,-3), 0.5f), new Sphere(new float3(1,0,-3), 0.5f), new Sphere(new float3(0,0,-3), 0.5f), new Sphere(new float3(-1,0,-3), 0.5f), new Sphere(new float3(-2,0,-3), 0.5f), new Sphere(new float3(-3,0,-3), 0.5f), new Sphere(new float3(-4,0,-3), 0.5f),
+        new Sphere(new float3(4,0,-4), 0.5f), new Sphere(new float3(3,0,-4), 0.5f), new Sphere(new float3(2,0,-4), 0.5f), new Sphere(new float3(1,0,-4), 0.5f), new Sphere(new float3(0,0,-4), 0.5f), new Sphere(new float3(-1,0,-4), 0.5f), new Sphere(new float3(-2,0,-4), 0.5f), new Sphere(new float3(-3,0,-4), 0.5f), new Sphere(new float3(-4,0,-4), 0.5f),
+        new Sphere(new float3(4,0,-5), 0.5f), new Sphere(new float3(3,0,-5), 0.5f), new Sphere(new float3(2,0,-5), 0.5f), new Sphere(new float3(1,0,-5), 0.5f), new Sphere(new float3(0,0,-5), 0.5f), new Sphere(new float3(-1,0,-5), 0.5f), new Sphere(new float3(-2,0,-5), 0.5f), new Sphere(new float3(-3,0,-5), 0.5f), new Sphere(new float3(-4,0,-5), 0.5f),
+        new Sphere(new float3(4,0,-6), 0.5f), new Sphere(new float3(3,0,-6), 0.5f), new Sphere(new float3(2,0,-6), 0.5f), new Sphere(new float3(1,0,-6), 0.5f), new Sphere(new float3(0,0,-6), 0.5f), new Sphere(new float3(-1,0,-6), 0.5f), new Sphere(new float3(-2,0,-6), 0.5f), new Sphere(new float3(-3,0,-6), 0.5f), new Sphere(new float3(-4,0,-6), 0.5f),
+        new Sphere(new float3(1.5f,1.5f,-2), 0.3f),
+        #endif // #if DO_BIG_SCENE        
     };
 
     static Material[] s_SphereMatsData = {
@@ -50,6 +59,13 @@ class Test
         new Material(Material.Type.Metal,       new float3(0.4f, 0.8f, 0.4f), new float3(0,0,0), 0.6f, 0),
         new Material(Material.Type.Dielectric,  new float3(0.4f, 0.4f, 0.4f), new float3(0,0,0), 0, 1.5f),
         new Material(Material.Type.Lambert,     new float3(0.8f, 0.6f, 0.2f), new float3(30,25,15), 0, 0),
+        #if DO_BIG_SCENE
+        new Material(Material.Type.Lambert, new float3(0.1f, 0.1f, 0.1f), new float3(0,0,0), 0, 0), new Material(Material.Type.Lambert, new float3(0.2f, 0.2f, 0.2f), new float3(0,0,0), 0, 0), new Material(Material.Type.Lambert, new float3(0.3f, 0.3f, 0.3f), new float3(0,0,0), 0, 0), new Material(Material.Type.Lambert, new float3(0.4f, 0.4f, 0.4f), new float3(0,0,0), 0, 0), new Material(Material.Type.Lambert, new float3(0.5f, 0.5f, 0.5f), new float3(0,0,0), 0, 0), new Material(Material.Type.Lambert, new float3(0.6f, 0.6f, 0.6f), new float3(0,0,0), 0, 0), new Material(Material.Type.Lambert, new float3(0.7f, 0.7f, 0.7f), new float3(0,0,0), 0, 0), new Material(Material.Type.Lambert, new float3(0.8f, 0.8f, 0.8f), new float3(0,0,0), 0, 0), new Material(Material.Type.Lambert, new float3(0.9f, 0.9f, 0.9f), new float3(0,0,0), 0, 0),
+        new Material(Material.Type.Metal, new float3(0.1f, 0.1f, 0.1f), new float3(0,0,0), 0, 0), new Material(Material.Type.Metal, new float3(0.2f, 0.2f, 0.2f), new float3(0,0,0), 0, 0), new Material(Material.Type.Metal, new float3(0.3f, 0.3f, 0.3f), new float3(0,0,0), 0, 0), new Material(Material.Type.Metal, new float3(0.4f, 0.4f, 0.4f), new float3(0,0,0), 0, 0), new Material(Material.Type.Metal, new float3(0.5f, 0.5f, 0.5f), new float3(0,0,0), 0, 0), new Material(Material.Type.Metal, new float3(0.6f, 0.6f, 0.6f), new float3(0,0,0), 0, 0), new Material(Material.Type.Metal, new float3(0.7f, 0.7f, 0.7f), new float3(0,0,0), 0, 0), new Material(Material.Type.Metal, new float3(0.8f, 0.8f, 0.8f), new float3(0,0,0), 0, 0), new Material(Material.Type.Metal, new float3(0.9f, 0.9f, 0.9f), new float3(0,0,0), 0, 0),
+        new Material(Material.Type.Metal, new float3(0.8f, 0.1f, 0.1f), new float3(0,0,0), 0, 0), new Material(Material.Type.Metal, new float3(0.8f, 0.5f, 0.1f), new float3(0,0,0), 0, 0), new Material(Material.Type.Metal, new float3(0.8f, 0.8f, 0.1f), new float3(0,0,0), 0, 0), new Material(Material.Type.Metal, new float3(0.4f, 0.8f, 0.1f), new float3(0,0,0), 0, 0), new Material(Material.Type.Metal, new float3(0.1f, 0.8f, 0.1f), new float3(0,0,0), 0, 0), new Material(Material.Type.Metal, new float3(0.1f, 0.8f, 0.5f), new float3(0,0,0), 0, 0), new Material(Material.Type.Metal, new float3(0.1f, 0.8f, 0.8f), new float3(0,0,0), 0, 0), new Material(Material.Type.Metal, new float3(0.1f, 0.1f, 0.8f), new float3(0,0,0), 0, 0), new Material(Material.Type.Metal, new float3(0.5f, 0.1f, 0.8f), new float3(0,0,0), 0, 0),
+        new Material(Material.Type.Lambert, new float3(0.8f, 0.1f, 0.1f), new float3(0,0,0), 0, 0), new Material(Material.Type.Lambert, new float3(0.8f, 0.5f, 0.1f), new float3(0,0,0), 0, 0), new Material(Material.Type.Lambert, new float3(0.8f, 0.8f, 0.1f), new float3(0,0,0), 0, 0), new Material(Material.Type.Lambert, new float3(0.4f, 0.8f, 0.1f), new float3(0,0,0), 0, 0), new Material(Material.Type.Lambert, new float3(0.1f, 0.8f, 0.1f), new float3(0,0,0), 0, 0), new Material(Material.Type.Lambert, new float3(0.1f, 0.8f, 0.5f), new float3(0,0,0), 0, 0), new Material(Material.Type.Lambert, new float3(0.1f, 0.8f, 0.8f), new float3(0,0,0), 0, 0), new Material(Material.Type.Lambert, new float3(0.1f, 0.1f, 0.8f), new float3(0,0,0), 0, 0), new Material(Material.Type.Metal, new float3(0.5f, 0.1f, 0.8f), new float3(0,0,0), 0, 0),
+        new Material(Material.Type.Lambert, new float3(0.1f, 0.2f, 0.5f), new float3(3,10,20), 0, 0),
+        #endif
     };
 
     SpheresSoA s_SpheresSoA;
@@ -267,6 +283,9 @@ class Test
         float3 lookat = new float3(0, 0, 0);
         float distToFocus = 3;
         float aperture = 0.1f;
+        #if DO_BIG_SCENE
+        aperture *= 0.2f;
+        #endif
 
         s_SpheresSoA.Update(s_SpheresData, s_SphereMatsData);
 
