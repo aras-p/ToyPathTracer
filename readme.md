@@ -13,23 +13,28 @@ I decided to write blog posts about things I discover as I do this, currently:
 * [Part 4: Correctness fixes and Mitsuba](http://aras-p.info/blog/2018/03/31/Daily-Pathtracer-Part-4-Fixes--Mitsuba/)
 * [Part 5: simple GPU version via Metal](http://aras-p.info/blog/2018/04/03/Daily-Pathtracer-Part-5-Metal-GPU/)
 * [Part 6: simple GPU version via D3D11](http://aras-p.info/blog/2018/04/04/Daily-Pathtracer-Part-6-D3D11-GPU/)
+* [Part 7: initial C++ SIMD & SoA](http://aras-p.info/blog/2018/04/10/Daily-Pathtracer-Part-7-Initial-SIMD/)
+* [Part 8: SSE SIMD for HitSpheres](http://aras-p.info/blog/2018/04/11/Daily-Pathtracer-8-SSE-HitSpheres/)
+* [Part 9: ryg optimizes my code](http://aras-p.info/blog/2018/04/13/Daily-Pathtracer-9-A-wild-ryg-appears/)
+* [Part 10: Update all implementations to match](http://aras-p.info/blog/2018/04/16/Daily-Pathtracer-10-Update-CsharpGPU/)
 
 Right now: can only do spheres, no bounding volume hierachy of any sorts, a lot of stuff hardcoded.
 
-Implementations I'm playing with:
+Implementations I'm playing with (again, everything is in toy/learning/WIP state; likely suboptimal) are below.
+These are all on a scene with ~50 spheres and two light sources, measured in Mray/s.
 
 * CPU. Testing on "PC" AMD ThreadRipper 1950X 3.4GHz (SMT disabled, 16c/16t) and "Mac" late 2013 MacBookPro 2.3GHz (4c/8t):
-  * C++: PC 136, Mac 37.8 Mray/s,
-  * C# (.NET Core): PC 67, Mac 17.5 Mray/s,
-  * C# (Unity, Mono): PC 13.3, Mac 4.6 Mray/s,
-  * C# (Unity, IL2CPP): PC 28.1, Mac 17.1 Mray/s,
-  * C# (Unity, JobSystem+Burst+Mathematics targeting SSE4): PC 164, Mac 48.1 Mray/s. Note that this is super early version of Burst.
-* GPU. Super simplistic direct ports, not optimized:
-  * Metal compute shader. Radeon Pro 580: 1650 Mray/s, Intel Iris Pro: 191 Mray/s, GeForce GT 750M: 146 Mray/s,
-  * D3D11 compute shader. Radeon Pro WX 9100: 3700 Mray/s, GeForce GTX 1080 Ti: 2780 Mray/s, Radeon HD 7700: 417 Mray/s.
-
+  * C++ w/ some SSE SIMD: PC 187, Mac 41.8
+  * C++: PC 100, Mac 19.6
+  * C# (Unity with Burst compiler): PC 82, Mac 18.7. *Note that this is super early version of Burst*.
+  * C# (.NET Core): PC 53, Mac 13.1
+  * C# (Mono with optimized settings): Mac 12.7
+  * C# (Mono defaults): Mac 5.5
+* GPU. Super simplistic direct ports:
+  * D3D11 compute shader. GeForce GTX 1080 Ti: 778
+  * Metal compute shader. Intel Iris Pro: 53.0
+  
 A lot of stuff in the implementation is *totally* suboptimal or using the tech in a "wrong" way.
-
 I know it's just a simple toy, ok :)
 
 ![Screenshot](/Shots/screenshot.jpg?raw=true "Screenshot")
