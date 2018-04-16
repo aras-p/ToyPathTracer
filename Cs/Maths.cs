@@ -132,44 +132,85 @@ public struct Sphere
 {
     public float3 center;
     public float radius;
-    public float invRadius;
+    public Sphere(float3 center_, float radius_) { center = center_; radius = radius_; }
+}
 
-    public Sphere(float3 center_, float radius_) { center = center_; radius = radius_; invRadius = 1.0f / radius_; }
-    public void UpdateDerivedData() { invRadius = 1.0f / radius; }
+struct SpheresSoA
+{
+    public float[] centerX;
+    public float[] centerY;
+    public float[] centerZ;
+    public float[] sqRadius;
+    public float[] invRadius;
+    public int[] emissives;
+    public int emissiveCount;
 
-    [MethodImpl(MethodImplOptions.AggressiveInlining)]
-    public bool HitSphere(ref Ray r, float tMin, float tMax, ref Hit outHit)
+    public SpheresSoA(int len)
     {
-        Debug.Assert(invRadius == 1.0f / radius);
-        Debug.Assert(r.dir.IsNormalized);
-        float3 oc = r.orig - center;
-        float b = float3.Dot(oc, r.dir);
-        float c = float3.Dot(oc, oc) - radius * radius;
-        float discr = b * b - c;
-        if (discr > 0)
-        {
-            float discrSq = MathF.Sqrt(discr);
+        centerX = new float[len];
+        centerY = new float[len];
+        centerZ = new float[len];
+        sqRadius = new float[len];
+        invRadius = new float[len];
+        emissives = new int[len];
+        emissiveCount = 0;
+    }
 
-            float t = (-b - discrSq);
-            if (t < tMax && t > tMin)
+    public void Update(Sphere[] src, Material[] mat)
+    {
+        emissiveCount = 0;
+        for (var i = 0; i < src.Length; ++i)
+        {
+            ref Sphere s = ref src[i];
+            centerX[i] = s.center.x;
+            centerY[i] = s.center.y;
+            centerZ[i] = s.center.z;
+            sqRadius[i] = s.radius * s.radius;
+            invRadius[i] = 1.0f / s.radius;
+            if (mat[i].HasEmission)
             {
-                outHit.pos = r.PointAt(t);
-                outHit.normal = (outHit.pos - center) * invRadius;
-                Debug.Assert(outHit.normal.IsNormalized);
-                outHit.t = t;
-                return true;
-            }
-            t = (-b + discrSq);
-            if (t < tMax && t > tMin)
-            {
-                outHit.pos = r.PointAt(t);
-                outHit.normal = (outHit.pos - center) * invRadius;
-                Debug.Assert(outHit.normal.IsNormalized);
-                outHit.t = t;
-                return true;
+                emissives[emissiveCount++] = i;
             }
         }
-        return false;
+    }
+
+    public int HitSpheres(ref Ray r, float tMin, float tMax, ref Hit outHit)
+    {
+        float hitT = tMax;
+        int id = -1;
+        for (int i = 0; i < centerX.Length; ++i)
+        {
+            float coX = centerX[i] - r.orig.x;
+            float coY = centerY[i] - r.orig.y;
+            float coZ = centerZ[i] - r.orig.z;
+            float nb = coX * r.dir.x + coY * r.dir.y + coZ * r.dir.z;
+            float c = coX * coX + coY * coY + coZ * coZ - sqRadius[i];
+            float discr = nb * nb - c;
+            if (discr > 0)
+            {
+                float discrSq = MathF.Sqrt(discr);
+
+                // Try earlier t
+                float t = nb - discrSq;
+                if (t <= tMin) // before min, try later t!
+                    t = nb + discrSq;
+
+                if (t > tMin && t < hitT)
+                {
+                    id = i;
+                    hitT = t;
+                }
+            }
+        }
+        if (id != -1)
+        {
+            outHit.pos = r.PointAt(hitT);
+            outHit.normal = (outHit.pos - new float3(centerX[id], centerY[id], centerZ[id])) * invRadius[id];
+            outHit.t = hitT;
+            return id;
+        }
+        else
+            return -1;        
     }
 }
 

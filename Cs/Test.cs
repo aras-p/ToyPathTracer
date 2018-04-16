@@ -56,6 +56,13 @@ class Test
         new Material(Material.Type.Lambert,     new float3(0.8f, 0.6f, 0.2f), new float3(30,25,15), 0, 0),
     };
 
+    SpheresSoA s_SpheresSoA;
+
+    public Test()
+    {
+        s_SpheresSoA = new SpheresSoA(s_Spheres.Length);
+    }
+
     const float kMinT = 0.001f;
     const float kMaxT = 1.0e7f;
     const int kMaxDepth = 10;
@@ -63,20 +70,8 @@ class Test
 
     bool HitWorld(ref Ray r, float tMin, float tMax, ref Hit outHit, ref int outID)
     {
-        Hit tmpHit = default(Hit);
-        bool anything = false;
-        float closest = tMax;
-        for (int i = 0; i < s_Spheres.Length; ++i)
-        {
-            if (s_Spheres[i].HitSphere(ref r, tMin, closest, ref tmpHit))
-            {
-                anything = true;
-                closest = tmpHit.t;
-                outHit = tmpHit;
-                outID = i;
-            }
-        }
-        return anything;
+        outID = s_SpheresSoA.HitSpheres(ref r, tMin, tMax, ref outHit);
+        return outID != -1;
     }
 
     bool Scatter(ref Material mat, ref Ray r_in, Hit rec, out float3 attenuation, out Ray scattered, out float3 outLightE, ref int inoutRayCount, ref uint state)
@@ -91,11 +86,10 @@ class Test
 
             // sample lights
 #if DO_LIGHT_SAMPLING
-            for (int i = 0; i < s_Spheres.Length; ++i)
+            for (int j = 0; j < s_SpheresSoA.emissiveCount; ++j)
             {
+                int i = s_SpheresSoA.emissives[j];
                 ref Material sphereMat = ref s_SphereMats[i];
-                if (!sphereMat.HasEmission)
-                    continue; // skip non-emissive
                 //@TODO if (&mat == &smat)
                 //    continue; // skip self
                 var s = s_Spheres[i];
@@ -112,7 +106,6 @@ class Test
                 float sinA = MathF.Sqrt(1.0f - cosA * cosA);
                 float phi = 2 * PI * eps2;
                 float3 l = su * MathF.Cos(phi) * sinA + sv * MathF.Sin(phi) * sinA + sw * cosA;
-                l.Normalize();
 
                 // shoot shadow ray
                 Hit lightHit = default(Hit);
@@ -274,8 +267,7 @@ class Test
         float distToFocus = 3;
         float aperture = 0.1f;
 
-        for (int i = 0; i < s_Spheres.Length; ++i)
-            s_Spheres[i].UpdateDerivedData();
+        s_SpheresSoA.Update(s_Spheres, s_SphereMats);
 
         Camera cam = new Camera(lookfrom, lookat, new float3(0, 1, 0), 60, (float)screenWidth / (float)screenHeight, aperture, distToFocus);
 
