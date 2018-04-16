@@ -11,7 +11,7 @@ Cpp/Windows/x64/
 project.xcworkspace
 xcschememanagement.plist
 xcuserdata
-output.tga
+output*.tga
 Unity/*.csproj
 Unity/*.sln
 Unity/Library/
