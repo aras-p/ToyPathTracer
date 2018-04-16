@@ -52,30 +52,30 @@ class Test
         new Material(Material.Type.Lambert,     new float3(0.8f, 0.6f, 0.2f), new float3(30,25,15), 0, 0),
     };
 
+    SpheresSoA s_SpheresSoA;
+
+    public Test()
+    {
+        s_SpheresSoA = new SpheresSoA(s_SpheresData.Length);
+    }
+
+    public void Dispose()
+    {
+        s_SpheresSoA.Dispose();
+    }
+
     const float kMinT = 0.001f;
     const float kMaxT = 1.0e7f;
     const int kMaxDepth = 10;
 
 
-    static bool HitWorld(Ray r, float tMin, float tMax, ref Hit outHit, ref int outID, NativeArray<Sphere> spheres)
+    static bool HitWorld(Ray r, float tMin, float tMax, ref Hit outHit, ref int outID, ref SpheresSoA spheres)
     {
-        Hit tmpHit = default(Hit);
-        bool anything = false;
-        float closest = tMax;
-        for (int i = 0; i < spheres.Length; ++i)
-        {
-            if (spheres[i].HitSphere(r, tMin, closest, ref tmpHit))
-            {
-                anything = true;
-                closest = tmpHit.t;
-                outHit = tmpHit;
-                outID = i;
-            }
-        }
-        return anything;
+        outID = spheres.HitSpheres(ref r, tMin, tMax, ref outHit);
+        return outID != -1;
     }
 
-    static bool Scatter(Material mat, Ray r_in, Hit rec, out float3 attenuation, out Ray scattered, out float3 outLightE, ref int inoutRayCount, NativeArray<Sphere> spheres, NativeArray<Material> materials, ref uint randState)
+    static bool Scatter(Material mat, Ray r_in, Hit rec, out float3 attenuation, out Ray scattered, out float3 outLightE, ref int inoutRayCount, ref SpheresSoA spheres, NativeArray<Material> materials, ref uint randState)
     {
         outLightE = new float3(0, 0, 0);
         if (mat.type == Material.Type.Lambert)
@@ -87,21 +87,22 @@ class Test
 
             // sample lights
 #if DO_LIGHT_SAMPLING
-            for (int i = 0; i < spheres.Length; ++i)
+            for (int j = 0; j < spheres.emissiveCount; ++j)
             {
-                if (!materials[i].HasEmission)
-                    continue; // skip non-emissive
+                int i = spheres.emissives[j];
                 //@TODO if (&mat == &smat)
                 //    continue; // skip self
-                var s = spheres[i];
+                //var s = spheres[i];
+                float3 scenter = new float3(spheres.centerX[i], spheres.centerY[i], spheres.centerZ[i]);
+                float sqRradius = spheres.sqRadius[i];
 
                 // create a random direction towards sphere
                 // coord system for sampling: sw, su, sv
-                float3 sw = normalize(s.center - rec.pos);
+                float3 sw = normalize(scenter - rec.pos);
                 float3 su = normalize(cross(abs(sw.x) > 0.01f ? new float3(0, 1, 0) : new float3(1, 0, 0), sw));
                 float3 sv = cross(sw, su);
                 // sample sphere by solid angle
-                float cosAMax = sqrt(max(0.0f, 1.0f - s.radius * s.radius / lengthSquared(rec.pos - s.center)));
+                float cosAMax = sqrt(max(0.0f, 1.0f - sqRradius / lengthSquared(rec.pos - scenter)));
                 float eps1 = RandomFloat01(ref randState), eps2 = RandomFloat01(ref randState);
                 float cosA = 1.0f - eps1 + eps1 * cosAMax;
                 float sinA = sqrt(1.0f - cosA * cosA);
@@ -113,7 +114,7 @@ class Test
                 Hit lightHit = default(Hit);
                 int hitID = 0;
                 ++inoutRayCount;
-                if (HitWorld(new Ray(rec.pos, l), kMinT, kMaxT, ref lightHit, ref hitID, spheres) && hitID == i)
+                if (HitWorld(new Ray(rec.pos, l), kMinT, kMaxT, ref lightHit, ref hitID, ref spheres) && hitID == i)
                 {
                     float omega = 2 * PI * (1 - cosAMax);
 
@@ -177,25 +178,25 @@ class Test
         return true;
     }
 
-    static float3 Trace(Ray r, int depth, ref int inoutRayCount, NativeArray<Sphere> spheres, NativeArray<Material> materials, ref uint randState, bool doMaterialE = true)
+    static float3 Trace(Ray r, int depth, ref int inoutRayCount, ref SpheresSoA spheres, NativeArray<Material> materials, ref uint randState, bool doMaterialE = true)
     {
         Hit rec = default(Hit);
         int id = 0;
         ++inoutRayCount;
-        if (HitWorld(r, kMinT, kMaxT, ref rec, ref id, spheres))
+        if (HitWorld(r, kMinT, kMaxT, ref rec, ref id, ref spheres))
         {
             Ray scattered;
             float3 attenuation;
             float3 lightE;
             var mat = materials[id];
             var matE = mat.emissive;
-            if (depth < kMaxDepth && Scatter(mat, r, rec, out attenuation, out scattered, out lightE, ref inoutRayCount, spheres, materials, ref randState))
+            if (depth < kMaxDepth && Scatter(mat, r, rec, out attenuation, out scattered, out lightE, ref inoutRayCount, ref spheres, materials, ref randState))
             {
                 #if DO_LIGHT_SAMPLING
                 if (!doMaterialE) matE = new float3(0, 0, 0);
                 doMaterialE = (mat.type != Material.Type.Lambert);
                 #endif
-                return matE + lightE + attenuation * Trace(scattered, depth + 1, ref inoutRayCount, spheres, materials, ref randState, doMaterialE);
+                return matE + lightE + attenuation * Trace(scattered, depth + 1, ref inoutRayCount, ref spheres, materials, ref randState, doMaterialE);
             }
             else
             {
@@ -219,7 +220,7 @@ class Test
         public Camera cam;
 
         [NativeDisableParallelForRestriction] public NativeArray<int> rayCounter;
-        [NativeDisableParallelForRestriction] public NativeArray<Sphere> spheres;
+        [NativeDisableParallelForRestriction] public SpheresSoA spheres;
         [NativeDisableParallelForRestriction] public NativeArray<Material> materials;
 
         public void Execute(int y)
@@ -241,7 +242,7 @@ class Test
                     float u = (x + RandomFloat01(ref state)) * invWidth;
                     float v = (y + RandomFloat01(ref state)) * invHeight;
                     Ray r = cam.GetRay(u, v, ref state);
-                    col += Trace(r, 0, ref rayCount, spheres, materials, ref state);
+                    col += Trace(r, 0, ref rayCount, ref spheres, materials, ref state);
                 }
                 col *= 1.0f / (float)DO_SAMPLES_PER_PIXEL;
 
@@ -267,8 +268,7 @@ class Test
         float distToFocus = 3;
         float aperture = 0.1f;
 
-        for (int i = 0; i < s_SpheresData.Length; ++i)
-            s_SpheresData[i].UpdateDerivedData();
+        s_SpheresSoA.Update(s_SpheresData, s_SphereMatsData);
 
         Camera cam = new Camera(lookfrom, lookat, new float3(0, 1, 0), 60, (float)screenWidth / (float)screenHeight, aperture, distToFocus);
 
@@ -280,13 +280,12 @@ class Test
         job.backbuffer = backbuffer;
         job.cam = cam;
         job.rayCounter = new NativeArray<int>(1, Allocator.Temp);
-        job.spheres = new NativeArray<Sphere>(s_SpheresData, Allocator.Temp);
+        job.spheres = s_SpheresSoA;
         job.materials = new NativeArray<Material>(s_SphereMatsData, Allocator.Temp);
         var fence = job.Schedule(screenHeight, 4);
         fence.Complete();
         rayCount = job.rayCounter[0];
         job.rayCounter.Dispose();
-        job.spheres.Dispose();
         job.materials.Dispose();
 #else
         for (int y = 0; y < screenHeight; ++y)

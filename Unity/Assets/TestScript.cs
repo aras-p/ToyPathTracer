@@ -33,6 +33,7 @@ public class TestScript : MonoBehaviour
     private void OnDestroy()
     {
         m_Backbuffer.Dispose();
+        m_Test.Dispose();
     }
 
     void UpdateLoop()
