@@ -73,7 +73,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR,
     g_Backbuffer = new float[kBackbufferWidth * kBackbufferHeight * 4];
     memset(g_Backbuffer, 0, kBackbufferWidth * kBackbufferHeight * 4 * sizeof(g_Backbuffer[0]));
 
-    InitializeTest();
+    InitializeTest(kBackbufferWidth, kBackbufferHeight);
 
     MyRegisterClass(hInstance);
     if (!InitInstance (hInstance, nCmdShow))
@@ -264,7 +264,7 @@ static void RenderFrame()
 #if DO_COMPUTE_GPU
     QueryPerformanceCounter(&time1);
     float t = float(clock()) / CLOCKS_PER_SEC;
-    UpdateTest(t, s_FrameCount, kBackbufferWidth, kBackbufferHeight);
+    UpdateTest(t, s_FrameCount);
 
     g_BackbufferIndex = 1 - g_BackbufferIndex;
     void* dataSpheres = alloca(g_SphereCount * g_ObjSize);
@@ -320,8 +320,8 @@ static void RenderFrame()
     float t = float(clock()) / CLOCKS_PER_SEC;
     static size_t s_RayCounter = 0;
     int rayCount;
-    UpdateTest(t, s_FrameCount, kBackbufferWidth, kBackbufferHeight);
-    DrawTest(t, s_FrameCount, kBackbufferWidth, kBackbufferHeight, g_Backbuffer, rayCount);
+    UpdateTest(t, s_FrameCount);
+    DrawTest(t, s_FrameCount, g_Backbuffer, rayCount);
     s_FrameCount++;
     s_RayCounter += rayCount;
     LARGE_INTEGER time2;

@@ -65,6 +65,7 @@ static int s_EmissiveSpheres[kSphereCount];
 static int s_EmissiveSphereCount;
 
 static Camera s_Cam;
+static int s_ScreenWidth, s_ScreenHeight;
 
 const float kMinT = 0.001f;
 const float kMaxT = 1.0e7f;
@@ -229,8 +230,10 @@ static float3 Trace(const Ray& r, int depth, int& inoutRayCount, uint32_t& state
 
 static enkiTaskScheduler* g_TS;
 
-void InitializeTest()
+void InitializeTest(int screenWidth, int screenHeight)
 {
+    s_ScreenWidth = screenWidth;
+    s_ScreenHeight = screenHeight;
     g_TS = enkiNewTaskScheduler();
     enkiInitTaskScheduler(g_TS);
 }
@@ -288,7 +291,7 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
     data.rayCount += rayCount;
 }
 
-void UpdateTest(float time, int frameCount, int screenWidth, int screenHeight)
+void UpdateTest(float time, int frameCount)
 {
 #if DO_ANIMATE
     s_Spheres[1].center.y = cosf(time) + 1.0f;
@@ -326,22 +329,22 @@ void UpdateTest(float time, int frameCount, int screenWidth, int screenHeight)
         }
     }
 
-    s_Cam = Camera(lookfrom, lookat, float3(0, 1, 0), 60, float(screenWidth) / float(screenHeight), aperture, distToFocus);
+    s_Cam = Camera(lookfrom, lookat, float3(0, 1, 0), 60, float(s_ScreenWidth) / float(s_ScreenHeight), aperture, distToFocus);
 }
 
-void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, float* backbuffer, int& outRayCount)
+void DrawTest(float time, int frameCount, float* backbuffer, int& outRayCount)
 {
     JobData args;
     args.time = time;
     args.frameCount = frameCount;
-    args.screenWidth = screenWidth;
-    args.screenHeight = screenHeight;
+    args.screenWidth = s_ScreenWidth;
+    args.screenHeight = s_ScreenHeight;
     args.backbuffer = backbuffer;
     args.cam = &s_Cam;
     args.rayCount = 0;
     enkiTaskSet* task = enkiCreateTaskSet(g_TS, TraceRowJob);
     bool threaded = true;
-    enkiAddTaskSetToPipeMinRange(g_TS, task, &args, screenHeight, threaded ? 4 : screenHeight);
+    enkiAddTaskSetToPipeMinRange(g_TS, task, &args, s_ScreenHeight, threaded ? 4 : s_ScreenHeight);
     enkiWaitForTaskSet(g_TS, task);
     enkiDeleteTaskSet(task);
     outRayCount = args.rayCount;

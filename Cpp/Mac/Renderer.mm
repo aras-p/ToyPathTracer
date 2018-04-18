@@ -145,7 +145,7 @@ struct ComputeParams
 
 - (void)_loadAssets
 {
-    InitializeTest();
+    InitializeTest(kBackbufferWidth, kBackbufferHeight);
 }
 
 static uint64_t _computeStartTime;
@@ -163,7 +163,7 @@ static size_t rayCounter = 0;
     uint64_t curNs = (time1 * _clock_timebase.numer) / _clock_timebase.denom;
     float curT = float(curNs * 1.0e-9f);
 
-    UpdateTest(curT, totalCounter, kBackbufferWidth, kBackbufferHeight);
+    UpdateTest(curT, totalCounter);
     
 #if DO_COMPUTE_GPU
     _backbufferIndex = 1-_backbufferIndex;
@@ -214,7 +214,7 @@ static size_t rayCounter = 0;
     [enc endEncoding];
 #else
     int rayCount;
-    DrawTest(curT, totalCounter, kBackbufferWidth, kBackbufferHeight, _backbufferPixels, rayCount);
+    DrawTest(curT, totalCounter, _backbufferPixels, rayCount);
     rayCounter += rayCount;
 #endif
     
