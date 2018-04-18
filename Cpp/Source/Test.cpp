@@ -66,68 +66,65 @@ static int s_EmissiveSphereCount;
 
 static Camera s_Cam;
 static int s_ScreenWidth, s_ScreenHeight;
+static float* s_TempPixels;
+
+// For each bounce, iteration, this is everything we need to know about "the ray" (direction, current attenuation along it,
+// pixel location, etc.)
+struct RayData
+{
+    RayData() {}
+    RayData(const Ray& ray_, const float3& atten_, uint32_t pixelIndex_, uint32_t depth_, uint32_t lightID_, bool shadow_, bool skipEmission_)
+    : ray(ray_), atten(atten_), pixelIndex(pixelIndex_), depth(depth_), lightID(lightID_), shadow(shadow_), skipEmission(skipEmission_) {}
+
+    Ray ray;
+    float3 atten;
+    uint32_t pixelIndex;
+    uint32_t depth;
+    uint32_t lightID;
+    bool shadow;
+    bool skipEmission;
+};
+
+// Each bounce iteration will read rays to process from one buffer, and add next bounce into another buffer.
+struct RayBuffer
+{
+    RayData* data;
+    uint32_t size;
+    uint32_t capacity;
+    
+    void AddRay(const RayData& r)
+    {
+        if (size < capacity)
+        {
+            data[size++] = r;
+        }
+    }
+};
+
+// Buffer to hold all the possible rays for whole image (all pixels, samples per pixel, double buffered, etc.)
+static RayData* s_RayDataBuffer;
+static uint32_t s_RayDataCapacityPerRow;
+
 
 const float kMinT = 0.001f;
 const float kMaxT = 1.0e7f;
 const int kMaxDepth = 10;
 
 
-bool HitWorld(const Ray& r, float tMin, float tMax, Hit& outHit, int& outID)
+static int HitWorld(const Ray& r, float tMin, float tMax, Hit& outHit)
 {
-    outID = HitSpheres(r, s_SpheresSoA, tMin, tMax, outHit);
-    return outID != -1;
+    return HitSpheres(r, s_SpheresSoA, tMin, tMax, outHit);
 }
 
 
-static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3& attenuation, Ray& scattered, float3& outLightE, int& inoutRayCount, uint32_t& state)
+static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3& attenuation, Ray& scattered, /*float3& outLightE, int& inoutRayCount,*/ uint32_t& state)
 {
-    outLightE = float3(0,0,0);
     if (mat.type == Material::Lambert)
     {
         // random point on unit sphere that is tangent to the hit point
         float3 target = rec.pos + rec.normal + RandomUnitVector(state);
         scattered = Ray(rec.pos, normalize(target - rec.pos));
         attenuation = mat.albedo;
-
-        // sample lights
-#if DO_LIGHT_SAMPLING
-        for (int j = 0; j < s_EmissiveSphereCount; ++j)
-        {
-            int i = s_EmissiveSpheres[j];
-            const Material& smat = s_SphereMats[i];
-            if (&mat == &smat)
-                continue; // skip self
-            const Sphere& s = s_Spheres[i];
-
-            // create a random direction towards sphere
-            // coord system for sampling: sw, su, sv
-            float3 sw = normalize(s.center - rec.pos);
-            float3 su = normalize(cross(fabs(sw.getX())>0.01f ? float3(0,1,0):float3(1,0,0), sw));
-            float3 sv = cross(sw, su);
-            // sample sphere by solid angle
-            float cosAMax = sqrtf(1.0f - s.radius*s.radius / sqLength(rec.pos-s.center));
-            float eps1 = RandomFloat01(state), eps2 = RandomFloat01(state);
-            float cosA = 1.0f - eps1 + eps1 * cosAMax;
-            float sinA = sqrtf(1.0f - cosA*cosA);
-            float phi = 2 * kPI * eps2;
-            float3 l = su * (cosf(phi) * sinA) + sv * (sinf(phi) * sinA) + sw * cosA;
-            //l = normalize(l); // NOTE(fg): This is already normalized, by construction.
-
-            // shoot shadow ray
-            Hit lightHit;
-            int hitID;
-            ++inoutRayCount;
-            if (HitWorld(Ray(rec.pos, l), kMinT, kMaxT, lightHit, hitID) && hitID == i)
-            {
-                float omega = 2 * kPI * (1-cosAMax);
-
-                float3 rdir = r_in.dir;
-                AssertUnit(rdir);
-                float3 nl = dot(rec.normal, rdir) < 0 ? rec.normal : -rec.normal;
-                outLightE += (mat.albedo * smat.emissive) * (std::max(0.0f, dot(l, nl)) * omega / kPI);
-            }
-        }
-#endif
         return true;
     }
     else if (mat.type == Material::Metal)
@@ -187,46 +184,78 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
     return true;
 }
 
-static float3 Trace(const Ray& r, int depth, int& inoutRayCount, uint32_t& state, bool doMaterialE = true)
+static float3 SurfaceHit(const RayData& rd, const Hit& hit, int id, RayBuffer& buffer, uint32_t& state)
 {
-    Hit rec;
-    int id = 0;
-    ++inoutRayCount;
-    if (HitWorld(r, kMinT, kMaxT, rec, id))
+    assert(id >= 0 && id < kSphereCount);
+    const Material& mat = s_SphereMats[id];
+    Ray scattered;
+    float3 atten;
+    float3 lightE;
+    if (rd.depth < kMaxDepth)
     {
-        Ray scattered;
-        float3 attenuation;
-        float3 lightE;
-        const Material& mat = s_SphereMats[id];
-        float3 matE = mat.emissive;
-        if (depth < kMaxDepth && Scatter(mat, r, rec, attenuation, scattered, lightE, inoutRayCount, state))
+        if (Scatter(mat, rd.ray, hit, atten, scattered, state))
         {
+            // Queue the scattered ray for next bounce iteration
+            bool skipEmission = false;
 #if DO_LIGHT_SAMPLING
-            if (!doMaterialE) matE = float3(0,0,0); // don't add material emission if told so
-            // dor Lambert materials, we just did explicit light (emissive) sampling and already
-            // for their contribution, so if next ray bounce hits the light again, don't add
-            // emission
-            doMaterialE = (mat.type != Material::Lambert);
+            // dor Lambert materials, we are doing explicit light (emissive) sampling
+            // for their contribution, so if the scattered ray hits the light again, don't add emission
+            if (mat.type == Material::Lambert)
+                skipEmission = true;
 #endif
-            return matE + lightE + attenuation * Trace(scattered, depth+1, inoutRayCount, state, doMaterialE);
-        }
-        else
-        {
-            return matE;
+            buffer.AddRay(RayData(scattered, atten * rd.atten, rd.pixelIndex, rd.depth+1, 0, false, skipEmission));
+            
+#if DO_LIGHT_SAMPLING
+            // sample lights
+            if (mat.type == Material::Lambert)
+            {
+                for (int j = 0; j < s_EmissiveSphereCount; ++j)
+                {
+                    int i = s_EmissiveSpheres[j];
+                    const Material& smat = s_SphereMats[i];
+                    if (&mat == &smat)
+                        continue; // skip self
+                    const Sphere& s = s_Spheres[i];
+
+                    // create a random direction towards sphere
+                    // coord system for sampling: sw, su, sv
+                    float3 sw = normalize(s.center - hit.pos);
+                    float3 su = normalize(cross(fabs(sw.getX())>0.01f ? float3(0,1,0):float3(1,0,0), sw));
+                    float3 sv = cross(sw, su);
+                    // sample sphere by solid angle
+                    float cosAMax = sqrtf(1.0f - s.radius*s.radius / sqLength(hit.pos-s.center));
+                    float eps1 = RandomFloat01(state), eps2 = RandomFloat01(state);
+                    float cosA = 1.0f - eps1 + eps1 * cosAMax;
+                    float sinA = sqrtf(1.0f - cosA*cosA);
+                    float phi = 2 * kPI * eps2;
+                    float3 l = su * (cosf(phi) * sinA) + sv * (sinf(phi) * sinA) + sw * cosA;
+
+                    // Queue a shadow ray for next bounce iteration
+                    float omega = 2 * kPI * (1-cosAMax);
+                    AssertUnit(rd.ray.dir);
+                    float3 nl = dot(hit.normal, rd.ray.dir) < 0 ? hit.normal : -hit.normal;
+                    float3 shadowAtt = (mat.albedo * smat.emissive) * (std::max(0.0f, dot(l, nl)) * omega / kPI);
+                    buffer.AddRay(RayData(Ray(hit.pos, l), shadowAtt * rd.atten, rd.pixelIndex, rd.depth+1, i, true, false));
+                }
+            }
+#endif // #if DO_LIGHT_SAMPLING
         }
     }
-    else
-    {
-        // sky
-#if DO_MITSUBA_COMPARE
-        return float3(0.15f,0.21f,0.3f); // easier compare with Mitsuba's constant environment light
-#else
-        float3 unitDir = r.dir;
-        float t = 0.5f*(unitDir.getY() + 1.0f);
-        return ((1.0f-t)*float3(1.0f, 1.0f, 1.0f) + t*float3(0.5f, 0.7f, 1.0f)) * 0.3f;
-#endif
-    }
+    return rd.skipEmission ? float3(0,0,0) : mat.emissive; // don't add material emission if told so
 }
+
+
+static float3 SkyHit(const Ray& r)
+{
+    #if DO_MITSUBA_COMPARE
+    return float3(0.15f,0.21f,0.3f); // easier compare with Mitsuba's constant environment light
+    #else
+    float3 unitDir = r.dir;
+    float t = 0.5f*(unitDir.getY() + 1.0f);
+    return ((1.0f-t)*float3(1.0f, 1.0f, 1.0f) + t*float3(0.5f, 0.7f, 1.0f)) * 0.3f;
+    #endif
+}
+
 
 static enkiTaskScheduler* g_TS;
 
@@ -234,6 +263,17 @@ void InitializeTest(int screenWidth, int screenHeight)
 {
     s_ScreenWidth = screenWidth;
     s_ScreenHeight = screenHeight;
+    s_TempPixels = new float[screenWidth * screenHeight * 4];
+
+    // for every bounce iteration, each pixel/sample potentially scatters one ray, plus
+    // max amount of shadow rays
+    const int kMaxShadowRays = 3;
+    s_RayDataCapacityPerRow = screenWidth * DO_SAMPLES_PER_PIXEL * (1 + kMaxShadowRays);
+    // and we need two of those buffers (bounce input, bounce output)
+    size_t rayDataCapacity = s_RayDataCapacityPerRow * 2 * screenHeight;
+    printf("Total ray buffers: %.1fMB (%.1fMrays)\n", rayDataCapacity * sizeof(RayData) / 1024.0 / 1024.0, rayDataCapacity / 1000.0 / 1000.0);
+    s_RayDataBuffer = new RayData[rayDataCapacity];
+    
     g_TS = enkiNewTaskScheduler();
     enkiInitTaskScheduler(g_TS);
 }
@@ -241,6 +281,7 @@ void InitializeTest(int screenWidth, int screenHeight)
 void ShutdownTest()
 {
     enkiDeleteTaskScheduler(g_TS);
+    delete[] s_TempPixels;
 }
 
 struct JobData
@@ -267,9 +308,23 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
     lerpFac = 0;
 #endif
     int rayCount = 0;
+    
+    // clear temp buffer to zero
+    float* tmpPixels = s_TempPixels + start * data.screenWidth * 4;
+    memset(tmpPixels, 0, (end-start) * data.screenWidth * 4 * sizeof(s_TempPixels[0]));
+
+    // two ray buffers
+    RayBuffer buffer1, buffer2;
+    buffer1.capacity = buffer2.capacity = (end-start) * s_RayDataCapacityPerRow;
+    buffer1.size = buffer2.size = 0;
+    buffer1.data = s_RayDataBuffer + start * s_RayDataCapacityPerRow * 2;
+    buffer2.data = buffer1.data + buffer1.capacity;
+
+    // queue up initial eye rays
+    uint32_t state = (start * 9781 + data.frameCount * 6271) | 1;
+    uint32_t pixelIndex = 0;
     for (uint32_t y = start; y < end; ++y)
     {
-        uint32_t state = (y * 9781 + data.frameCount * 6271) | 1;
         for (int x = 0; x < data.screenWidth; ++x)
         {
             float3 col(0, 0, 0);
@@ -278,16 +333,80 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
                 float u = float(x + RandomFloat01(state)) * invWidth;
                 float v = float(y + RandomFloat01(state)) * invHeight;
                 Ray r = data.cam->GetRay(u, v, state);
-                col += Trace(r, 0, rayCount, state);
+                buffer1.AddRay(RayData(r, float3(1,1,1), pixelIndex, 0, 0, false, false));
             }
-            col *= 1.0f / float(DO_SAMPLES_PER_PIXEL);
+            pixelIndex += 4;
+        }
+    }
 
+    // process rays from one buffer into another buffer, until we have none left
+    while (buffer1.size > 0)
+    {
+        buffer2.size = 0;
+        for (int i = 0, n = buffer1.size; i != n; ++i)
+        {
+            // Do a ray cast against the world
+            const RayData& rd = buffer1.data[i];
+            Hit rec;
+            int id = HitWorld(rd.ray, kMinT, kMaxT, rec);
+            
+            // Does not hit anything?
+            if (id < 0)
+            {
+                if (!rd.shadow)
+                {
+                    // for non-shadow rays, evaluate and add sky
+                    float3 col = SkyHit(rd.ray) * rd.atten;
+                    tmpPixels[rd.pixelIndex+0] += col.getX();
+                    tmpPixels[rd.pixelIndex+1] += col.getY();
+                    tmpPixels[rd.pixelIndex+2] += col.getZ();
+                }
+                continue;
+            }
+
+            // A non-shadow ray hit something; evaluate material response (this can queue new rays for next bounce)
+            if (!rd.shadow)
+            {
+                float3 col = SurfaceHit(rd, rec, id, buffer2, state) * rd.atten;
+                tmpPixels[rd.pixelIndex+0] += col.getX();
+                tmpPixels[rd.pixelIndex+1] += col.getY();
+                tmpPixels[rd.pixelIndex+2] += col.getZ();
+                continue;
+            }
+
+            // A shadow ray; add illumination if we hit the needed light
+            if (rd.lightID == id)
+            {
+                assert(rd.shadow);
+                float3 col = rd.atten;
+                tmpPixels[rd.pixelIndex+0] += col.getX();
+                tmpPixels[rd.pixelIndex+1] += col.getY();
+                tmpPixels[rd.pixelIndex+2] += col.getZ();
+                continue;
+            }
+        }
+
+        rayCount += buffer1.size;
+        // Swap ray buffers and will go to next bounce iteration
+        std::swap(buffer1, buffer2);
+    }
+    
+    // Blend results into backbuffer
+    for (uint32_t y = start; y < end; ++y)
+    {
+        for (int x = 0; x < data.screenWidth; ++x)
+        {
+            float3 col(tmpPixels[0], tmpPixels[1], tmpPixels[2]);
+            col *= 1.0f / float(DO_SAMPLES_PER_PIXEL);
+            
             float3 prev(backbuffer[0], backbuffer[1], backbuffer[2]);
             col = prev * lerpFac + col * (1-lerpFac);
             col.store(backbuffer);
             backbuffer += 4;
+            tmpPixels += 4;
         }
     }
+    
     data.rayCount += rayCount;
 }
 
