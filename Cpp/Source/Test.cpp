@@ -73,13 +73,12 @@ static float* s_TempPixels;
 struct RayData
 {
     RayData() {}
-    RayData(const Ray& ray_, const float3& atten_, uint32_t pixelIndex_, uint32_t depth_, uint32_t lightID_, bool shadow_, bool skipEmission_)
-    : ray(ray_), atten(atten_), pixelIndex(pixelIndex_), depth(depth_), lightID(lightID_), shadow(shadow_), skipEmission(skipEmission_) {}
+    RayData(const Ray& ray_, const float3& atten_, uint32_t pixelIndex_, uint32_t lightID_, bool shadow_, bool skipEmission_)
+    : ray(ray_), atten(atten_), pixelIndex(pixelIndex_), lightID(lightID_), shadow(shadow_), skipEmission(skipEmission_) {}
 
     Ray ray;
     float3 atten;
     uint32_t pixelIndex;
-    uint32_t depth;
     uint32_t lightID;
     bool shadow;
     bool skipEmission;
@@ -191,55 +190,52 @@ static float3 SurfaceHit(const RayData& rd, const Hit& hit, int id, RayBuffer& b
     Ray scattered;
     float3 atten;
     float3 lightE;
-    if (rd.depth < kMaxDepth)
+    if (Scatter(mat, rd.ray, hit, atten, scattered, state))
     {
-        if (Scatter(mat, rd.ray, hit, atten, scattered, state))
-        {
-            // Queue the scattered ray for next bounce iteration
-            bool skipEmission = false;
+        // Queue the scattered ray for next bounce iteration
+        bool skipEmission = false;
 #if DO_LIGHT_SAMPLING
-            // dor Lambert materials, we are doing explicit light (emissive) sampling
-            // for their contribution, so if the scattered ray hits the light again, don't add emission
-            if (mat.type == Material::Lambert)
-                skipEmission = true;
+        // dor Lambert materials, we are doing explicit light (emissive) sampling
+        // for their contribution, so if the scattered ray hits the light again, don't add emission
+        if (mat.type == Material::Lambert)
+            skipEmission = true;
 #endif
-            buffer.AddRay(RayData(scattered, atten * rd.atten, rd.pixelIndex, rd.depth+1, 0, false, skipEmission));
-            
+        buffer.AddRay(RayData(scattered, atten * rd.atten, rd.pixelIndex, 0, false, skipEmission));
+        
 #if DO_LIGHT_SAMPLING
-            // sample lights
-            if (mat.type == Material::Lambert)
+        // sample lights
+        if (mat.type == Material::Lambert)
+        {
+            for (int j = 0; j < s_EmissiveSphereCount; ++j)
             {
-                for (int j = 0; j < s_EmissiveSphereCount; ++j)
-                {
-                    int i = s_EmissiveSpheres[j];
-                    const Material& smat = s_SphereMats[i];
-                    if (&mat == &smat)
-                        continue; // skip self
-                    const Sphere& s = s_Spheres[i];
+                int i = s_EmissiveSpheres[j];
+                const Material& smat = s_SphereMats[i];
+                if (&mat == &smat)
+                    continue; // skip self
+                const Sphere& s = s_Spheres[i];
 
-                    // create a random direction towards sphere
-                    // coord system for sampling: sw, su, sv
-                    float3 sw = normalize(s.center - hit.pos);
-                    float3 su = normalize(cross(fabs(sw.getX())>0.01f ? float3(0,1,0):float3(1,0,0), sw));
-                    float3 sv = cross(sw, su);
-                    // sample sphere by solid angle
-                    float cosAMax = sqrtf(1.0f - s.radius*s.radius / sqLength(hit.pos-s.center));
-                    float eps1 = RandomFloat01(state), eps2 = RandomFloat01(state);
-                    float cosA = 1.0f - eps1 + eps1 * cosAMax;
-                    float sinA = sqrtf(1.0f - cosA*cosA);
-                    float phi = 2 * kPI * eps2;
-                    float3 l = su * (cosf(phi) * sinA) + sv * (sinf(phi) * sinA) + sw * cosA;
+                // create a random direction towards sphere
+                // coord system for sampling: sw, su, sv
+                float3 sw = normalize(s.center - hit.pos);
+                float3 su = normalize(cross(fabs(sw.getX())>0.01f ? float3(0,1,0):float3(1,0,0), sw));
+                float3 sv = cross(sw, su);
+                // sample sphere by solid angle
+                float cosAMax = sqrtf(1.0f - s.radius*s.radius / sqLength(hit.pos-s.center));
+                float eps1 = RandomFloat01(state), eps2 = RandomFloat01(state);
+                float cosA = 1.0f - eps1 + eps1 * cosAMax;
+                float sinA = sqrtf(1.0f - cosA*cosA);
+                float phi = 2 * kPI * eps2;
+                float3 l = su * (cosf(phi) * sinA) + sv * (sinf(phi) * sinA) + sw * cosA;
 
-                    // Queue a shadow ray for next bounce iteration
-                    float omega = 2 * kPI * (1-cosAMax);
-                    AssertUnit(rd.ray.dir);
-                    float3 nl = dot(hit.normal, rd.ray.dir) < 0 ? hit.normal : -hit.normal;
-                    float3 shadowAtt = (mat.albedo * smat.emissive) * (std::max(0.0f, dot(l, nl)) * omega / kPI);
-                    buffer.AddRay(RayData(Ray(hit.pos, l), shadowAtt * rd.atten, rd.pixelIndex, rd.depth+1, i, true, false));
-                }
+                // Queue a shadow ray for next bounce iteration
+                float omega = 2 * kPI * (1-cosAMax);
+                AssertUnit(rd.ray.dir);
+                float3 nl = dot(hit.normal, rd.ray.dir) < 0 ? hit.normal : -hit.normal;
+                float3 shadowAtt = (mat.albedo * smat.emissive) * (std::max(0.0f, dot(l, nl)) * omega / kPI);
+                buffer.AddRay(RayData(Ray(hit.pos, l), shadowAtt * rd.atten, rd.pixelIndex, i, true, false));
             }
-#endif // #if DO_LIGHT_SAMPLING
         }
+#endif // #if DO_LIGHT_SAMPLING
     }
     return rd.skipEmission ? float3(0,0,0) : mat.emissive; // don't add material emission if told so
 }
@@ -333,14 +329,14 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
                 float u = float(x + RandomFloat01(state)) * invWidth;
                 float v = float(y + RandomFloat01(state)) * invHeight;
                 Ray r = data.cam->GetRay(u, v, state);
-                buffer1.AddRay(RayData(r, float3(1,1,1), pixelIndex, 0, 0, false, false));
+                buffer1.AddRay(RayData(r, float3(1,1,1), pixelIndex, 0, false, false));
             }
             pixelIndex += 4;
         }
     }
 
-    // process rays from one buffer into another buffer, until we have none left
-    while (buffer1.size > 0)
+    // process rays from one buffer into another buffer, for all bounce iterations
+    for (int depth = 0; depth < kMaxDepth; ++depth)
     {
         buffer2.size = 0;
         for (int i = 0, n = buffer1.size; i != n; ++i)
