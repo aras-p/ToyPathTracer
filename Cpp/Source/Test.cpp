@@ -73,11 +73,17 @@ static float* s_TempPixels;
 struct RayData
 {
     RayData() {}
-    RayData(const Ray& ray_, const float3& atten_, uint32_t pixelIndex_, uint32_t lightID_, bool shadow_, bool skipEmission_)
-    : ray(ray_), atten(atten_), pixelIndex(pixelIndex_), lightID(lightID_), shadow(shadow_), skipEmission(skipEmission_) {}
+    RayData(const Ray& r, const float3& atten, uint32_t pixelIndex_, uint32_t lightID_, bool shadow_, bool skipEmission_)
+    : origX(r.orig.getX()), origY(r.orig.getY()), origZ(r.orig.getZ())
+    , dirX(r.dir.getX()), dirY(r.dir.getY()), dirZ(r.dir.getZ())
+    , attenX(atten.getX()), attenY(atten.getY()), attenZ(atten.getZ())
+    , pixelIndex(pixelIndex_), lightID(lightID_), shadow(shadow_), skipEmission(skipEmission_) {}
 
-    Ray ray;
-    float3 atten;
+    Ray GetRay() const { return Ray(float3(origX,origY,origZ), float3(dirX,dirY,dirZ)); }
+    float3 GetAtten() const { return float3(attenX,attenY,attenZ); }
+    float origX, origY, origZ;
+    float dirX, dirY, dirZ;
+    float attenX, attenY, attenZ;
     uint32_t pixelIndex;
     uint32_t lightID;
     bool shadow;
@@ -183,14 +189,14 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
     return true;
 }
 
-static float3 SurfaceHit(const RayData& rd, const Hit& hit, int id, RayBuffer& buffer, uint32_t& state)
+static float3 SurfaceHit(const Ray& r, float3 rayAtten, uint32_t pixelIndex, bool raySkipEmission, const Hit& hit, int id, RayBuffer& buffer, uint32_t& state)
 {
     assert(id >= 0 && id < kSphereCount);
     const Material& mat = s_SphereMats[id];
     Ray scattered;
     float3 atten;
     float3 lightE;
-    if (Scatter(mat, rd.ray, hit, atten, scattered, state))
+    if (Scatter(mat, r, hit, atten, scattered, state))
     {
         // Queue the scattered ray for next bounce iteration
         bool skipEmission = false;
@@ -200,7 +206,7 @@ static float3 SurfaceHit(const RayData& rd, const Hit& hit, int id, RayBuffer& b
         if (mat.type == Material::Lambert)
             skipEmission = true;
 #endif
-        buffer.AddRay(RayData(scattered, atten * rd.atten, rd.pixelIndex, 0, false, skipEmission));
+        buffer.AddRay(RayData(scattered, atten * rayAtten, pixelIndex, 0, false, skipEmission));
         
 #if DO_LIGHT_SAMPLING
         // sample lights
@@ -229,15 +235,15 @@ static float3 SurfaceHit(const RayData& rd, const Hit& hit, int id, RayBuffer& b
 
                 // Queue a shadow ray for next bounce iteration
                 float omega = 2 * kPI * (1-cosAMax);
-                AssertUnit(rd.ray.dir);
-                float3 nl = dot(hit.normal, rd.ray.dir) < 0 ? hit.normal : -hit.normal;
+                AssertUnit(r.dir);
+                float3 nl = dot(hit.normal, r.dir) < 0 ? hit.normal : -hit.normal;
                 float3 shadowAtt = (mat.albedo * smat.emissive) * (std::max(0.0f, dot(l, nl)) * omega / kPI);
-                buffer.AddRay(RayData(Ray(hit.pos, l), shadowAtt * rd.atten, rd.pixelIndex, i, true, false));
+                buffer.AddRay(RayData(Ray(hit.pos, l), shadowAtt * rayAtten, pixelIndex, i, true, false));
             }
         }
 #endif // #if DO_LIGHT_SAMPLING
     }
-    return rd.skipEmission ? float3(0,0,0) : mat.emissive; // don't add material emission if told so
+    return raySkipEmission ? float3(0,0,0) : mat.emissive; // don't add material emission if told so
 }
 
 
@@ -343,8 +349,10 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
         {
             // Do a ray cast against the world
             const RayData& rd = buffer1.data[i];
+            Ray rdRay = rd.GetRay();
+            float3 rdAtten = rd.GetAtten();
             Hit rec;
-            int id = HitWorld(rd.ray, kMinT, kMaxT, rec);
+            int id = HitWorld(rdRay, kMinT, kMaxT, rec);
             
             // Does not hit anything?
             if (id < 0)
@@ -352,7 +360,7 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
                 if (!rd.shadow)
                 {
                     // for non-shadow rays, evaluate and add sky
-                    float3 col = SkyHit(rd.ray) * rd.atten;
+                    float3 col = SkyHit(rdRay) * rdAtten;
                     tmpPixels[rd.pixelIndex+0] += col.getX();
                     tmpPixels[rd.pixelIndex+1] += col.getY();
                     tmpPixels[rd.pixelIndex+2] += col.getZ();
@@ -363,7 +371,7 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
             // A non-shadow ray hit something; evaluate material response (this can queue new rays for next bounce)
             if (!rd.shadow)
             {
-                float3 col = SurfaceHit(rd, rec, id, buffer2, state) * rd.atten;
+                float3 col = SurfaceHit(rdRay, rdAtten, rd.pixelIndex, rd.skipEmission, rec, id, buffer2, state) * rdAtten;
                 tmpPixels[rd.pixelIndex+0] += col.getX();
                 tmpPixels[rd.pixelIndex+1] += col.getY();
                 tmpPixels[rd.pixelIndex+2] += col.getZ();
@@ -374,7 +382,7 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
             if (rd.lightID == id)
             {
                 assert(rd.shadow);
-                float3 col = rd.atten;
+                float3 col = rdAtten;
                 tmpPixels[rd.pixelIndex+0] += col.getX();
                 tmpPixels[rd.pixelIndex+1] += col.getY();
                 tmpPixels[rd.pixelIndex+2] += col.getZ();
