@@ -84,10 +84,10 @@ struct RayData
     float origX, origY, origZ;
     float dirX, dirY, dirZ;
     float attenX, attenY, attenZ;
-    uint32_t pixelIndex;
-    uint32_t lightID;
-    bool shadow;
-    bool skipEmission;
+    uint32_t pixelIndex : 22; // 1280x720x4 can fit into 22 bits; we use much less since it's job-local
+    uint32_t lightID : 8;
+    uint32_t shadow : 1;
+    uint32_t skipEmission : 1;
 };
 
 // Each bounce iteration will read rays to process from one buffer, and add next bounce into another buffer.
@@ -273,7 +273,7 @@ void InitializeTest(int screenWidth, int screenHeight)
     s_RayDataCapacityPerRow = screenWidth * DO_SAMPLES_PER_PIXEL * (1 + kMaxShadowRays);
     // and we need two of those buffers (bounce input, bounce output)
     size_t rayDataCapacity = s_RayDataCapacityPerRow * 2 * screenHeight;
-    printf("Total ray buffers: %.1fMB (%.1fMrays)\n", rayDataCapacity * sizeof(RayData) / 1024.0 / 1024.0, rayDataCapacity / 1000.0 / 1000.0);
+    printf("Total ray buffers: %.1fMB (%.1fMrays at %i bytes/ray)\n", rayDataCapacity * sizeof(RayData) / 1024.0 / 1024.0, rayDataCapacity / 1000.0 / 1000.0, (int)sizeof(RayData));
     s_RayDataBuffer = new RayData[rayDataCapacity];
     
     g_TS = enkiNewTaskScheduler();
@@ -342,7 +342,7 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
     }
 
     // process rays from one buffer into another buffer, for all bounce iterations
-    for (int depth = 0; depth < kMaxDepth; ++depth)
+    for (int depth = 0; depth <= kMaxDepth; ++depth)
     {
         buffer2.size = 0;
         for (int i = 0, n = buffer1.size; i != n; ++i)
