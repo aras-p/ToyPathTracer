@@ -75,15 +75,19 @@ struct RayData
     RayData() {}
     RayData(const Ray& r, const float3& atten, uint32_t pixelIndex_, uint32_t lightID_, bool shadow_, bool skipEmission_)
     : origX(r.orig.getX()), origY(r.orig.getY()), origZ(r.orig.getZ())
-    , dirX(r.dir.getX()), dirY(r.dir.getY()), dirZ(r.dir.getZ())
-    , attenX(atten.getX()), attenY(atten.getY()), attenZ(atten.getZ())
-    , pixelIndex(pixelIndex_), lightID(lightID_), shadow(shadow_), skipEmission(skipEmission_) {}
+    , pixelIndex(pixelIndex_), lightID(lightID_), shadow(shadow_), skipEmission(skipEmission_)
+    {
+        Float3ToHalf3(r.dir, &dirX);
+        Float3ToHalf3(atten, &attenX);
+    }
 
-    Ray GetRay() const { return Ray(float3(origX,origY,origZ), float3(dirX,dirY,dirZ)); }
-    float3 GetAtten() const { return float3(attenX,attenY,attenZ); }
+    Ray GetRay() const { return Ray(float3(origX,origY,origZ), Half3ToFloat3(&dirX)); }
+    float3 GetAtten() const { return Half3ToFloat3(&attenX); }
+
     float origX, origY, origZ;
-    float dirX, dirY, dirZ;
-    float attenX, attenY, attenZ;
+    // Store direction & attenuation in FP16 ("half"), to save on memory size for ray buffers
+    int16_t dirX, dirY, dirZ;
+    int16_t attenX, attenY, attenZ;
     uint32_t pixelIndex : 22; // 1280x720x4 can fit into 22 bits; we use much less since it's job-local
     uint32_t lightID : 8;
     uint32_t shadow : 1;

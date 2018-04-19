@@ -330,6 +330,7 @@
 				GCC_FAST_MATH = YES;
 				INFOPLIST_FILE = "$(SRCROOT)/Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				OTHER_CFLAGS = "-mf16c";
 				PRODUCT_BUNDLE_IDENTIFIER = com.aras.Test;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -344,6 +345,7 @@
 				GCC_FAST_MATH = YES;
 				INFOPLIST_FILE = "$(SRCROOT)/Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				OTHER_CFLAGS = "-mf16c";
 				PRODUCT_BUNDLE_IDENTIFIER = com.aras.Test;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};

@@ -296,3 +296,45 @@ struct Camera
     float lensRadius;
 };
 
+
+// Use F16C instructions for float<->half conversions. Intel CPUs have had this since Ivy Bridge (2011),
+// and AMD since Bulldozer (2011).
+
+#include <immintrin.h>
+
+inline int16_t FloatToHalf(float val)
+{
+    __m128 f = _mm_set1_ps(val);
+    __m128i h = _mm_cvtps_ph(f, _MM_FROUND_CUR_DIRECTION);
+    return _mm_extract_epi16(h, 0);
+}
+inline float HalfToFloat(int16_t val_)
+{
+    __m128i h = _mm_set1_epi16(val_);
+    __m128 f = _mm_cvtph_ps(h);
+    return _mm_cvtss_f32(f);
+}
+inline void Float3ToHalf3(float3 val, int16_t* dst)
+{
+#if DO_FLOAT3_WITH_SSE
+    __m128i h = _mm_cvtps_ph(val.m, _MM_FROUND_CUR_DIRECTION);
+    dst[0] = _mm_extract_epi16(h, 0);
+    dst[1] = _mm_extract_epi16(h, 1);
+    dst[2] = _mm_extract_epi16(h, 2);
+#else
+    dst[0] = FloatToHalf(val.getX());
+    dst[1] = FloatToHalf(val.getY());
+    dst[2] = FloatToHalf(val.getZ());
+#endif
+}
+inline float3 Half3ToFloat3(const int16_t* src)
+{
+#if DO_FLOAT3_WITH_SSE
+    __m128i h = _mm_set_epi16(0,0,0,0,0,src[2],src[1],src[0]);
+    __m128 f = _mm_cvtph_ps(h);
+    return float3(f);
+#else
+    return float3(HalfToFloat(src[0]), HalfToFloat(src[1]), HalfToFloat(src[2]));
+#endif
+}
+
