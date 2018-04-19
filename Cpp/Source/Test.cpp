@@ -81,7 +81,7 @@ struct RayData
         Float3ToHalf3(atten, &attenX);
     }
 
-    Ray GetRay() const { return Ray(float3(origX,origY,origZ), Half3ToFloat3(&dirX)); }
+    Ray GetRay() const { return Ray(float3(origX,origY,origZ), normalize(Half3ToFloat3(&dirX))); }
     float3 GetAtten() const { return Half3ToFloat3(&attenX); }
 
     float origX, origY, origZ;
