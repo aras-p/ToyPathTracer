@@ -122,7 +122,7 @@ static int HitWorld(const Ray& r, float tMin, float tMax, Hit& outHit)
 }
 
 
-static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3& attenuation, Ray& scattered, /*float3& outLightE, int& inoutRayCount,*/ uint32_t& state)
+static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3& attenuation, Ray& scattered, uint32_t& state)
 {
     if (mat.type == Material::Lambert)
     {
@@ -322,7 +322,7 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
     buffer1.data = s_RayDataBuffer + start * s_RayDataCapacityPerRow * 2;
     buffer2.data = buffer1.data + buffer1.capacity;
 
-    // queue up initial eye rays
+    // initial eye rays; immediately raycast and process them
     uint32_t state = (start * 9781 + data.frameCount * 6271) | 1;
     uint32_t pixelIndex = 0;
     for (uint32_t y = start; y < end; ++y)
@@ -335,16 +335,37 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
                 float u = float(x + RandomFloat01(state)) * invWidth;
                 float v = float(y + RandomFloat01(state)) * invHeight;
                 Ray r = data.cam->GetRay(u, v, state);
-                buffer1.AddRay(RayData(r, float3(1,1,1), pixelIndex, 0, false, false));
+                
+                // Do a ray cast against the world
+                ++rayCount;
+                Hit rec;
+                int id = HitWorld(r, kMinT, kMaxT, rec);
+                // Does not hit anything?
+                if (id < 0)
+                {
+                    // evaluate and add sky
+                    float3 col = SkyHit(r);
+                    tmpPixels[pixelIndex+0] += col.getX();
+                    tmpPixels[pixelIndex+1] += col.getY();
+                    tmpPixels[pixelIndex+2] += col.getZ();
+                    continue;
+                }
+                
+                // Hit something; evaluate material response (this can queue new rays for next bounce)
+                float3 col = SurfaceHit(r, float3(1,1,1), pixelIndex, false, rec, id, buffer1, state);
+                tmpPixels[pixelIndex+0] += col.getX();
+                tmpPixels[pixelIndex+1] += col.getY();
+                tmpPixels[pixelIndex+2] += col.getZ();
             }
             pixelIndex += 4;
         }
     }
 
     // process rays from one buffer into another buffer, for all bounce iterations
-    for (int depth = 0; depth <= kMaxDepth; ++depth)
+    for (int depth = 0; depth < kMaxDepth; ++depth)
     {
         buffer2.size = 0;
+        //printf("Iteration %i: %.1fMrays\n", depth, buffer1.size / 1000.0 / 1000.0);
         for (int i = 0, n = buffer1.size; i != n; ++i)
         {
             // Do a ray cast against the world
