@@ -166,6 +166,19 @@ bool RayDataIsSkipEmission(RayData rd)
     return (rd.flags & (1 << 31)) != 0;
 }
 
+struct SplatData
+{
+    float3 color;
+    uint pixelIndex;
+};
+SplatData MakeSplatData(float3 color, uint pixelIndex)
+{
+    SplatData sd;
+    sd.color = color;
+    sd.pixelIndex = pixelIndex;
+    return sd;
+}
+
 
 int HitSpheres(Ray r, StructuredBuffer<Sphere> spheres, int sphereCount, float tMin, float tMax, inout Hit outHit)
 {
@@ -228,11 +241,14 @@ StructuredBuffer<RayData> g_RayBufferSrc : register(t6);
 RWTexture2D<float4> dstImage : register(u0);
 RWByteAddressBuffer g_OutCounts : register(u1);
 RWStructuredBuffer<RayData> g_RayBufferDst : register(u2);
+RWStructuredBuffer<SplatData> g_SplatBufferDst : register(u3);
 
+groupshared uint s_GroupRayCounter;
+#define kMaxGroupRays 768
+groupshared RayData s_GroupRays[kMaxGroupRays];
 
 #define kMinT 0.001f
 #define kMaxT 1.0e7f
-#define kMaxDepth 10
 
 
 static int HitWorld(StructuredBuffer<Sphere> spheres, int sphereCount, Ray r, float tMin, float tMax, inout Hit outHit)
@@ -313,7 +329,7 @@ static float3 SurfaceHit(
     StructuredBuffer<int> emissives, int emissiveCount,
     Ray r, float3 rayAtten,
     uint pixelIndex, bool raySkipEmission, Hit hit, int id,
-    RWStructuredBuffer<RayData> buffer, inout uint state)
+    inout uint state)
 {
     Material mat = materials[id];
     Ray scattered;
@@ -330,8 +346,9 @@ static float3 SurfaceHit(
 #endif
 
         uint rayIdx;
-        g_OutCounts.InterlockedAdd(4, 1, rayIdx);
-        buffer[rayIdx] = MakeRayData(scattered, atten * rayAtten, pixelIndex, 0, false, skipEmission);
+        InterlockedAdd(s_GroupRayCounter, 1, rayIdx);
+        if (rayIdx < kMaxGroupRays)
+            s_GroupRays[rayIdx] = MakeRayData(scattered, atten * rayAtten, pixelIndex, 0, false, skipEmission);
 
         // sample lights
 #if DO_LIGHT_SAMPLING
@@ -362,10 +379,11 @@ static float3 SurfaceHit(
                 float omega = 2 * 3.1415926 * (1 - cosAMax);
                 float3 nl = dot(hit.normal, r.dir) < 0 ? hit.normal : -hit.normal;
 
-                uint rayIdx;
-                g_OutCounts.InterlockedAdd(4, 1, rayIdx);
                 float3 shadowAtt = (mat.albedo * smat.emissive) * (max(0.0f, dot(l, nl)) * omega / 3.1415926);
-                buffer[rayIdx] = MakeRayData(MakeRay(hit.pos,l), shadowAtt * rayAtten, pixelIndex, i, true, false);
+                uint rayIdx;
+                InterlockedAdd(s_GroupRayCounter, 1, rayIdx);
+                if (rayIdx < kMaxGroupRays)
+                    s_GroupRays[rayIdx] = MakeRayData(MakeRay(hit.pos, l), shadowAtt * rayAtten, pixelIndex, i, true, false);
             }
         }
 #endif

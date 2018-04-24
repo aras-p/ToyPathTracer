@@ -66,5 +66,7 @@
     <FxCompile Include="ComputeShaderCameraRays.hlsl" />
     <FxCompile Include="ComputeShaderFinal.hlsl" />
     <FxCompile Include="ComputeShaderCopyCount.hlsl" />
+    <FxCompile Include="PixelShaderSplat.hlsl" />
+    <FxCompile Include="VertexShaderSplat.hlsl" />
   </ItemGroup>
 </Project>

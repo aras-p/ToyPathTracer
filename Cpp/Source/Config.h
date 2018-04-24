@@ -15,8 +15,8 @@
 
 // Should path tracing be done on the GPU with a compute shader?
 #define DO_COMPUTE_GPU 1
-#define kCSGroupSizeX 16
-#define kCSGroupSizeY 16
+#define kCSGroupSizeX 8
+#define kCSGroupSizeY 8
 #define kCSRayBatchSize 256
 
 // Should float3 struct use SSE?
