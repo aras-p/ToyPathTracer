@@ -388,8 +388,6 @@ static void DoComputeCameraRays()
     int zeroCounts[] = { 0, 0, 0 };
     g_D3D11Ctx->UpdateSubresource(g_DataCounter, 0, NULL, &zeroCounts, 0, 0);
 
-    float zeroes[] = { 0,0,0,0 };
-    g_D3D11Ctx->ClearUnorderedAccessViewFloat(g_TmpTex->uav, zeroes);
     ID3D11ShaderResourceView* srvs[] = {
         NULL,
         NULL,
