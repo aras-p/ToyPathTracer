@@ -1,8 +1,15 @@
 #include "ComputeShader.hlsl"
 
+groupshared uint s_RayCounter;
+
+
 [numthreads(kCSRayBatchSize, 1, 1)]
-void main(uint3 gid : SV_DispatchThreadID)
+void main(uint3 gid : SV_DispatchThreadID, uint3 tid : SV_GroupThreadID)
 {
+    if (tid.x == 0)
+        s_RayCounter = 0;
+    GroupMemoryBarrier();
+
     Params params = g_Params[0];
     uint rngState = (gid.x * 9781 + params.frames * 6271) | 1;
 
@@ -11,9 +18,6 @@ void main(uint3 gid : SV_DispatchThreadID)
     uint pixelIndex = RayDataGetPixelIndex(rd);
     float3 rdAtten = RayDataGetAtten(rd);
     uint2 pixelCoord = uint2(pixelIndex>>11, pixelIndex & 0x7FF);
-
-    uint prevRayCount;
-    g_OutCounts.InterlockedAdd(0, 1, prevRayCount);
 
     Hit rec;
     int id = HitWorld(g_Spheres, params.sphereCount, rdRay, kMinT, kMaxT, rec);
@@ -47,4 +51,9 @@ void main(uint3 gid : SV_DispatchThreadID)
             }
         }
     }
+
+    InterlockedAdd(s_RayCounter, 1);
+    GroupMemoryBarrierWithGroupSync();
+    if (tid.x == 0)
+        g_OutCounts.InterlockedAdd(0, s_RayCounter);
 }

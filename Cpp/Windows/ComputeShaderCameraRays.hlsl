@@ -1,7 +1,7 @@
 #include "ComputeShader.hlsl"
 
 [numthreads(kCSGroupSizeX, kCSGroupSizeY, 1)]
-void main(uint3 gid : SV_DispatchThreadID)
+void main(uint3 gid : SV_DispatchThreadID, uint3 tid : SV_GroupThreadID)
 {
     float3 col = 0;
     Params params = g_Params[0];
@@ -33,6 +33,6 @@ void main(uint3 gid : SV_DispatchThreadID)
         dstImage[gid.xy] += float4(col, 0);
     }
 
-    uint prevRayCount;
-    g_OutCounts.InterlockedAdd(0, DO_SAMPLES_PER_PIXEL, prevRayCount);
+    if (tid.x == 0 && tid.y == 0)
+        g_OutCounts.InterlockedAdd(0, DO_SAMPLES_PER_PIXEL * kCSGroupSizeX * kCSGroupSizeY);
 }
