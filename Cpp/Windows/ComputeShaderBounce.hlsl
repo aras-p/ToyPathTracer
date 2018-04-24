@@ -8,7 +8,7 @@ void main(uint3 gid : SV_DispatchThreadID, uint3 tid : SV_GroupThreadID)
 {
     if (tid.x == 0)
         s_RayCounter = 0;
-    GroupMemoryBarrier();
+    GroupMemoryBarrierWithGroupSync();
 
     Params params = g_Params[0];
     uint rngState = (gid.x * 9781 + params.frames * 6271) | 1;

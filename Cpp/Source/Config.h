@@ -17,7 +17,7 @@
 #define DO_COMPUTE_GPU 1
 #define kCSGroupSizeX 16
 #define kCSGroupSizeY 16
-#define kCSRayBatchSize 64
+#define kCSRayBatchSize 256
 
 // Should float3 struct use SSE?
 #define DO_FLOAT3_WITH_SSE (!(DO_COMPUTE_GPU) && 1)
