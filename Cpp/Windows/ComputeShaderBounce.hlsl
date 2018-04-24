@@ -1,8 +1,27 @@
 #include "ComputeShader.hlsl"
 
-groupshared uint s_RayCounter;
-groupshared uint s_GroupSplatCounter;
+// Since the rays we process during bounce CS invocations can be in arbitrary image locations,
+// we can't "easily" blend their trace results into the resulting image (different CS threads
+// could be processing rays for the same image location at once). So instead, we emit
+// "point splats" (color + pixel index), that later on are rasterized as point primitives
+// using regular GPU functionality; blending unit takes care of same-location splats just fine.
+//
+// The splat infos are emitted into group shared buffer, and later on blasted into global one.
 
+struct SplatData
+{
+    float3 color;
+    uint pixelIndex;
+};
+SplatData MakeSplatData(float3 color, uint pixelIndex)
+{
+    SplatData sd;
+    sd.color = color;
+    sd.pixelIndex = pixelIndex;
+    return sd;
+}
+
+groupshared uint s_GroupSplatCounter;
 groupshared SplatData s_GroupSplats[kCSRayBatchSize];
 
 void PushSplat(float3 col, uint pixelIndex)
@@ -12,13 +31,14 @@ void PushSplat(float3 col, uint pixelIndex)
     s_GroupSplats[splatIndex] = MakeSplatData(col, pixelIndex);
 }
 
+RWStructuredBuffer<SplatData> g_SplatBufferDst : register(u3);
+
 
 [numthreads(kCSRayBatchSize, 1, 1)]
 void main(uint3 gid : SV_DispatchThreadID, uint3 tid : SV_GroupThreadID)
 {
     if (tid.x == 0)
     {
-        s_RayCounter = 0;
         s_GroupRayCounter = 0;
         s_GroupSplatCounter = 0;
     }
@@ -31,7 +51,6 @@ void main(uint3 gid : SV_DispatchThreadID, uint3 tid : SV_GroupThreadID)
     Ray rdRay = RayDataGetRay(rd);
     uint pixelIndex = RayDataGetPixelIndex(rd);
     float3 rdAtten = RayDataGetAtten(rd);
-    //uint2 pixelCoord = uint2(pixelIndex>>11, pixelIndex & 0x7FF);
 
     Hit rec;
     int id = HitWorld(g_Spheres, params.sphereCount, rdRay, kMinT, kMaxT, rec);
@@ -42,7 +61,6 @@ void main(uint3 gid : SV_DispatchThreadID, uint3 tid : SV_GroupThreadID)
         {
             // for non-shadow rays, evaluate and add sky
             float3 col = SkyHit(rdRay) * rdAtten;
-            //dstImage[pixelCoord] += float4(col, 0);
             PushSplat(col, pixelIndex);
         }
     }
@@ -54,7 +72,6 @@ void main(uint3 gid : SV_DispatchThreadID, uint3 tid : SV_GroupThreadID)
             float3 col = SurfaceHit(g_Spheres, g_Materials, params.sphereCount, g_Emissives, params.emissiveCount,
                 rdRay, rdAtten, pixelIndex, RayDataIsSkipEmission(rd), rec, id,
                 rngState) * rdAtten;
-            //dstImage[pixelCoord] += float4(col, 0);
             PushSplat(col, pixelIndex);
         }
         else
@@ -63,13 +80,11 @@ void main(uint3 gid : SV_DispatchThreadID, uint3 tid : SV_GroupThreadID)
             if (id == RayDataGetLightID(rd))
             {
                 float3 col = rdAtten;
-                //dstImage[pixelCoord] += float4(rdAtten, 0);
                 PushSplat(col, pixelIndex);
             }
         }
     }
 
-    InterlockedAdd(s_RayCounter, 1);
     GroupMemoryBarrierWithGroupSync();
 
     // debugging; add green tint to any places where we didn't have enough space for new rays
@@ -78,16 +93,12 @@ void main(uint3 gid : SV_DispatchThreadID, uint3 tid : SV_GroupThreadID)
 
     if (tid.x == 0)
     {
-        g_OutCounts.InterlockedAdd(0, s_RayCounter);
-        s_GroupRayCounter = min(s_GroupRayCounter, kMaxGroupRays);
+        // total ray counts (for perf indicator)
+        g_OutCounts.InterlockedAdd(0, kCSRayBatchSize);
 
-        uint rayBufferStart;
-        g_OutCounts.InterlockedAdd(4, s_GroupRayCounter, rayBufferStart);
-        for (uint ir = 0; ir < s_GroupRayCounter; ++ir)
-        {
-            g_RayBufferDst[rayBufferStart + ir] = s_GroupRays[ir];
-        }
+        PushGlobalRayData();
 
+        // append new splats into global buffer
         uint splatBufferStart;
         g_OutCounts.InterlockedAdd(8, s_GroupSplatCounter, splatBufferStart);
         for (uint is = 0; is < s_GroupSplatCounter; ++is)

@@ -439,16 +439,9 @@ static void DoComputeRayBounce(int depth)
     }
 
     // set new rays count to zero before processing the next bounce
-    //D3D11_MAPPED_SUBRESOURCE mapped;
-    //g_D3D11Ctx->Map(g_DataCounter, 0, D3D11_MAP_READ, 0, &mapped);
-    //g_D3D11Ctx->Unmap(g_DataCounter, 0);
-
     int zeroCount[] = { 0 };
     D3D11_BOX updateBox = {4, 0, 0, 8, 1, 1};
     g_D3D11Ctx->UpdateSubresource(g_DataCounter, 0, &updateBox, &zeroCount, 0, 0);
-
-    //g_D3D11Ctx->Map(g_DataCounter, 0, D3D11_MAP_READ, 0, &mapped);
-    //g_D3D11Ctx->Unmap(g_DataCounter, 0);
 
     // process ray bounce
     {
@@ -474,9 +467,6 @@ static void DoComputeRayBounce(int depth)
         g_D3D11Ctx->CSSetShader(g_CSBounce, NULL, 0);
         g_D3D11Ctx->DispatchIndirect(g_DataIndirectCounter, 0);
     }
-
-    //g_D3D11Ctx->Map(g_DataCounter, 0, D3D11_MAP_READ, 0, &mapped);
-    //g_D3D11Ctx->Unmap(g_DataCounter, 0);
 }
 
 static void DoComputeSplats()

@@ -47,12 +47,7 @@ void main(uint3 gid : SV_DispatchThreadID, uint3 tid : SV_GroupThreadID)
     if (tid.x == 0 && tid.y == 0)
     {
         g_OutCounts.InterlockedAdd(0, DO_SAMPLES_PER_PIXEL * kCSGroupSizeX * kCSGroupSizeY);
-        uint rayCount = min(s_GroupRayCounter, kMaxGroupRays);
-        uint rayBufferStart;
-        g_OutCounts.InterlockedAdd(4, rayCount, rayBufferStart);
-        for (uint i = 0; i < rayCount; ++i)
-        {
-            g_RayBufferDst[rayBufferStart + i] = s_GroupRays[i];
-        }
+
+        PushGlobalRayData();
     }
 }

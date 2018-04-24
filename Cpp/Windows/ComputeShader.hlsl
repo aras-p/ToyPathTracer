@@ -166,19 +166,6 @@ bool RayDataIsSkipEmission(RayData rd)
     return (rd.flags & (1 << 31)) != 0;
 }
 
-struct SplatData
-{
-    float3 color;
-    uint pixelIndex;
-};
-SplatData MakeSplatData(float3 color, uint pixelIndex)
-{
-    SplatData sd;
-    sd.color = color;
-    sd.pixelIndex = pixelIndex;
-    return sd;
-}
-
 
 int HitSpheres(Ray r, StructuredBuffer<Sphere> spheres, int sphereCount, float tMin, float tMax, inout Hit outHit)
 {
@@ -241,11 +228,34 @@ StructuredBuffer<RayData> g_RayBufferSrc : register(t6);
 RWTexture2D<float4> dstImage : register(u0);
 RWByteAddressBuffer g_OutCounts : register(u1);
 RWStructuredBuffer<RayData> g_RayBufferDst : register(u2);
-RWStructuredBuffer<SplatData> g_SplatBufferDst : register(u3);
+
+// Newly created bounce / shadow rays are put into group shared buffer, which at the end of
+// a CS group execution is appended into the global one.
 
 groupshared uint s_GroupRayCounter;
 #define kMaxGroupRays 768
 groupshared RayData s_GroupRays[kMaxGroupRays];
+
+void PushRayData(RayData rd)
+{
+    uint index;
+    InterlockedAdd(s_GroupRayCounter, 1, index);
+    s_GroupRays[index] = rd;
+}
+
+void PushGlobalRayData()
+{
+    // append new rays into global buffer
+    uint rayCount = min(s_GroupRayCounter, kMaxGroupRays);
+    uint rayBufferStart;
+    g_OutCounts.InterlockedAdd(4, rayCount, rayBufferStart);
+    for (uint ir = 0; ir < rayCount; ++ir)
+    {
+        g_RayBufferDst[rayBufferStart + ir] = s_GroupRays[ir];
+    }
+}
+
+
 
 #define kMinT 0.001f
 #define kMaxT 1.0e7f
@@ -345,10 +355,7 @@ static float3 SurfaceHit(
             skipEmission = true;
 #endif
 
-        uint rayIdx;
-        InterlockedAdd(s_GroupRayCounter, 1, rayIdx);
-        if (rayIdx < kMaxGroupRays)
-            s_GroupRays[rayIdx] = MakeRayData(scattered, atten * rayAtten, pixelIndex, 0, false, skipEmission);
+        PushRayData(MakeRayData(scattered, atten * rayAtten, pixelIndex, 0, false, skipEmission));
 
         // sample lights
 #if DO_LIGHT_SAMPLING
@@ -380,10 +387,7 @@ static float3 SurfaceHit(
                 float3 nl = dot(hit.normal, r.dir) < 0 ? hit.normal : -hit.normal;
 
                 float3 shadowAtt = (mat.albedo * smat.emissive) * (max(0.0f, dot(l, nl)) * omega / 3.1415926);
-                uint rayIdx;
-                InterlockedAdd(s_GroupRayCounter, 1, rayIdx);
-                if (rayIdx < kMaxGroupRays)
-                    s_GroupRays[rayIdx] = MakeRayData(MakeRay(hit.pos, l), shadowAtt * rayAtten, pixelIndex, i, true, false);
+                PushRayData(MakeRayData(MakeRay(hit.pos, l), shadowAtt * rayAtten, pixelIndex, i, true, false));
             }
         }
 #endif
