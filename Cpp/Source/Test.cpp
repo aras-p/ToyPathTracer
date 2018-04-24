@@ -117,7 +117,6 @@ static uint32_t s_RayDataCapacityPerRow;
 
 const float kMinT = 0.001f;
 const float kMaxT = 1.0e7f;
-const int kMaxDepth = 10;
 
 
 static int HitWorld(const Ray& r, float tMin, float tMax, Hit& outHit)
@@ -199,13 +198,12 @@ static float3 SurfaceHit(const Ray& r, float3 rayAtten, uint32_t pixelIndex, boo
     const Material& mat = s_SphereMats[id];
     Ray scattered;
     float3 atten;
-    float3 lightE;
     if (Scatter(mat, r, hit, atten, scattered, state))
     {
         // Queue the scattered ray for next bounce iteration
         bool skipEmission = false;
 #if DO_LIGHT_SAMPLING
-        // dor Lambert materials, we are doing explicit light (emissive) sampling
+        // for Lambert materials, we are doing explicit light (emissive) sampling
         // for their contribution, so if the scattered ray hits the light again, don't add emission
         if (mat.type == Material::Lambert)
             skipEmission = true;
@@ -333,7 +331,6 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
     {
         for (int x = 0; x < data.screenWidth; ++x)
         {
-            float3 col(0, 0, 0);
             for (int s = 0; s < DO_SAMPLES_PER_PIXEL; s++)
             {
                 float u = float(x + RandomFloat01(state)) * invWidth;

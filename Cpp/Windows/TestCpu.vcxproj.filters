@@ -54,6 +54,7 @@
     <ClInclude Include="..\Source\MathSimd.h">
       <Filter>Source</Filter>
     </ClInclude>
+    <ClInclude Include="ComputeShader.hlsl" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\.editorconfig" />
@@ -61,6 +62,9 @@
   <ItemGroup>
     <FxCompile Include="VertexShader.hlsl" />
     <FxCompile Include="PixelShader.hlsl" />
-    <FxCompile Include="ComputeShader.hlsl" />
+    <FxCompile Include="ComputeShaderBounce.hlsl" />
+    <FxCompile Include="ComputeShaderCameraRays.hlsl" />
+    <FxCompile Include="ComputeShaderFinal.hlsl" />
+    <FxCompile Include="ComputeShaderCopyCount.hlsl" />
   </ItemGroup>
 </Project>

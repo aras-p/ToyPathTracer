@@ -117,6 +117,55 @@ Ray CameraGetRay(Camera cam, float s, float t, inout uint state)
     return MakeRay(cam.origin + offset, normalize(cam.lowerLeftCorner + s * cam.horizontal + t * cam.vertical - cam.origin - offset));
 }
 
+struct RayData
+{
+    float origX, origY, origZ;
+    uint dirXY, dirZattenX, attenYZ;
+    uint flags; // 22b index, 8b lightID, 1b shadow, 1b emission
+};
+
+RayData MakeRayData(Ray r, float3 atten, uint pixelIndex, uint lightID, bool shadow, bool skipEmission)
+{
+    RayData rd;
+    rd.origX = r.orig.x;
+    rd.origY = r.orig.y;
+    rd.origZ = r.orig.z;
+    uint3 dir16 = f32tof16(r.dir);
+    uint3 atten16 = f32tof16(atten);
+    rd.dirXY = (dir16.x << 16) | (dir16.y);
+    rd.dirZattenX = (dir16.z << 16) | (atten16.x);
+    rd.attenYZ = (atten16.y << 16) | (atten16.z);
+    rd.flags = (pixelIndex & 0x3FFFFF) | ((lightID & 0xFF) << 22) | (shadow ? (1U << 30) : 0) | (skipEmission ? (1U << 31) : 0);
+    return rd;
+}
+
+Ray RayDataGetRay(RayData rd)
+{
+    float3 orig = float3(rd.origX, rd.origY, rd.origZ);
+    float3 dir = f16tof32(uint3(rd.dirXY >> 16, rd.dirXY & 0xFFFF, rd.dirZattenX >> 16));
+    return MakeRay(orig, normalize(dir));
+}
+float3 RayDataGetAtten(RayData rd)
+{
+    return f16tof32(uint3(rd.dirZattenX & 0xFFFF, rd.attenYZ >> 16, rd.attenYZ & 0xFFFF));
+}
+uint RayDataGetPixelIndex(RayData rd)
+{
+    return rd.flags & 0x3FFFFF;
+}
+uint RayDataGetLightID(RayData rd)
+{
+    return (rd.flags >> 22) & 0xFF;
+}
+bool RayDataIsShadow(RayData rd)
+{
+    return (rd.flags & (1 << 30)) != 0;
+}
+bool RayDataIsSkipEmission(RayData rd)
+{
+    return (rd.flags & (1 << 31)) != 0;
+}
+
 
 int HitSpheres(Ray r, StructuredBuffer<Sphere> spheres, int sphereCount, float tMin, float tMax, inout Hit outHit)
 {
@@ -168,6 +217,18 @@ struct Params
     int emissiveCount;
 };
 
+Texture2D prevFrameImage : register(t0);
+Texture2D tmpImage : register(t1);
+StructuredBuffer<Sphere> g_Spheres : register(t2);
+StructuredBuffer<Material> g_Materials : register(t3);
+StructuredBuffer<Params> g_Params : register(t4);
+StructuredBuffer<int> g_Emissives : register(t5);
+StructuredBuffer<RayData> g_RayBufferSrc : register(t6);
+
+RWTexture2D<float4> dstImage : register(u0);
+RWByteAddressBuffer g_OutCounts : register(u1);
+RWStructuredBuffer<RayData> g_RayBufferDst : register(u2);
+
 
 #define kMinT 0.001f
 #define kMaxT 1.0e7f
@@ -180,9 +241,8 @@ static int HitWorld(StructuredBuffer<Sphere> spheres, int sphereCount, Ray r, fl
 }
 
 
-static bool Scatter(StructuredBuffer<Sphere> spheres, StructuredBuffer<Material> materials, int sphereCount, StructuredBuffer<int> emissives, int emissiveCount, int matID, Ray r_in, Hit rec, out float3 attenuation, out Ray scattered, out float3 outLightE, inout int inoutRayCount, inout uint state)
+static bool Scatter(StructuredBuffer<Material> materials, int matID, Ray r_in, Hit rec, out float3 attenuation, out Ray scattered, inout uint state)
 {
-    outLightE = float3(0, 0, 0);
     Material mat = materials[matID];
     if (mat.type == MatLambert)
     {
@@ -190,44 +250,6 @@ static bool Scatter(StructuredBuffer<Sphere> spheres, StructuredBuffer<Material>
         float3 target = rec.pos + rec.normal + RandomUnitVector(state);
         scattered = MakeRay(rec.pos, normalize(target - rec.pos));
         attenuation = mat.albedo;
-
-        // sample lights
-#if DO_LIGHT_SAMPLING
-        for (int j = 0; j < emissiveCount; ++j)
-        {
-            int i = emissives[j];
-            if (matID == i)
-                continue; // skip self
-            Material smat = materials[i];
-            Sphere s = spheres[i];
-
-            // create a random direction towards sphere
-            // coord system for sampling: sw, su, sv
-            float3 sw = normalize(s.center - rec.pos);
-            float3 su = normalize(cross(abs(sw.x)>0.01f ? float3(0, 1, 0) : float3(1, 0, 0), sw));
-            float3 sv = cross(sw, su);
-            // sample sphere by solid angle
-            float cosAMax = sqrt(1.0f - s.radius*s.radius / dot(rec.pos - s.center, rec.pos - s.center));
-            float eps1 = RandomFloat01(state), eps2 = RandomFloat01(state);
-            float cosA = 1.0f - eps1 + eps1 * cosAMax;
-            float sinA = sqrt(1.0f - cosA * cosA);
-            float phi = 2 * 3.1415926 * eps2;
-            float3 l = su * cos(phi) * sinA + sv * sin(phi) * sinA + sw * cosA;
-
-            // shoot shadow ray
-            Hit lightHit;
-            ++inoutRayCount;
-            int hitID = HitWorld(spheres, sphereCount, MakeRay(rec.pos, l), kMinT, kMaxT, lightHit);
-            if (hitID == i)
-            {
-                float omega = 2 * 3.1415926 * (1 - cosAMax);
-
-                float3 rdir = r_in.dir;
-                float3 nl = dot(rec.normal, rdir) < 0 ? rec.normal : -rec.normal;
-                outLightE += (mat.albedo * smat.emissive) * (max(0.0f, dot(l, nl)) * omega / 3.1415926);
-            }
-        }
-#endif
         return true;
     }
     else if (mat.type == MatMetal)
@@ -286,86 +308,79 @@ static bool Scatter(StructuredBuffer<Sphere> spheres, StructuredBuffer<Material>
     return true;
 }
 
-static float3 Trace(StructuredBuffer<Sphere> spheres, StructuredBuffer<Material> materials, int sphereCount, StructuredBuffer<int> emissives, int emissiveCount, Ray r, inout int inoutRayCount, inout uint state)
+static float3 SurfaceHit(
+    StructuredBuffer<Sphere> spheres, StructuredBuffer<Material> materials, int sphereCount,
+    StructuredBuffer<int> emissives, int emissiveCount,
+    Ray r, float3 rayAtten,
+    uint pixelIndex, bool raySkipEmission, Hit hit, int id,
+    RWStructuredBuffer<RayData> buffer, inout uint state)
 {
-    float3 col = 0;
-    float3 curAtten = 1;
-    bool doMaterialE = true;
-    // GPUs don't support recursion, so do tracing iterations in a loop up to max depth
-    for (int depth = 0; depth < kMaxDepth; ++depth)
+    Material mat = materials[id];
+    Ray scattered;
+    float3 atten;
+    if (Scatter(materials, id, r, hit, atten, scattered, state))
     {
-        Hit rec;
-        ++inoutRayCount;
-        int id = HitWorld(spheres, sphereCount, r, kMinT, kMaxT, rec);
-        if (id >= 0)
-        {
-            Ray scattered;
-            float3 attenuation;
-            float3 lightE;
-            Material mat = materials[id];
-            float3 matE = mat.emissive;
-            if (Scatter(spheres, materials, sphereCount, emissives, emissiveCount, id, r, rec, attenuation, scattered, lightE, inoutRayCount, state))
-            {
+        // Queue the scattered ray for next bounce iteration
+        bool skipEmission = false;
 #if DO_LIGHT_SAMPLING
-                if (!doMaterialE) matE = 0;
-                doMaterialE = (mat.type != MatLambert);
+        // for Lambert materials, we are doing explicit light (emissive) sampling
+        // for their contribution, so if the scattered ray hits the light again, don't add emission
+        if (mat.type == MatLambert)
+            skipEmission = true;
 #endif
-                col += curAtten * (matE + lightE);
-                curAtten *= attenuation;
-                r = scattered;
-            }
-            else
-            {
-                col += curAtten * matE;
-                break;
-            }
-        }
-        else
+
+        uint rayIdx;
+        g_OutCounts.InterlockedAdd(4, 1, rayIdx);
+        buffer[rayIdx] = MakeRayData(scattered, atten * rayAtten, pixelIndex, 0, false, skipEmission);
+
+        // sample lights
+#if DO_LIGHT_SAMPLING
+        if (mat.type == MatLambert)
         {
-            // sky
-#if DO_MITSUBA_COMPARE
-            col += curAtten * float3(0.15f, 0.21f, 0.3f); // easier compare with Mitsuba's constant environment light
-#else
-            float3 unitDir = r.dir;
-            float t = 0.5f*(unitDir.y + 1.0f);
-            float3 skyCol = ((1.0f - t)*float3(1.0f, 1.0f, 1.0f) + t * float3(0.5f, 0.7f, 1.0f)) * 0.3f;
-            col += curAtten * skyCol;
-#endif
-            break;
+            for (int j = 0; j < emissiveCount; ++j)
+            {
+                int i = emissives[j];
+                if (id == i)
+                    continue; // skip self
+                Material smat = materials[i];
+                Sphere s = spheres[i];
+
+                // create a random direction towards sphere
+                // coord system for sampling: sw, su, sv
+                float3 sw = normalize(s.center - hit.pos);
+                float3 su = normalize(cross(abs(sw.x) > 0.01f ? float3(0, 1, 0) : float3(1, 0, 0), sw));
+                float3 sv = cross(sw, su);
+                // sample sphere by solid angle
+                float cosAMax = sqrt(1.0f - s.radius*s.radius / dot(hit.pos - s.center, hit.pos - s.center));
+                float eps1 = RandomFloat01(state), eps2 = RandomFloat01(state);
+                float cosA = 1.0f - eps1 + eps1 * cosAMax;
+                float sinA = sqrt(1.0f - cosA * cosA);
+                float phi = 2 * 3.1415926 * eps2;
+                float3 l = su * cos(phi) * sinA + sv * sin(phi) * sinA + sw * cosA;
+
+                // Queue a shadow ray for next bounce iteration
+                float omega = 2 * 3.1415926 * (1 - cosAMax);
+                float3 nl = dot(hit.normal, r.dir) < 0 ? hit.normal : -hit.normal;
+
+                uint rayIdx;
+                g_OutCounts.InterlockedAdd(4, 1, rayIdx);
+                float3 shadowAtt = (mat.albedo * smat.emissive) * (max(0.0f, dot(l, nl)) * omega / 3.1415926);
+                buffer[rayIdx] = MakeRayData(MakeRay(hit.pos,l), shadowAtt * rayAtten, pixelIndex, i, true, false);
+            }
         }
+#endif
     }
-    return col;
+    return raySkipEmission ? float3(0, 0, 0) : mat.emissive; // don't add material emission if told so
 }
 
-Texture2D srcImage : register(t0);
-RWTexture2D<float4> dstImage : register(u0);
-StructuredBuffer<Sphere> g_Spheres : register(t1);
-StructuredBuffer<Material> g_Materials : register(t2);
-StructuredBuffer<Params> g_Params : register(t3);
-StructuredBuffer<int> g_Emissives : register(t4);
-RWByteAddressBuffer g_OutRayCount : register(u1);
 
-[numthreads(kCSGroupSizeX, kCSGroupSizeY, 1)]
-void main(
-    uint3 gid : SV_DispatchThreadID)
+float3 SkyHit(Ray r)
 {
-    int rayCount = 0;
-    float3 col = 0;
-    Params params = g_Params[0];
-    uint rngState = (gid.x * 1973 + gid.y * 9277 + params.frames * 26699) | 1;
-    for (int s = 0; s < DO_SAMPLES_PER_PIXEL; s++)
-    {
-        float u = float(gid.x + RandomFloat01(rngState)) * params.invWidth;
-        float v = float(gid.y + RandomFloat01(rngState)) * params.invHeight;
-        Ray r = CameraGetRay(params.cam, u, v, rngState);
-        col += Trace(g_Spheres, g_Materials, params.sphereCount, g_Emissives, params.emissiveCount, r, rayCount, rngState);
-    }
-    col *= 1.0f / float(DO_SAMPLES_PER_PIXEL);
-
-    float3 prev = srcImage.Load(int3(gid.xy,0)).rgb;
-    col = lerp(col, prev, params.lerpFac);
-    dstImage[gid.xy] = float4(col, 1);
-
-    uint prevRayCount;
-    g_OutRayCount.InterlockedAdd(0, rayCount, prevRayCount);
+#if DO_MITSUBA_COMPARE
+    col += float3(0.15f, 0.21f, 0.3f); // easier compare with Mitsuba's constant environment light
+#else
+    float3 unitDir = r.dir;
+    float t = 0.5f*(unitDir.y + 1.0f);
+    return ((1.0f - t)*float3(1.0f, 1.0f, 1.0f) + t * float3(0.5f, 0.7f, 1.0f)) * 0.3f;
+#endif
 }

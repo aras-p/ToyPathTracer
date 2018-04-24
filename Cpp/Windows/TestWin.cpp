@@ -36,16 +36,74 @@ static IDXGISwapChain* g_D3D11SwapChain = nullptr;
 static ID3D11RenderTargetView* g_D3D11RenderTarget = nullptr;
 static ID3D11VertexShader* g_VertexShader;
 static ID3D11PixelShader* g_PixelShader;
-static ID3D11Texture2D *g_BackbufferTexture, *g_BackbufferTexture2;
-static ID3D11ShaderResourceView *g_BackbufferSRV, *g_BackbufferSRV2;
-static ID3D11UnorderedAccessView *g_BackbufferUAV, *g_BackbufferUAV2;
 static ID3D11SamplerState* g_SamplerLinear;
 static ID3D11RasterizerState* g_RasterState;
-static int g_BackbufferIndex;
+
+struct D3D11Texture
+{
+    D3D11Texture(int width, int height, DXGI_FORMAT format);
+    ~D3D11Texture();
+    ID3D11Texture2D* tex;
+    ID3D11ShaderResourceView* srv;
+    ID3D11UnorderedAccessView* uav;
+};
+
+D3D11Texture::D3D11Texture(int width, int height, DXGI_FORMAT format)
+{
+    D3D11_TEXTURE2D_DESC texDesc = {};
+    texDesc.Width = width;
+    texDesc.Height = height;
+    texDesc.MipLevels = 1;
+    texDesc.ArraySize = 1;
+    texDesc.Format = format;
+    texDesc.SampleDesc.Count = 1;
+    texDesc.SampleDesc.Quality = 0;
+#if DO_COMPUTE_GPU
+    texDesc.Usage = D3D11_USAGE_DEFAULT;
+    texDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
+    texDesc.CPUAccessFlags = 0;
+#else
+    texDesc.Usage = D3D11_USAGE_DYNAMIC;
+    texDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
+    texDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
+#endif
+    texDesc.MiscFlags = 0;
+    g_D3D11Device->CreateTexture2D(&texDesc, NULL, &tex);
+
+    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
+    srvDesc.Format = texDesc.Format;
+    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
+    srvDesc.Texture2D.MipLevels = 1;
+    srvDesc.Texture2D.MostDetailedMip = 0;
+    g_D3D11Device->CreateShaderResourceView(tex, &srvDesc, &srv);
+
+#if DO_COMPUTE_GPU
+    D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
+    uavDesc.Format = format;
+    uavDesc.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE2D;
+    uavDesc.Texture2D.MipSlice = 0;
+    g_D3D11Device->CreateUnorderedAccessView(tex, &uavDesc, &uav);
+#else
+    uav = NULL;
+#endif
+}
+
+D3D11Texture::~D3D11Texture()
+{
+    if (uav) uav->Release();
+    if (srv) srv->Release();
+    if (tex) tex->Release();
+}
+
+static D3D11Texture *g_BackbufferTex, *g_BackbufferTex2, *g_TmpTex;
+static int g_BufferIndex;
 
 
 #if DO_COMPUTE_GPU
-#include "CompiledComputeShader.h"
+#include "CompiledComputeShaderCameraRays.h"
+#include "CompiledComputeShaderBounce.h"
+#include "CompiledComputeShaderFinal.h"
+#include "CompiledComputeShaderCopyCount.h"
 struct ComputeParams
 {
     Camera cam;
@@ -58,12 +116,18 @@ struct ComputeParams
     float lerpFac;
     int emissiveCount;
 };
-static ID3D11ComputeShader* g_ComputeShader;
+static ID3D11ComputeShader* g_CSCameraRays;
+static ID3D11ComputeShader* g_CSBounce;
+static ID3D11ComputeShader* g_CSFinal;
+static ID3D11ComputeShader* g_CSCopyCount;
 static ID3D11Buffer* g_DataSpheres;     static ID3D11ShaderResourceView* g_SRVSpheres;
 static ID3D11Buffer* g_DataMaterials;   static ID3D11ShaderResourceView* g_SRVMaterials;
 static ID3D11Buffer* g_DataParams;      static ID3D11ShaderResourceView* g_SRVParams;
 static ID3D11Buffer* g_DataEmissives;   static ID3D11ShaderResourceView* g_SRVEmissives;
-static ID3D11Buffer* g_DataCounter;     static ID3D11UnorderedAccessView* g_UAVCounter;
+static ID3D11Buffer* g_DataRays;        static ID3D11ShaderResourceView* g_SRVRays;     static ID3D11UnorderedAccessView* g_UAVRays;
+static ID3D11Buffer* g_DataRays2;       static ID3D11ShaderResourceView* g_SRVRays2;    static ID3D11UnorderedAccessView* g_UAVRays2;
+static ID3D11Buffer* g_DataCounter;     static ID3D11ShaderResourceView* g_SRVCounter;  static ID3D11UnorderedAccessView* g_UAVCounter;
+static ID3D11Buffer* g_DataIndirectCounter;     static ID3D11UnorderedAccessView* g_UAVIndirectCounter;
 static int g_SphereCount, g_ObjSize, g_MatSize;
 static ID3D11Query *g_QueryBegin, *g_QueryEnd, *g_QueryDisjoint;
 #endif // #if DO_COMPUTE_GPU
@@ -90,37 +154,15 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR,
     g_D3D11Device->CreateVertexShader(g_VSBytecode, ARRAYSIZE(g_VSBytecode), NULL, &g_VertexShader);
     g_D3D11Device->CreatePixelShader(g_PSBytecode, ARRAYSIZE(g_PSBytecode), NULL, &g_PixelShader);
 #if DO_COMPUTE_GPU
-    g_D3D11Device->CreateComputeShader(g_CSBytecode, ARRAYSIZE(g_CSBytecode), NULL, &g_ComputeShader);
+    g_D3D11Device->CreateComputeShader(g_CSByteCodeCameraRays, ARRAYSIZE(g_CSByteCodeCameraRays), NULL, &g_CSCameraRays);
+    g_D3D11Device->CreateComputeShader(g_CSByteCodeBounce, ARRAYSIZE(g_CSByteCodeBounce), NULL, &g_CSBounce);
+    g_D3D11Device->CreateComputeShader(g_CSByteCodeFinal, ARRAYSIZE(g_CSByteCodeFinal), NULL, &g_CSFinal);
+    g_D3D11Device->CreateComputeShader(g_CSByteCodeCopyCount, ARRAYSIZE(g_CSByteCodeCopyCount), NULL, &g_CSCopyCount);
 #endif
 
-    D3D11_TEXTURE2D_DESC texDesc = {};
-    texDesc.Width = kBackbufferWidth;
-    texDesc.Height = kBackbufferHeight;
-    texDesc.MipLevels = 1;
-    texDesc.ArraySize = 1;
-    texDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-    texDesc.SampleDesc.Count = 1;
-    texDesc.SampleDesc.Quality = 0;
-#if DO_COMPUTE_GPU
-    texDesc.Usage = D3D11_USAGE_DEFAULT;
-    texDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
-    texDesc.CPUAccessFlags = 0;
-#else
-    texDesc.Usage = D3D11_USAGE_DYNAMIC;
-    texDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-    texDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-#endif
-    texDesc.MiscFlags = 0;
-    g_D3D11Device->CreateTexture2D(&texDesc, NULL, &g_BackbufferTexture);
-    g_D3D11Device->CreateTexture2D(&texDesc, NULL, &g_BackbufferTexture2);
-
-    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
-    srvDesc.Format = texDesc.Format;
-    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_TEXTURE2D;
-    srvDesc.Texture2D.MipLevels = 1;
-    srvDesc.Texture2D.MostDetailedMip = 0;
-    g_D3D11Device->CreateShaderResourceView(g_BackbufferTexture, &srvDesc, &g_BackbufferSRV);
-    g_D3D11Device->CreateShaderResourceView(g_BackbufferTexture2, &srvDesc, &g_BackbufferSRV2);
+    g_BackbufferTex = new D3D11Texture(kBackbufferWidth, kBackbufferHeight, DXGI_FORMAT_R32G32B32A32_FLOAT);
+    g_BackbufferTex2 = new D3D11Texture(kBackbufferWidth, kBackbufferHeight, DXGI_FORMAT_R32G32B32A32_FLOAT);
+    g_TmpTex = new D3D11Texture(kBackbufferWidth, kBackbufferHeight, DXGI_FORMAT_R32G32B32A32_FLOAT);
 
     D3D11_SAMPLER_DESC smpDesc = {};
     smpDesc.Filter = D3D11_FILTER_MIN_MAG_LINEAR_MIP_POINT;
@@ -148,6 +190,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR,
     bdesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_STRUCTURED;
     bdesc.StructureByteStride = g_ObjSize;
     g_D3D11Device->CreateBuffer(&bdesc, NULL, &g_DataSpheres);
+    D3D11_SHADER_RESOURCE_VIEW_DESC srvDesc = {};
     srvDesc.Format = DXGI_FORMAT_UNKNOWN;
     srvDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFER;
     srvDesc.Buffer.FirstElement = 0;
@@ -172,23 +215,56 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR,
     srvDesc.Buffer.NumElements = g_SphereCount;
     g_D3D11Device->CreateShaderResourceView(g_DataEmissives, &srvDesc, &g_SRVEmissives);
 
-    bdesc.ByteWidth = 4;
+    const int kMaxShadowRays = 3;
+    const size_t kRayDataSize = 28;
+    const size_t kMaxRays = kBackbufferWidth * kBackbufferHeight * DO_SAMPLES_PER_PIXEL * (1 + kMaxShadowRays);
+
+    bdesc.ByteWidth = kMaxRays * kRayDataSize;
+    bdesc.StructureByteStride = kRayDataSize;
+    bdesc.BindFlags |= D3D11_BIND_UNORDERED_ACCESS;
+    g_D3D11Device->CreateBuffer(&bdesc, NULL, &g_DataRays);
+    g_D3D11Device->CreateBuffer(&bdesc, NULL, &g_DataRays2);
+    srvDesc.Buffer.NumElements = kMaxRays;
+    g_D3D11Device->CreateShaderResourceView(g_DataRays, &srvDesc, &g_SRVRays);
+    g_D3D11Device->CreateShaderResourceView(g_DataRays2, &srvDesc, &g_SRVRays2);
+
+    uavDesc.Format = DXGI_FORMAT_UNKNOWN;
+    uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+    uavDesc.Buffer.FirstElement = 0;
+    uavDesc.Buffer.NumElements = kMaxRays;
+    uavDesc.Buffer.Flags = 0;
+    g_D3D11Device->CreateUnorderedAccessView(g_DataRays, &uavDesc, &g_UAVRays);
+    g_D3D11Device->CreateUnorderedAccessView(g_DataRays2, &uavDesc, &g_UAVRays2);
+
+    bdesc.ByteWidth = 2 * 4;
     bdesc.BindFlags |= D3D11_BIND_UNORDERED_ACCESS;
     bdesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_ALLOW_RAW_VIEWS;
     bdesc.CPUAccessFlags = D3D11_CPU_ACCESS_READ;
     g_D3D11Device->CreateBuffer(&bdesc, NULL, &g_DataCounter);
+    srvDesc.ViewDimension = D3D11_SRV_DIMENSION_BUFFEREX;
+    srvDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+    srvDesc.BufferEx.NumElements = 2;
+    srvDesc.BufferEx.Flags = D3D11_BUFFEREX_SRV_FLAG_RAW;
+    g_D3D11Device->CreateShaderResourceView(g_DataCounter, &srvDesc, &g_SRVCounter);
+
     uavDesc.Format = DXGI_FORMAT_R32_TYPELESS;
     uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
     uavDesc.Buffer.FirstElement = 0;
-    uavDesc.Buffer.NumElements = 1;
+    uavDesc.Buffer.NumElements = 2;
     uavDesc.Buffer.Flags = D3D11_BUFFER_UAV_FLAG_RAW;
     g_D3D11Device->CreateUnorderedAccessView(g_DataCounter, &uavDesc, &g_UAVCounter);
 
-    uavDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
-    uavDesc.ViewDimension = D3D11_UAV_DIMENSION_TEXTURE2D;
-    uavDesc.Texture2D.MipSlice = 0;
-    g_D3D11Device->CreateUnorderedAccessView(g_BackbufferTexture, &uavDesc, &g_BackbufferUAV);
-    g_D3D11Device->CreateUnorderedAccessView(g_BackbufferTexture2, &uavDesc, &g_BackbufferUAV2);
+    bdesc.ByteWidth = 3 * 4;
+    bdesc.BindFlags |= D3D11_BIND_UNORDERED_ACCESS;
+    bdesc.MiscFlags = D3D11_RESOURCE_MISC_BUFFER_ALLOW_RAW_VIEWS | D3D11_RESOURCE_MISC_DRAWINDIRECT_ARGS;
+    bdesc.CPUAccessFlags = 0;
+    g_D3D11Device->CreateBuffer(&bdesc, NULL, &g_DataIndirectCounter);
+    uavDesc.Format = DXGI_FORMAT_R32_TYPELESS;
+    uavDesc.ViewDimension = D3D11_UAV_DIMENSION_BUFFER;
+    uavDesc.Buffer.FirstElement = 0;
+    uavDesc.Buffer.NumElements = 3;
+    uavDesc.Buffer.Flags = D3D11_BUFFER_UAV_FLAG_RAW;
+    g_D3D11Device->CreateUnorderedAccessView(g_DataIndirectCounter, &uavDesc, &g_UAVIndirectCounter);
 
     D3D11_QUERY_DESC qDesc = {};
     qDesc.Query = D3D11_QUERY_TIMESTAMP;
@@ -214,6 +290,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR,
         }
     }
 
+    delete g_TmpTex;
+    delete g_BackbufferTex;
+    delete g_BackbufferTex2;
     ShutdownTest();
     ShutdownD3DDevice();
 
@@ -256,6 +335,119 @@ static uint64_t s_Time;
 static int s_Count;
 static char s_Buffer[200];
 
+#if DO_COMPUTE_GPU
+static void DoComputeCameraRays()
+{
+    int zeroCounts[] = { 0, 0 };
+    g_D3D11Ctx->UpdateSubresource(g_DataCounter, 0, NULL, &zeroCounts, 0, 0);
+
+    float zeroes[] = { 0,0,0,0 };
+    g_D3D11Ctx->ClearUnorderedAccessViewFloat(g_TmpTex->uav, zeroes);
+    ID3D11ShaderResourceView* srvs[] = {
+        NULL,
+        NULL,
+        g_SRVSpheres,
+        g_SRVMaterials,
+        g_SRVParams,
+        g_SRVEmissives,
+        NULL
+    };
+    g_D3D11Ctx->CSSetShaderResources(0, ARRAYSIZE(srvs), srvs);
+    ID3D11UnorderedAccessView* uavs[] = {
+        g_TmpTex->uav,
+        g_UAVCounter,
+        g_UAVRays
+    };
+    g_D3D11Ctx->CSSetUnorderedAccessViews(0, ARRAYSIZE(uavs), uavs, NULL);
+    g_D3D11Ctx->CSSetShader(g_CSCameraRays, NULL, 0);
+    g_D3D11Ctx->Dispatch(kBackbufferWidth / kCSGroupSizeX, kBackbufferHeight / kCSGroupSizeY, 1);
+}
+
+static void DoComputeRayBounce(int depth)
+{
+    // copy indirect invocation count
+    {
+        ID3D11UnorderedAccessView* uavs[] = {
+            g_UAVIndirectCounter,
+            NULL,
+            NULL,
+        };
+        g_D3D11Ctx->CSSetUnorderedAccessViews(0, ARRAYSIZE(uavs), uavs, NULL);
+
+        ID3D11ShaderResourceView* srvs[] = {
+            g_SRVCounter,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+            NULL,
+        };
+        g_D3D11Ctx->CSSetShaderResources(0, ARRAYSIZE(srvs), srvs);
+
+        g_D3D11Ctx->CSSetShader(g_CSCopyCount, NULL, 0);
+        g_D3D11Ctx->Dispatch(1, 1, 1);
+        srvs[0] = NULL;
+        g_D3D11Ctx->CSSetShaderResources(0, 1, srvs); // unbind counter
+    }
+
+    int zeroCount[] = { 0 };
+    D3D11_BOX updateBox = {4, 0, 0, 8, 1, 1};
+    g_D3D11Ctx->UpdateSubresource(g_DataCounter, 0, &updateBox, &zeroCount, 0, 0);
+
+    // process ray bounce
+    {
+        ID3D11UnorderedAccessView* uavs[] = {
+            g_TmpTex->uav,
+            g_UAVCounter,
+            (depth & 1) ? g_UAVRays : g_UAVRays2,
+        };
+        g_D3D11Ctx->CSSetUnorderedAccessViews(0, ARRAYSIZE(uavs), uavs, NULL);
+
+        ID3D11ShaderResourceView* srvs[] = {
+            NULL,
+            NULL,
+            g_SRVSpheres,
+            g_SRVMaterials,
+            g_SRVParams,
+            g_SRVEmissives,
+            (depth & 1) ? g_SRVRays2 : g_SRVRays,
+        };
+        g_D3D11Ctx->CSSetShaderResources(0, ARRAYSIZE(srvs), srvs);
+
+        g_D3D11Ctx->CSSetShader(g_CSBounce, NULL, 0);
+        g_D3D11Ctx->DispatchIndirect(g_DataIndirectCounter, 0);
+    }
+}
+
+
+static void DoComputeBlend()
+{
+    ID3D11UnorderedAccessView* uavs[] = {
+        g_BufferIndex == 0 ? g_BackbufferTex->uav : g_BackbufferTex2->uav,
+        g_UAVCounter,
+        NULL,
+    };
+    g_D3D11Ctx->CSSetUnorderedAccessViews(0, ARRAYSIZE(uavs), uavs, NULL);
+
+    ID3D11ShaderResourceView* srvs[] = {
+        g_BufferIndex == 0 ? g_BackbufferTex2->srv : g_BackbufferTex->srv,
+        g_TmpTex->srv,
+        NULL,
+        NULL,
+        g_SRVParams,
+        NULL,
+        NULL,
+    };
+    g_D3D11Ctx->CSSetShaderResources(0, ARRAYSIZE(srvs), srvs);
+
+    g_D3D11Ctx->CSSetShader(g_CSFinal, NULL, 0);
+    g_D3D11Ctx->Dispatch(kBackbufferWidth / kCSGroupSizeX, kBackbufferHeight / kCSGroupSizeY, 1);
+}
+
+#endif // #if DO_COMPUTE_GPU
+
+
 static void RenderFrame()
 {
     static int s_FrameCount = 0;
@@ -264,9 +456,12 @@ static void RenderFrame()
 #if DO_COMPUTE_GPU
     QueryPerformanceCounter(&time1);
     float t = float(clock()) / CLOCKS_PER_SEC;
+
+
+    // Update buffers containing scene & parameters
     UpdateTest(t, s_FrameCount);
 
-    g_BackbufferIndex = 1 - g_BackbufferIndex;
+    g_BufferIndex = 1 - g_BufferIndex;
     void* dataSpheres = alloca(g_SphereCount * g_ObjSize);
     void* dataMaterials = alloca(g_SphereCount * g_MatSize);
     void* dataEmissives = alloca(g_SphereCount * 4);
@@ -293,25 +488,16 @@ static void RenderFrame()
     g_D3D11Ctx->UpdateSubresource(g_DataParams, 0, NULL, &dataParams, 0, 0);
     g_D3D11Ctx->UpdateSubresource(g_DataEmissives, 0, NULL, dataEmissives, 0, 0);
 
-    ID3D11ShaderResourceView* srvs[] = {
-        g_BackbufferIndex == 0 ? g_BackbufferSRV2 : g_BackbufferSRV,
-        g_SRVSpheres,
-        g_SRVMaterials,
-        g_SRVParams,
-        g_SRVEmissives
-    };
-    g_D3D11Ctx->CSSetShaderResources(0, ARRAYSIZE(srvs), srvs);
-    ID3D11UnorderedAccessView* uavs[] = {
-        g_BackbufferIndex == 0 ? g_BackbufferUAV : g_BackbufferUAV2,
-        g_UAVCounter
-    };
-    g_D3D11Ctx->CSSetUnorderedAccessViews(0, ARRAYSIZE(uavs), uavs, NULL);
-    g_D3D11Ctx->CSSetShader(g_ComputeShader, NULL, 0);
     g_D3D11Ctx->Begin(g_QueryDisjoint);
     g_D3D11Ctx->End(g_QueryBegin);
-    g_D3D11Ctx->Dispatch(kBackbufferWidth/kCSGroupSizeX, kBackbufferHeight/kCSGroupSizeY, 1);
+
+    DoComputeCameraRays();
+    for (int depth = 0; depth < kMaxDepth; ++depth)
+        DoComputeRayBounce(depth);
+    DoComputeBlend();
+
     g_D3D11Ctx->End(g_QueryEnd);
-    uavs[0] = NULL;
+    ID3D11UnorderedAccessView* uavs[] = { NULL };
     g_D3D11Ctx->CSSetUnorderedAccessViews(0, ARRAYSIZE(uavs), uavs, NULL);
     ++s_FrameCount;
 
@@ -344,7 +530,7 @@ static void RenderFrame()
     }
 
     D3D11_MAPPED_SUBRESOURCE mapped;
-    g_D3D11Ctx->Map(g_BackbufferTexture, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
+    g_D3D11Ctx->Map(g_BackbufferTex->tex, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
     const uint8_t* src = (const uint8_t*)g_Backbuffer;
     uint8_t* dst = (uint8_t*)mapped.pData;
     for (int y = 0; y < kBackbufferHeight; ++y)
@@ -353,12 +539,12 @@ static void RenderFrame()
         src += kBackbufferWidth * 16;
         dst += mapped.RowPitch;
     }
-    g_D3D11Ctx->Unmap(g_BackbufferTexture, 0);
+    g_D3D11Ctx->Unmap(g_BackbufferTex->tex, 0);
 #endif
 
     g_D3D11Ctx->VSSetShader(g_VertexShader, NULL, 0);
     g_D3D11Ctx->PSSetShader(g_PixelShader, NULL, 0);
-    g_D3D11Ctx->PSSetShaderResources(0, 1, g_BackbufferIndex == 0 ? &g_BackbufferSRV : &g_BackbufferSRV2);
+    g_D3D11Ctx->PSSetShaderResources(0, 1, g_BufferIndex == 0 ? &g_BackbufferTex->srv : &g_BackbufferTex2->srv);
     g_D3D11Ctx->PSSetSamplers(0, 1, &g_SamplerLinear);
     g_D3D11Ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
     g_D3D11Ctx->RSSetState(g_RasterState);
@@ -387,13 +573,11 @@ static void RenderFrame()
         g_D3D11Ctx->Map(g_DataCounter, 0, D3D11_MAP_READ, 0, &mapped);
         s_RayCounter += *(const int*)mapped.pData;
         g_D3D11Ctx->Unmap(g_DataCounter, 0);
-        int zeroCount = 0;
-        g_D3D11Ctx->UpdateSubresource(g_DataCounter, 0, NULL, &zeroCount, 0, 0);
 
         static float s_Time;
         ++s_Count;
         s_Time += s;
-        if (s_Count > 150)
+        if (s_Count > 50)
         {
             s = s_Time / s_Count;
             sprintf_s(s_Buffer, sizeof(s_Buffer), "%.2fms (%.1f FPS) %.1fMrays/s %.2fMrays/frame frames %i\n", s * 1000.0f, 1.f / s, s_RayCounter / s_Count / s * 1.0e-6f, s_RayCounter / s_Count * 1.0e-6f, s_FrameCount);
