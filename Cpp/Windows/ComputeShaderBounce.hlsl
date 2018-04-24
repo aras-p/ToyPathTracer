@@ -4,16 +4,13 @@
 void main(uint3 gid : SV_DispatchThreadID)
 {
     Params params = g_Params[0];
-    uint width;
-    uint height;
-    dstImage.GetDimensions(width, height);
     uint rngState = (gid.x * 9781 + params.frames * 6271) | 1;
 
     RayData rd = g_RayBufferSrc[gid.x];
     Ray rdRay = RayDataGetRay(rd);
     uint pixelIndex = RayDataGetPixelIndex(rd);
     float3 rdAtten = RayDataGetAtten(rd);
-    uint2 pixelCoord = uint2(pixelIndex % width, pixelIndex / width);
+    uint2 pixelCoord = uint2(pixelIndex>>11, pixelIndex & 0x7FF);
 
     uint prevRayCount;
     g_OutCounts.InterlockedAdd(0, 1, prevRayCount);

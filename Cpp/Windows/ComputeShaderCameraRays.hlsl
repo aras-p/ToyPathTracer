@@ -7,10 +7,6 @@ void main(uint3 gid : SV_DispatchThreadID)
     Params params = g_Params[0];
     uint rngState = (gid.x * 1973 + gid.y * 9277 + params.frames * 26699) | 1;
 
-    uint width;
-    uint height;
-    dstImage.GetDimensions(width, height);
-
     for (int s = 0; s < DO_SAMPLES_PER_PIXEL; s++)
     {
         float u = float(gid.x + RandomFloat01(rngState)) * params.invWidth;
@@ -31,7 +27,7 @@ void main(uint3 gid : SV_DispatchThreadID)
         {
             // Hit something; evaluate material response (this can queue new rays for next bounce)
             col = SurfaceHit(g_Spheres, g_Materials, params.sphereCount, g_Emissives, params.emissiveCount,
-                r, float3(1,1,1), gid.y*width+gid.x, false, rec, id,
+                r, float3(1,1,1), (gid.x<<11)|gid.y, false, rec, id,
                 g_RayBufferDst, rngState);
         }
         dstImage[gid.xy] += float4(col, 0);
