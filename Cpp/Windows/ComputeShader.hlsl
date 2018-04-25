@@ -233,6 +233,7 @@ RWStructuredBuffer<RayData> g_RayBufferDst : register(u2);
 // a CS group execution is appended into the global one.
 
 groupshared uint s_GroupRayCounter;
+groupshared uint s_GroupRayGlobalStart;
 #define kMaxGroupRays 768
 groupshared RayData s_GroupRays[kMaxGroupRays];
 
@@ -243,15 +244,19 @@ void PushRayData(RayData rd)
     s_GroupRays[index] = rd;
 }
 
-void PushGlobalRayData()
+void GetGlobalRayDataOffset(uint rayCount)
 {
-    // append new rays into global buffer
-    uint rayCount = min(s_GroupRayCounter, kMaxGroupRays);
-    uint rayBufferStart;
-    g_OutCounts.InterlockedAdd(4, rayCount, rayBufferStart);
-    for (uint ir = 0; ir < rayCount; ++ir)
+    g_OutCounts.InterlockedAdd(4, rayCount, s_GroupRayGlobalStart);
+}
+
+void PushGlobalRayData(uint threadID, uint rayCount, uint groupSize)
+{
+    uint myRayCount = (rayCount + groupSize - 1) / groupSize;
+    uint myRayStart = threadID * myRayCount;
+    for (uint ir = myRayStart; ir < myRayStart + myRayCount; ++ir)
     {
-        g_RayBufferDst[rayBufferStart + ir] = s_GroupRays[ir];
+        if (ir < rayCount)
+            g_RayBufferDst[s_GroupRayGlobalStart + ir] = s_GroupRays[ir];
     }
 }
 

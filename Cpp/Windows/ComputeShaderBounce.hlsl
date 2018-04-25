@@ -37,7 +37,8 @@ RWStructuredBuffer<SplatData> g_SplatBufferDst : register(u3);
 [numthreads(kCSRayBatchSize, 1, 1)]
 void main(uint3 gid : SV_DispatchThreadID, uint3 tid : SV_GroupThreadID)
 {
-    if (tid.x == 0)
+    uint threadID = tid.x;
+    if (threadID == 0)
     {
         s_GroupRayCounter = 0;
         s_GroupSplatCounter = 0;
@@ -91,12 +92,13 @@ void main(uint3 gid : SV_DispatchThreadID, uint3 tid : SV_GroupThreadID)
     //if (s_GroupRayCounter > kMaxGroupRays)
     //    PushSplat(float3(0, 2, 0), pixelIndex);
 
-    if (tid.x == 0)
+    uint rayCount = min(s_GroupRayCounter, kMaxGroupRays);
+    if (threadID == 0)
     {
         // total ray counts (for perf indicator)
         g_OutCounts.InterlockedAdd(0, kCSRayBatchSize);
 
-        PushGlobalRayData();
+        GetGlobalRayDataOffset(rayCount);
 
         // append new splats into global buffer
         uint splatBufferStart;
@@ -106,4 +108,6 @@ void main(uint3 gid : SV_DispatchThreadID, uint3 tid : SV_GroupThreadID)
             g_SplatBufferDst[splatBufferStart + is] = s_GroupSplats[is];
         }
     }
+    GroupMemoryBarrierWithGroupSync();
+    PushGlobalRayData(threadID, rayCount, kCSRayBatchSize);
 }

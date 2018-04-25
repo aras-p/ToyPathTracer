@@ -1,9 +1,12 @@
 #include "ComputeShader.hlsl"
 
+groupshared uint s_RayBufferStart;
+
 [numthreads(kCSGroupSizeX, kCSGroupSizeY, 1)]
 void main(uint3 gid : SV_DispatchThreadID, uint3 tid : SV_GroupThreadID)
 {
-    if (tid.x == 0)
+    uint threadID = tid.x + tid.y * kCSGroupSizeX;
+    if (threadID == 0)
     {
         s_GroupRayCounter = 0;
     }
@@ -44,10 +47,13 @@ void main(uint3 gid : SV_DispatchThreadID, uint3 tid : SV_GroupThreadID)
     //if (s_GroupRayCounter > kMaxGroupRays)
     //    dstImage[gid.xy] += float4(2,0,0,0);
 
-    if (tid.x == 0 && tid.y == 0)
+    uint rayCount = min(s_GroupRayCounter, kMaxGroupRays);
+    if (threadID == 0)
     {
         g_OutCounts.InterlockedAdd(0, DO_SAMPLES_PER_PIXEL * kCSGroupSizeX * kCSGroupSizeY);
-
-        PushGlobalRayData();
+        GetGlobalRayDataOffset(rayCount);
     }
+    GroupMemoryBarrierWithGroupSync();
+
+    PushGlobalRayData(threadID, rayCount, kCSGroupSizeX*kCSGroupSizeY);
 }
