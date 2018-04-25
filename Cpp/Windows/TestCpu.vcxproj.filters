@@ -14,6 +14,7 @@
     <ClCompile Include="..\Source\Maths.cpp">
       <Filter>Source</Filter>
     </ClCompile>
+    <ClCompile Include="D3D11Utils.cpp" />
   </ItemGroup>
   <ItemGroup>
     <Filter Include="Source">
@@ -55,6 +56,7 @@
       <Filter>Source</Filter>
     </ClInclude>
     <ClInclude Include="ComputeShader.hlsl" />
+    <ClInclude Include="D3D11Utils.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\.editorconfig" />

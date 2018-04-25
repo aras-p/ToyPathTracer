@@ -163,6 +163,7 @@
     <ClCompile Include="..\Source\enkiTS\TaskScheduler_c.cpp" />
     <ClCompile Include="..\Source\Maths.cpp" />
     <ClCompile Include="..\Source\Test.cpp" />
+    <ClCompile Include="D3D11Utils.cpp" />
     <ClCompile Include="TestWin.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -176,6 +177,7 @@
     <ClInclude Include="..\Source\MathSimd.h" />
     <ClInclude Include="..\Source\Test.h" />
     <ClInclude Include="..\Source\stb_image.h" />
+    <ClInclude Include="D3D11Utils.h" />
   </ItemGroup>
   <ItemGroup>
     <None Include="..\.editorconfig" />
