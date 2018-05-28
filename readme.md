@@ -17,6 +17,9 @@ I decided to write blog posts about things I discover as I do this, currently:
 * [Part 8: SSE SIMD for HitSpheres](http://aras-p.info/blog/2018/04/11/Daily-Pathtracer-8-SSE-HitSpheres/)
 * [Part 9: ryg optimizes my code](http://aras-p.info/blog/2018/04/13/Daily-Pathtracer-9-A-wild-ryg-appears/)
 * [Part 10: Update all implementations to match](http://aras-p.info/blog/2018/04/16/Daily-Pathtracer-10-Update-CsharpGPU/)
+* [Part 11: Buffer-oriented approach on CPU](http://aras-p.info/blog/2018/04/19/Daily-Pathtracer-11-Buffer-Oriented/)
+* [Part 12: Buffer-oriented approach on GPU D3D11](http://aras-p.info/blog/2018/04/25/Daily-Pathtracer-12-GPU-Buffer-Oriented-D3D11/)
+* [Part 13: GPU thread group data optimization](http://aras-p.info/blog/2018/05/28/Pathtracer-13-GPU-threadgroup-memory-is-useful/)
 
 Right now: can only do spheres, no bounding volume hierachy of any sorts, a lot of stuff hardcoded.
 
@@ -30,9 +33,9 @@ These are all on a scene with ~50 spheres and two light sources, measured in Mra
   * C# (.NET Core): PC 53, Mac 13.1
   * C# (Mono with optimized settings): Mac 12.7
   * C# (Mono defaults): Mac 5.5
-* GPU. Super simplistic direct ports:
-  * D3D11 compute shader. GeForce GTX 1080 Ti: 778
-  * Metal compute shader. Intel Iris Pro: 53.0
+* GPU. Simple direct ports to compute shader:
+  * D3D11. GeForce GTX 1080 Ti: 1854
+  * Metal. Intel Iris Pro: 99
   
 A lot of stuff in the implementation is *totally* suboptimal or using the tech in a "wrong" way.
 I know it's just a simple toy, ok :)
