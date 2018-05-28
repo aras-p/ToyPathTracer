@@ -100,6 +100,11 @@ struct Material
     float ri;
 };
 
+groupshared Sphere s_GroupSpheres[kCSMaxObjects];
+groupshared Material s_GroupMaterials[kCSMaxObjects];
+groupshared int s_GroupEmissives[kCSMaxObjects];
+
+
 struct Camera
 {
     float3 origin;
@@ -118,13 +123,13 @@ Ray CameraGetRay(Camera cam, float s, float t, inout uint state)
 }
 
 
-int HitSpheres(Ray r, StructuredBuffer<Sphere> spheres, int sphereCount, float tMin, float tMax, inout Hit outHit)
+int HitSpheres(Ray r, int sphereCount, float tMin, float tMax, inout Hit outHit)
 {
     float hitT = tMax;
     int id = -1;
     for (int i = 0; i < sphereCount; ++i)
     {
-        Sphere s = spheres[i];
+        Sphere s = s_GroupSpheres[i];
         float3 co = s.center - r.orig;
         float nb = dot(co, r.dir);
         float c = dot(co, co) - s.radius*s.radius;
@@ -149,7 +154,7 @@ int HitSpheres(Ray r, StructuredBuffer<Sphere> spheres, int sphereCount, float t
     if (id != -1)
     {
         outHit.pos = RayPointAt(r, hitT);
-        outHit.normal = (outHit.pos - spheres[id].center) * spheres[id].invRadius;
+        outHit.normal = (outHit.pos - s_GroupSpheres[id].center) * s_GroupSpheres[id].invRadius;
         outHit.t = hitT;
     }
     return id;
@@ -174,16 +179,16 @@ struct Params
 #define kMaxDepth 10
 
 
-static int HitWorld(StructuredBuffer<Sphere> spheres, int sphereCount, Ray r, float tMin, float tMax, inout Hit outHit)
+static int HitWorld(int sphereCount, Ray r, float tMin, float tMax, inout Hit outHit)
 {
-    return HitSpheres(r, spheres, sphereCount, tMin, tMax, outHit);
+    return HitSpheres(r, sphereCount, tMin, tMax, outHit);
 }
 
 
-static bool Scatter(StructuredBuffer<Sphere> spheres, StructuredBuffer<Material> materials, int sphereCount, StructuredBuffer<int> emissives, int emissiveCount, int matID, Ray r_in, Hit rec, out float3 attenuation, out Ray scattered, out float3 outLightE, inout int inoutRayCount, inout uint state)
+static bool Scatter(int sphereCount, int emissiveCount, int matID, Ray r_in, Hit rec, out float3 attenuation, out Ray scattered, out float3 outLightE, inout int inoutRayCount, inout uint state)
 {
     outLightE = float3(0, 0, 0);
-    Material mat = materials[matID];
+    Material mat = s_GroupMaterials[matID];
     if (mat.type == MatLambert)
     {
         // random point on unit sphere that is tangent to the hit point
@@ -195,11 +200,11 @@ static bool Scatter(StructuredBuffer<Sphere> spheres, StructuredBuffer<Material>
 #if DO_LIGHT_SAMPLING
         for (int j = 0; j < emissiveCount; ++j)
         {
-            int i = emissives[j];
+            int i = s_GroupEmissives[j];
             if (matID == i)
                 continue; // skip self
-            Material smat = materials[i];
-            Sphere s = spheres[i];
+            Material smat = s_GroupMaterials[i];
+            Sphere s = s_GroupSpheres[i];
 
             // create a random direction towards sphere
             // coord system for sampling: sw, su, sv
@@ -217,7 +222,7 @@ static bool Scatter(StructuredBuffer<Sphere> spheres, StructuredBuffer<Material>
             // shoot shadow ray
             Hit lightHit;
             ++inoutRayCount;
-            int hitID = HitWorld(spheres, sphereCount, MakeRay(rec.pos, l), kMinT, kMaxT, lightHit);
+            int hitID = HitWorld(sphereCount, MakeRay(rec.pos, l), kMinT, kMaxT, lightHit);
             if (hitID == i)
             {
                 float omega = 2 * 3.1415926 * (1 - cosAMax);
@@ -286,7 +291,7 @@ static bool Scatter(StructuredBuffer<Sphere> spheres, StructuredBuffer<Material>
     return true;
 }
 
-static float3 Trace(StructuredBuffer<Sphere> spheres, StructuredBuffer<Material> materials, int sphereCount, StructuredBuffer<int> emissives, int emissiveCount, Ray r, inout int inoutRayCount, inout uint state)
+static float3 Trace(int sphereCount, int emissiveCount, Ray r, inout int inoutRayCount, inout uint state)
 {
     float3 col = 0;
     float3 curAtten = 1;
@@ -296,15 +301,15 @@ static float3 Trace(StructuredBuffer<Sphere> spheres, StructuredBuffer<Material>
     {
         Hit rec;
         ++inoutRayCount;
-        int id = HitWorld(spheres, sphereCount, r, kMinT, kMaxT, rec);
+        int id = HitWorld(sphereCount, r, kMinT, kMaxT, rec);
         if (id >= 0)
         {
             Ray scattered;
             float3 attenuation;
             float3 lightE;
-            Material mat = materials[id];
+            Material mat = s_GroupMaterials[id];
             float3 matE = mat.emissive;
-            if (Scatter(spheres, materials, sphereCount, emissives, emissiveCount, id, r, rec, attenuation, scattered, lightE, inoutRayCount, state))
+            if (Scatter(sphereCount, emissiveCount, id, r, rec, attenuation, scattered, lightE, inoutRayCount, state))
             {
 #if DO_LIGHT_SAMPLING
                 if (!doMaterialE) matE = 0;
@@ -346,9 +351,29 @@ StructuredBuffer<int> g_Emissives : register(t4);
 RWByteAddressBuffer g_OutRayCount : register(u1);
 
 [numthreads(kCSGroupSizeX, kCSGroupSizeY, 1)]
-void main(
-    uint3 gid : SV_DispatchThreadID)
+void main(uint3 gid : SV_DispatchThreadID, uint3 tid : SV_GroupThreadID)
 {
+    // First, move scene data (spheres, materials, emissive indices) into group shared
+    // memory. Do this in parallel; each thread in group copies its own chunk of data.
+    uint threadID = tid.y * kCSGroupSizeX + tid.x;
+    uint groupSize = kCSGroupSizeX * kCSGroupSizeY;
+    uint objCount = g_Params[0].sphereCount;
+    uint myObjCount = (objCount + groupSize - 1) / groupSize;
+    uint myObjStart = threadID * myObjCount;
+    for (uint io = myObjStart; io < myObjStart + myObjCount; ++io)
+    {
+        if (io < objCount)
+        {
+            s_GroupSpheres[io] = g_Spheres[io];
+            s_GroupMaterials[io] = g_Materials[io];
+        }
+        if (io < g_Params[0].emissiveCount)
+        {
+            s_GroupEmissives[io] = g_Emissives[io];
+        }
+    }
+    GroupMemoryBarrierWithGroupSync();
+
     int rayCount = 0;
     float3 col = 0;
     Params params = g_Params[0];
@@ -358,7 +383,7 @@ void main(
         float u = float(gid.x + RandomFloat01(rngState)) * params.invWidth;
         float v = float(gid.y + RandomFloat01(rngState)) * params.invHeight;
         Ray r = CameraGetRay(params.cam, u, v, rngState);
-        col += Trace(g_Spheres, g_Materials, params.sphereCount, g_Emissives, params.emissiveCount, r, rayCount, rngState);
+        col += Trace(params.sphereCount, params.emissiveCount, r, rayCount, rngState);
     }
     col *= 1.0f / float(DO_SAMPLES_PER_PIXEL);
 
