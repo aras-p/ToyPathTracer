@@ -255,16 +255,18 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 static uint64_t s_Time;
 static int s_Count;
 static char s_Buffer[200];
+static unsigned s_Flags = kFlagProgressive;
+static int s_FrameCount = 0;
+
 
 static void RenderFrame()
 {
-    static int s_FrameCount = 0;
     LARGE_INTEGER time1;
 
 #if DO_COMPUTE_GPU
     QueryPerformanceCounter(&time1);
     float t = float(clock()) / CLOCKS_PER_SEC;
-    UpdateTest(t, s_FrameCount, kBackbufferWidth, kBackbufferHeight);
+    UpdateTest(t, s_FrameCount, kBackbufferWidth, kBackbufferHeight, s_Flags);
 
     g_BackbufferIndex = 1 - g_BackbufferIndex;
     void* dataSpheres = alloca(g_SphereCount * g_ObjSize);
@@ -280,12 +282,10 @@ static void RenderFrame()
     dataParams.invWidth = 1.0f / kBackbufferWidth;
     dataParams.invHeight = 1.0f / kBackbufferHeight;
     float lerpFac = float(s_FrameCount) / float(s_FrameCount + 1);
-#if DO_ANIMATE
-    lerpFac *= DO_ANIMATE_SMOOTHING;
-#endif
-#if !DO_PROGRESSIVE
-    lerpFac = 0;
-#endif
+    if (s_Flags & kFlagAnimate)
+        lerpFac *= DO_ANIMATE_SMOOTHING;
+    if (!(s_Flags & kFlagProgressive))
+        lerpFac = 0;
     dataParams.lerpFac = lerpFac;
 
     g_D3D11Ctx->UpdateSubresource(g_DataSpheres, 0, NULL, dataSpheres, 0, 0);
@@ -421,6 +421,15 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
         break;
     case WM_DESTROY:
         PostQuitMessage(0);
+        break;
+    case WM_CHAR:
+        if (wParam == 'a')
+            s_Flags = s_Flags ^ kFlagAnimate;
+        if (wParam == 'p')
+        {
+            s_Flags = s_Flags ^ kFlagProgressive;
+            s_FrameCount = 0;
+        }
         break;
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);

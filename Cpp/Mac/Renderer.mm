@@ -151,6 +151,7 @@ struct ComputeParams
 static uint64_t _computeStartTime;
 static uint64_t _computeDur;
 static size_t rayCounter = 0;
+unsigned g_TestFlags = kFlagProgressive;
 
 - (void)_doRenderingWith:(id <MTLCommandBuffer>) cmd;
 {
@@ -163,7 +164,7 @@ static size_t rayCounter = 0;
     uint64_t curNs = (time1 * _clock_timebase.numer) / _clock_timebase.denom;
     float curT = float(curNs * 1.0e-9f);
 
-    UpdateTest(curT, totalCounter, kBackbufferWidth, kBackbufferHeight);
+    UpdateTest(curT, totalCounter, kBackbufferWidth, kBackbufferHeight, g_TestFlags);
     
 #if DO_COMPUTE_GPU
     _backbufferIndex = 1-_backbufferIndex;
@@ -187,12 +188,10 @@ static size_t rayCounter = 0;
     params->invWidth = 1.0f / kBackbufferWidth;
     params->invHeight = 1.0f / kBackbufferHeight;
     params->lerpFac = float(totalCounter) / float(totalCounter+1);
-#if DO_ANIMATE
-    params->lerpFac *= DO_ANIMATE_SMOOTHING;
-#endif
-#if !DO_PROGRESSIVE
-    params->lerpFac = 0;
-#endif
+    if (g_TestFlags & kFlagAnimate)
+        params->lerpFac *= DO_ANIMATE_SMOOTHING;
+    if (!(g_TestFlags & kFlagProgressive))
+        params->lerpFac = 0;
     *(int*)(dataCounter+_uniformBufferIndex*counterSize) = 0;
     [_computeSpheres didModifyRange:NSMakeRange(_uniformBufferIndex*spheresSize, spheresSize)];
     [_computeMaterials didModifyRange:NSMakeRange(_uniformBufferIndex*matsSize, matsSize)];
