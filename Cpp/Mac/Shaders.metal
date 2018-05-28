@@ -151,7 +151,7 @@ int HitSpheres(Ray r, threadgroup const Sphere* spheres, int sphereCount, float 
     int id = -1;
     for (int i = 0; i < sphereCount; ++i)
     {
-        threadgroup const Sphere& s = spheres[i];
+        Sphere s = spheres[i];
         float3 co = s.center - r.orig;
         float nb = dot(co, r.dir);
         float c = dot(co, co) - s.radius*s.radius;
@@ -207,7 +207,7 @@ static int HitWorld(threadgroup const Sphere* spheres, int sphereCount, Ray r, f
 static bool Scatter(threadgroup const Sphere* spheres, threadgroup const Material* materials, int sphereCount, threadgroup int* emissives, int emissiveCount, int matID, Ray r_in, Hit rec, thread float3& attenuation, thread Ray& scattered, thread float3& outLightE, thread int& inoutRayCount, thread uint32_t& state)
 {
     outLightE = float3(0,0,0);
-    threadgroup const Material& mat = materials[matID];
+    Material mat = materials[matID];
     if (mat.type == Material::Lambert)
     {
         // random point on unit sphere that is tangent to the hit point
@@ -222,8 +222,8 @@ static bool Scatter(threadgroup const Sphere* spheres, threadgroup const Materia
             int i = emissives[j];
             if (matID == i)
                 continue; // skip self
-            threadgroup const Material& smat = materials[i];
-            threadgroup const Sphere& s = spheres[i];
+            Material smat = materials[i];
+            Sphere s = spheres[i];
             
             // create a random direction towards sphere
             // coord system for sampling: sw, su, sv
@@ -325,7 +325,7 @@ static float3 Trace(threadgroup const Sphere* spheres, threadgroup const Materia
             Ray scattered;
             float3 attenuation;
             float3 lightE;
-            threadgroup const Material& mat = materials[id];
+            Material mat = materials[id];
             float3 matE = mat.emissive;
             if (Scatter(spheres, materials, sphereCount, emissives, emissiveCount, id, r, rec, attenuation, scattered, lightE, inoutRayCount, state))
             {
