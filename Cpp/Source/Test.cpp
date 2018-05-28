@@ -248,6 +248,7 @@ struct JobData
     float* backbuffer;
     Camera* cam;
     std::atomic<int> rayCount;
+    unsigned testFlags;
 };
 
 static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* data_)
@@ -257,12 +258,10 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
     float invWidth = 1.0f / data.screenWidth;
     float invHeight = 1.0f / data.screenHeight;
     float lerpFac = float(data.frameCount) / float(data.frameCount+1);
-#if DO_ANIMATE
-    lerpFac *= DO_ANIMATE_SMOOTHING;
-#endif
-#if !DO_PROGRESSIVE
-    lerpFac = 0;
-#endif
+    if (data.testFlags & kFlagAnimate)
+        lerpFac *= DO_ANIMATE_SMOOTHING;
+    if (!(data.testFlags & kFlagProgressive))
+        lerpFac = 0;
     int rayCount = 0;
     for (uint32_t y = start; y < end; ++y)
     {
@@ -288,12 +287,13 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
     data.rayCount += rayCount;
 }
 
-void UpdateTest(float time, int frameCount, int screenWidth, int screenHeight)
+void UpdateTest(float time, int frameCount, int screenWidth, int screenHeight, unsigned testFlags)
 {
-#if DO_ANIMATE
-    s_Spheres[1].center.y = cosf(time) + 1.0f;
-    s_Spheres[8].center.z = sinf(time)*0.3f;
-#endif
+    if (testFlags & kFlagAnimate)
+    {
+        s_Spheres[1].center.y = cosf(time) + 1.0f;
+        s_Spheres[8].center.z = sinf(time)*0.3f;
+    }
     float3 lookfrom(0, 2, 3);
     float3 lookat(0, 0, 0);
     float distToFocus = 3;
@@ -329,7 +329,7 @@ void UpdateTest(float time, int frameCount, int screenWidth, int screenHeight)
     s_Cam = Camera(lookfrom, lookat, float3(0, 1, 0), 60, float(screenWidth) / float(screenHeight), aperture, distToFocus);
 }
 
-void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, float* backbuffer, int& outRayCount)
+void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, float* backbuffer, int& outRayCount, unsigned testFlags)
 {
     JobData args;
     args.time = time;
@@ -338,6 +338,7 @@ void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, flo
     args.screenHeight = screenHeight;
     args.backbuffer = backbuffer;
     args.cam = &s_Cam;
+    args.testFlags = testFlags;
     args.rayCount = 0;
     enkiTaskSet* task = enkiCreateTaskSet(g_TS, TraceRowJob);
     bool threaded = true;

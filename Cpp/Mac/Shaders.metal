@@ -145,13 +145,13 @@ Ray CameraGetRay(constant const Camera& cam, float s, float t, thread uint32_t& 
     return Ray(cam.origin + offset, normalize(cam.lowerLeftCorner + s*cam.horizontal + t*cam.vertical - cam.origin - offset));
 }
 
-int HitSpheres(Ray r, constant const Sphere* spheres, int sphereCount, float tMin, float tMax, thread Hit& outHit)
+int HitSpheres(Ray r, threadgroup const Sphere* spheres, int sphereCount, float tMin, float tMax, thread Hit& outHit)
 {
     float hitT = tMax;
     int id = -1;
     for (int i = 0; i < sphereCount; ++i)
     {
-        constant const Sphere& s = spheres[i];
+        Sphere s = spheres[i];
         float3 co = s.center - r.orig;
         float nb = dot(co, r.dir);
         float c = dot(co, co) - s.radius*s.radius;
@@ -192,22 +192,22 @@ struct Params
     float invWidth;
     float invHeight;
     float lerpFac;
-    int emissiveCount;
+    uint emissiveCount;
 };
 
 #define kMinT 0.001f
 #define kMaxT 1.0e7f
 #define kMaxDepth 10
 
-static int HitWorld(constant const Sphere* spheres, int sphereCount, Ray r, float tMin, float tMax, thread Hit& outHit)
+static int HitWorld(threadgroup const Sphere* spheres, int sphereCount, Ray r, float tMin, float tMax, thread Hit& outHit)
 {
     return HitSpheres(r, spheres, sphereCount, tMin, tMax, outHit);
 }
 
-static bool Scatter(constant const Sphere* spheres, constant const Material* materials, int sphereCount, constant int* emissives, int emissiveCount, int matID, Ray r_in, Hit rec, thread float3& attenuation, thread Ray& scattered, thread float3& outLightE, thread int& inoutRayCount, thread uint32_t& state)
+static bool Scatter(threadgroup const Sphere* spheres, threadgroup const Material* materials, int sphereCount, threadgroup int* emissives, int emissiveCount, int matID, Ray r_in, Hit rec, thread float3& attenuation, thread Ray& scattered, thread float3& outLightE, thread int& inoutRayCount, thread uint32_t& state)
 {
     outLightE = float3(0,0,0);
-    constant const Material& mat = materials[matID];
+    Material mat = materials[matID];
     if (mat.type == Material::Lambert)
     {
         // random point on unit sphere that is tangent to the hit point
@@ -222,8 +222,8 @@ static bool Scatter(constant const Sphere* spheres, constant const Material* mat
             int i = emissives[j];
             if (matID == i)
                 continue; // skip self
-            constant const Material& smat = materials[i];
-            constant const Sphere& s = spheres[i];
+            Material smat = materials[i];
+            Sphere s = spheres[i];
             
             // create a random direction towards sphere
             // coord system for sampling: sw, su, sv
@@ -304,7 +304,7 @@ static bool Scatter(constant const Sphere* spheres, constant const Material* mat
     return true;
 }
 
-static float3 Trace(constant const Sphere* spheres, constant const Material* materials, int sphereCount, constant int* emissives, int emissiveCount, Ray r, thread int& inoutRayCount, thread uint32_t& state)
+static float3 Trace(threadgroup const Sphere* spheres, threadgroup const Material* materials, int sphereCount, threadgroup int* emissives, int emissiveCount, Ray r, thread int& inoutRayCount, thread uint32_t& state)
 {
     float3 col = 0;
     float3 curAtten = 1;
@@ -325,7 +325,7 @@ static float3 Trace(constant const Sphere* spheres, constant const Material* mat
             Ray scattered;
             float3 attenuation;
             float3 lightE;
-            constant const Material& mat = materials[id];
+            Material mat = materials[id];
             float3 matE = mat.emissive;
             if (Scatter(spheres, materials, sphereCount, emissives, emissiveCount, id, r, rec, attenuation, scattered, lightE, inoutRayCount, state))
             {
@@ -365,12 +365,37 @@ kernel void TraceGPU(
                      texture2d<float,access::read> srcImage [[texture(0)]],
                      texture2d<float,access::write> dstImage [[texture(1)]],
                      uint2 gid [[thread_position_in_grid]],
+                     uint tid [[thread_index_in_threadgroup]],
                      constant Sphere* spheres [[buffer(0)]],
                      constant Material* materials [[buffer(1)]],
                      constant Params* params [[buffer(2)]],
                      constant int* emissives [[buffer(3)]],
                      device atomic_int* outRayCount [[buffer(4)]])
 {
+    // First, move scene data (spheres, materials, emissive indices) into thread group shared
+    // memory. Do this in parallel; each thread in group copies its own chunk of data.
+    threadgroup Sphere groupSpheres[kCSMaxObjects];
+    threadgroup Material groupMaterials[kCSMaxObjects];
+    threadgroup int groupEmissives[kCSMaxObjects];
+    uint groupSize = kCSGroupSizeX * kCSGroupSizeY;
+    uint objCount = params->sphereCount;
+    uint myObjCount = (objCount + groupSize - 1) / groupSize;
+    uint myObjStart = tid * myObjCount;
+    for (uint io = myObjStart; io < myObjStart + myObjCount; ++io)
+    {
+        if (io < objCount)
+        {
+            groupSpheres[io] = spheres[io];
+            groupMaterials[io] = materials[io];
+        }
+        if (io < params->emissiveCount)
+        {
+            groupEmissives[io] = emissives[io];
+        }
+    }
+    threadgroup_barrier(mem_flags::mem_threadgroup);
+
+    
     int rayCount = 0;
     float3 col(0, 0, 0);
     uint32_t rngState = (gid.x * 1973 + gid.y * 9277 + params->frames * 26699) | 1;
@@ -379,7 +404,7 @@ kernel void TraceGPU(
         float u = float(gid.x + RandomFloat01(rngState)) * params->invWidth;
         float v = float(gid.y + RandomFloat01(rngState)) * params->invHeight;
         Ray r = CameraGetRay(params->cam, u, v, rngState);
-        col += Trace(spheres, materials, params->sphereCount, emissives, params->emissiveCount, r, rayCount, rngState);
+        col += Trace(groupSpheres, groupMaterials, params->sphereCount, groupEmissives, params->emissiveCount, r, rayCount, rngState);
     }
     col *= 1.0f / float(DO_SAMPLES_PER_PIXEL);
     
