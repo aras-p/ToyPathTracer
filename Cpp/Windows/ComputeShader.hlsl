@@ -391,6 +391,5 @@ void main(uint3 gid : SV_DispatchThreadID, uint3 tid : SV_GroupThreadID)
     col = lerp(col, prev, params.lerpFac);
     dstImage[gid.xy] = float4(col, 1);
 
-    uint prevRayCount;
-    g_OutRayCount.InterlockedAdd(0, rayCount, prevRayCount);
+    g_OutRayCount.InterlockedAdd(0, rayCount);
 }
