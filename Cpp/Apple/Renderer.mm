@@ -253,6 +253,7 @@ unsigned g_TestFlags = kFlagProgressive;
     __block dispatch_semaphore_t block_sema = _inFlightSemaphore;
 #if DO_COMPUTE_GPU
     int counterIndex = (_uniformBufferIndex+1)%kMaxBuffersInFlight;
+    id <MTLBuffer> counterBuffer = _computeCounter;
 #endif
     [cmd addCompletedHandler:^(id<MTLCommandBuffer> buffer)
     {
@@ -263,7 +264,7 @@ unsigned g_TestFlags = kFlagProgressive;
         // what Xcode reports for the GPU duration.
         uint64_t time2 = mach_absolute_time();
         _computeDur = (time2 - _computeStartTime);
-        int rayCount = *(const int*)(((const uint8_t*)[_computeCounter contents]) + counterIndex*AlignedSize(4));
+        int rayCount = *(const int*)(((const uint8_t*)[counterBuffer contents]) + counterIndex*AlignedSize(4));
         rayCounter += rayCount;
         #endif
 
