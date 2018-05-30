@@ -49,17 +49,28 @@ float3 RandomUnitVector(uint32_t& state)
 
 int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, Hit& outHit)
 {
-#if DO_HIT_SPHERES_SSE
+#if DO_HIT_SPHERES_SIMD
     float4 hitT = float4(tMax);
+#if USE_NEON
+    int32x4_t id = vdupq_n_s32(-1);
+#else
     __m128i id = _mm_set1_epi32(-1);
+#endif
 
-#if DO_FLOAT3_WITH_SIMD
+#if DO_FLOAT3_WITH_SIMD && !USE_NEON
     float4 rOrigX = SHUFFLE4(r.orig, 0, 0, 0, 0);
     float4 rOrigY = SHUFFLE4(r.orig, 1, 1, 1, 1);
     float4 rOrigZ = SHUFFLE4(r.orig, 2, 2, 2, 2);
     float4 rDirX = SHUFFLE4(r.dir, 0, 0, 0, 0);
     float4 rDirY = SHUFFLE4(r.dir, 1, 1, 1, 1);
     float4 rDirZ = SHUFFLE4(r.dir, 2, 2, 2, 2);
+#elif DO_FLOAT3_WITH_SIMD
+    float4 rOrigX = splatX(r.orig.m);
+    float4 rOrigY = splatY(r.orig.m);
+    float4 rOrigZ = splatZ(r.orig.m);
+    float4 rDirX = splatX(r.dir.m);
+    float4 rDirY = splatY(r.dir.m);
+    float4 rDirZ = splatZ(r.dir.m);
 #else
     float4 rOrigX = float4(r.orig.x);
     float4 rOrigY = float4(r.orig.y);
@@ -69,7 +80,11 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
     float4 rDirZ = float4(r.dir.z);
 #endif
     float4 tMin4 = float4(tMin);
+#if USE_NEON
+    int32x4_t curId = vcombine_u32(vcreate_u32(0ULL | (1ULL<<32)), vcreate_u32(2ULL | (3ULL<<32)));
+#else
     __m128i curId = _mm_set_epi32(3, 2, 1, 0);
+#endif
     // process 4 spheres at once
     for (int i = 0; i < spheres.simdCount; i += kSimdWidth)
     {
@@ -101,7 +116,11 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
             id = select(id, curId, msk);
             hitT = select(hitT, t, msk);
         }
+#if USE_NEON
+        curId = vaddq_s32(curId, vdupq_n_s32(kSimdWidth));
+#else
         curId = _mm_add_epi32(curId, _mm_set1_epi32(kSimdWidth));
+#endif
     }
     // now we have up to 4 hits, find and return closest one
     float minT = hmin(hitT);
@@ -112,8 +131,13 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
         {
             int id_scalar[4];
             float hitT_scalar[4];
+#if USE_NEON
+            vst1q_s32(id_scalar, id);
+            vst1q_f32(hitT_scalar, hitT.m);
+#else
             _mm_storeu_si128((__m128i *)id_scalar, id);
             _mm_storeu_ps(hitT_scalar, hitT.m);
+#endif
 
             // In general, you would do this with a bit scan (first set/trailing zero count).
             // But who cares, it's only 16 options.
@@ -138,7 +162,7 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
 
     return -1;
 
-#else // #if DO_HIT_SPHERES_SSE
+#else // #if DO_HIT_SPHERES_SIMD
 
     float hitT = tMax;
     int id = -1;
@@ -175,5 +199,5 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
     }
     else
         return -1;
-#endif // #else of #if DO_HIT_SPHERES_SSE
+#endif // #else of #if DO_HIT_SPHERES_SIMD
 }
