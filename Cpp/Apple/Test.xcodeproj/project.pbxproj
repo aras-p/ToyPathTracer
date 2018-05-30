@@ -7,6 +7,17 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2B2B5AA220BE72FD00040BFE /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B2B5AA120BE72FD00040BFE /* AppDelegate.m */; };
+		2B2B5AA820BE72FD00040BFE /* GameViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B2B5AA720BE72FD00040BFE /* GameViewController.m */; };
+		2B2B5AAE20BE72FD00040BFE /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 2B2B5AAC20BE72FD00040BFE /* Main.storyboard */; };
+		2B2B5AB320BE72FE00040BFE /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 2B2B5AB120BE72FE00040BFE /* LaunchScreen.storyboard */; };
+		2B2B5AB620BE72FE00040BFE /* main.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B2B5AB520BE72FE00040BFE /* main.m */; };
+		2B2B5ABA20BE742700040BFE /* Renderer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 2B2D97B520519C7100520EC1 /* Renderer.mm */; };
+		2B2B5ABB20BE742A00040BFE /* Shaders.metal in Sources */ = {isa = PBXBuildFile; fileRef = 2B2D97BA20519C7100520EC1 /* Shaders.metal */; };
+		2B2B5ABC20BE77ED00040BFE /* Maths.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2BFC4E1420614A7B0007766C /* Maths.cpp */; };
+		2B2B5ABD20BE77F000040BFE /* Test.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2BE32DC7205BEDA6003C05B4 /* Test.cpp */; };
+		2B2B5ABE20BE77F500040BFE /* TaskScheduler_c.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2BE32DCE205BFC31003C05B4 /* TaskScheduler_c.cpp */; };
+		2B2B5ABF20BE77F900040BFE /* TaskScheduler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = 2BE32DD0205BFC31003C05B4 /* TaskScheduler.cpp */; };
 		2B2D97B320519C7100520EC1 /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B2D97B220519C7100520EC1 /* AppDelegate.m */; };
 		2B2D97B620519C7100520EC1 /* Renderer.mm in Sources */ = {isa = PBXBuildFile; fileRef = 2B2D97B520519C7100520EC1 /* Renderer.mm */; };
 		2B2D97B920519C7100520EC1 /* GameViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B2D97B820519C7100520EC1 /* GameViewController.m */; };
@@ -21,6 +32,15 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		2B2B5A9E20BE72FD00040BFE /* Test iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Test iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		2B2B5AA020BE72FD00040BFE /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
+		2B2B5AA120BE72FD00040BFE /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
+		2B2B5AA620BE72FD00040BFE /* GameViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GameViewController.h; sourceTree = "<group>"; };
+		2B2B5AA720BE72FD00040BFE /* GameViewController.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = GameViewController.m; sourceTree = "<group>"; };
+		2B2B5AAD20BE72FD00040BFE /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
+		2B2B5AB220BE72FE00040BFE /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
+		2B2B5AB420BE72FE00040BFE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		2B2B5AB520BE72FE00040BFE /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
 		2B2D97AE20519C7100520EC1 /* Test.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Test.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2B2D97B120519C7100520EC1 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		2B2D97B220519C7100520EC1 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
@@ -50,6 +70,13 @@
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		2B2B5A9B20BE72FD00040BFE /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		2B2D97AB20519C7100520EC1 /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -104,6 +131,21 @@
 			path = macOS;
 			sourceTree = "<group>";
 		};
+		2B2B5A9F20BE72FD00040BFE /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				2B2B5AA020BE72FD00040BFE /* AppDelegate.h */,
+				2B2B5AA120BE72FD00040BFE /* AppDelegate.m */,
+				2B2B5AA620BE72FD00040BFE /* GameViewController.h */,
+				2B2B5AA720BE72FD00040BFE /* GameViewController.m */,
+				2B2B5AAC20BE72FD00040BFE /* Main.storyboard */,
+				2B2B5AB120BE72FE00040BFE /* LaunchScreen.storyboard */,
+				2B2B5AB420BE72FE00040BFE /* Info.plist */,
+				2B2B5AB520BE72FE00040BFE /* main.m */,
+			);
+			path = iOS;
+			sourceTree = "<group>";
+		};
 		2B2D97A520519C7100520EC1 = {
 			isa = PBXGroup;
 			children = (
@@ -118,6 +160,7 @@
 			isa = PBXGroup;
 			children = (
 				2B2D97AE20519C7100520EC1 /* Test.app */,
+				2B2B5A9E20BE72FD00040BFE /* Test iOS.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -126,6 +169,7 @@
 			isa = PBXGroup;
 			children = (
 				2B2B5A9920BE710E00040BFE /* macOS */,
+				2B2B5A9F20BE72FD00040BFE /* iOS */,
 				2B2D97B420519C7100520EC1 /* Renderer.h */,
 				2B2D97B520519C7100520EC1 /* Renderer.mm */,
 				2B2D97BA20519C7100520EC1 /* Shaders.metal */,
@@ -145,9 +189,26 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		2B2D97AD20519C7100520EC1 /* Test */ = {
+		2B2B5A9D20BE72FD00040BFE /* Test iOS */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 2B2D97C820519C7100520EC1 /* Build configuration list for PBXNativeTarget "Test" */;
+			buildConfigurationList = 2B2B5AB720BE72FE00040BFE /* Build configuration list for PBXNativeTarget "Test iOS" */;
+			buildPhases = (
+				2B2B5A9A20BE72FD00040BFE /* Sources */,
+				2B2B5A9B20BE72FD00040BFE /* Frameworks */,
+				2B2B5A9C20BE72FD00040BFE /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = "Test iOS";
+			productName = "Test iOS";
+			productReference = 2B2B5A9E20BE72FD00040BFE /* Test iOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+		2B2D97AD20519C7100520EC1 /* Test Mac */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 2B2D97C820519C7100520EC1 /* Build configuration list for PBXNativeTarget "Test Mac" */;
 			buildPhases = (
 				2B2D97AA20519C7100520EC1 /* Sources */,
 				2B2D97AB20519C7100520EC1 /* Frameworks */,
@@ -157,7 +218,7 @@
 			);
 			dependencies = (
 			);
-			name = Test;
+			name = "Test Mac";
 			productName = Test;
 			productReference = 2B2D97AE20519C7100520EC1 /* Test.app */;
 			productType = "com.apple.product-type.application";
@@ -171,6 +232,10 @@
 				LastUpgradeCheck = 0930;
 				ORGANIZATIONNAME = "Aras Pranckevicius";
 				TargetAttributes = {
+					2B2B5A9D20BE72FD00040BFE = {
+						CreatedOnToolsVersion = 9.3;
+						ProvisioningStyle = Automatic;
+					};
 					2B2D97AD20519C7100520EC1 = {
 						CreatedOnToolsVersion = 9.2;
 						ProvisioningStyle = Automatic;
@@ -195,12 +260,22 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				2B2D97AD20519C7100520EC1 /* Test */,
+				2B2D97AD20519C7100520EC1 /* Test Mac */,
+				2B2B5A9D20BE72FD00040BFE /* Test iOS */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		2B2B5A9C20BE72FD00040BFE /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2B2B5AB320BE72FE00040BFE /* LaunchScreen.storyboard in Resources */,
+				2B2B5AAE20BE72FD00040BFE /* Main.storyboard in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		2B2D97AC20519C7100520EC1 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -212,6 +287,22 @@
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
+		2B2B5A9A20BE72FD00040BFE /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				2B2B5ABE20BE77F500040BFE /* TaskScheduler_c.cpp in Sources */,
+				2B2B5ABB20BE742A00040BFE /* Shaders.metal in Sources */,
+				2B2B5ABC20BE77ED00040BFE /* Maths.cpp in Sources */,
+				2B2B5ABD20BE77F000040BFE /* Test.cpp in Sources */,
+				2B2B5ABA20BE742700040BFE /* Renderer.mm in Sources */,
+				2B2B5AB620BE72FE00040BFE /* main.m in Sources */,
+				2B2B5AA820BE72FD00040BFE /* GameViewController.m in Sources */,
+				2B2B5AA220BE72FD00040BFE /* AppDelegate.m in Sources */,
+				2B2B5ABF20BE77F900040BFE /* TaskScheduler.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		2B2D97AA20519C7100520EC1 /* Sources */ = {
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -231,6 +322,22 @@
 /* End PBXSourcesBuildPhase section */
 
 /* Begin PBXVariantGroup section */
+		2B2B5AAC20BE72FD00040BFE /* Main.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				2B2B5AAD20BE72FD00040BFE /* Base */,
+			);
+			name = Main.storyboard;
+			sourceTree = "<group>";
+		};
+		2B2B5AB120BE72FE00040BFE /* LaunchScreen.storyboard */ = {
+			isa = PBXVariantGroup;
+			children = (
+				2B2B5AB220BE72FE00040BFE /* Base */,
+			);
+			name = LaunchScreen.storyboard;
+			sourceTree = "<group>";
+		};
 		2B2D97BF20519C7100520EC1 /* Main.storyboard */ = {
 			isa = PBXVariantGroup;
 			children = (
@@ -242,6 +349,41 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		2B2B5AB820BE72FE00040BFE /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = BVPN9UFA9B;
+				INFOPLIST_FILE = "$(SRCROOT)/iOS/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 11.3;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.aras.Test-iOS";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		2B2B5AB920BE72FE00040BFE /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				CODE_SIGN_STYLE = Automatic;
+				DEVELOPMENT_TEAM = BVPN9UFA9B;
+				INFOPLIST_FILE = "$(SRCROOT)/iOS/Info.plist";
+				IPHONEOS_DEPLOYMENT_TARGET = 11.3;
+				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/Frameworks";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.aras.Test-iOS";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
 		2B2D97C620519C7100520EC1 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -292,6 +434,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 10.0;
 				MACOSX_DEPLOYMENT_TARGET = 10.11;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
@@ -344,6 +487,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 10.0;
 				MACOSX_DEPLOYMENT_TARGET = 10.11;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = macosx;
@@ -381,6 +525,15 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
+		2B2B5AB720BE72FE00040BFE /* Build configuration list for PBXNativeTarget "Test iOS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				2B2B5AB820BE72FE00040BFE /* Debug */,
+				2B2B5AB920BE72FE00040BFE /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
 		2B2D97A920519C7100520EC1 /* Build configuration list for PBXProject "Test" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
@@ -390,7 +543,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		2B2D97C820519C7100520EC1 /* Build configuration list for PBXNativeTarget "Test" */ = {
+		2B2D97C820519C7100520EC1 /* Build configuration list for PBXNativeTarget "Test Mac" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				2B2D97C920519C7100520EC1 /* Debug */,
