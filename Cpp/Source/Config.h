@@ -1,4 +1,8 @@
 
+#if defined(__APPLE__) && !defined(__METAL_VERSION__)
+#include <TargetConditionals.h>
+#endif
+
 #define kBackbufferWidth 1280
 #define kBackbufferHeight 720
 

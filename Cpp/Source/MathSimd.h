@@ -1,9 +1,5 @@
 #pragma once
 
-#if defined(__APPLE__)
-#include <TargetConditionals.h>
-#endif
-
 #if defined(_MSC_VER)
 #define VM_INLINE __forceinline
 #else

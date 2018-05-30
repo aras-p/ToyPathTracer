@@ -126,6 +126,9 @@ struct float3
     VM_INLINE float getX() const { return x; }
     VM_INLINE float getY() const { return y; }
     VM_INLINE float getZ() const { return z; }
+    VM_INLINE void setX(float x_) { x = x_; }
+    VM_INLINE void setY(float y_) { y = y_; }
+    VM_INLINE void setZ(float z_) { z = z_; }
     VM_INLINE void store(float *p) const { p[0] = getX(); p[1] = getY(); p[2] = getZ(); }
 
     float x, y, z;
