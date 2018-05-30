@@ -15,7 +15,7 @@
 #define kCSMaxObjects 64
 
 // Should float3 struct use SSE?
-#define DO_FLOAT3_WITH_SSE (!(DO_COMPUTE_GPU) && 1)
+#define DO_FLOAT3_WITH_SSE (!(DO_COMPUTE_GPU) && !(TARGET_OS_IPHONE) && 1)
 
 // Should HitSpheres function use SSE?
-#define DO_HIT_SPHERES_SSE 1
+#define DO_HIT_SPHERES_SSE (!TARGET_OS_IPHONE)

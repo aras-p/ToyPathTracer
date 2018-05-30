@@ -1,16 +1,22 @@
 #pragma once
 
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#endif
+
 #if defined(_MSC_VER)
 #define VM_INLINE __forceinline
 #else
 #define VM_INLINE __attribute__((unused, always_inline, nodebug)) inline
 #endif
 
+#define kSimdWidth 4
+
+#if !TARGET_OS_IPHONE
+
 #include <xmmintrin.h>
 #include <emmintrin.h>
 #include <smmintrin.h>
-
-#define kSimdWidth 4
 
 #define SHUFFLE4(V, X,Y,Z,W) float4(_mm_shuffle_ps((V).m, (V).m, _MM_SHUFFLE(W,Z,Y,X)))
 
@@ -86,3 +92,6 @@ VM_INLINE __m128i select(__m128i a, __m128i b, bool4 cond)
 }
 
 VM_INLINE float4 sqrtf(float4 v) { return float4(_mm_sqrt_ps(v.m)); }
+
+#endif // #if !TARGET_OS_IPHONE
+
