@@ -53,7 +53,7 @@ int HitSpheres(const Ray& r, const SpheresSoA& spheres, float tMin, float tMax, 
     float4 hitT = float4(tMax);
     __m128i id = _mm_set1_epi32(-1);
 
-#if DO_FLOAT3_WITH_SSE
+#if DO_FLOAT3_WITH_SIMD
     float4 rOrigX = SHUFFLE4(r.orig, 0, 0, 0, 0);
     float4 rOrigY = SHUFFLE4(r.orig, 1, 1, 1, 1);
     float4 rOrigZ = SHUFFLE4(r.orig, 2, 2, 2, 2);

@@ -9,7 +9,12 @@
 #define kPI 3.1415926f
 
 // SSE/SIMD vector largely based on http://www.codersnotes.com/notes/maths-lib-2016/
-#if DO_FLOAT3_WITH_SSE
+#if DO_FLOAT3_WITH_SIMD
+
+
+#if !defined(__arm__) && !defined(__arm64__)
+
+// ---- SSE implementation
 
 // SHUFFLE3(v, 0,1,2) leaves the vector unchanged (v.xyz).
 // SHUFFLE3(v, 0,0,0) splats the X (v.xxx).
@@ -109,7 +114,137 @@ VM_INLINE float3 clamp(float3 t, float3 a, float3 b) { return min(max(t, a), b);
 VM_INLINE float sum(float3 v) { return v.getX() + v.getY() + v.getZ(); }
 VM_INLINE float dot(float3 a, float3 b) { return sum(a*b); }
 
-#else // #if DO_FLOAT3_WITH_SSE
+#else // #if !defined(__arm__) && !defined(__arm64__)
+
+// ---- NEON implementation
+
+#include <arm_neon.h>
+
+struct float3
+{
+    VM_INLINE float3() {}
+    VM_INLINE explicit float3(const float *p) { float v[4] = {p[0], p[1], p[2], 0}; m = vld1q_f32(v); }
+    VM_INLINE explicit float3(float x, float y, float z) { float v[4] = {x, y, z, 0}; m = vld1q_f32(v); }
+    VM_INLINE explicit float3(float v) { m = vdupq_n_f32(v); }
+    VM_INLINE explicit float3(float32x4_t v) { m = v; }
+    
+    VM_INLINE float getX() const { return vgetq_lane_f32(m, 0); }
+    VM_INLINE float getY() const { return vgetq_lane_f32(m, 1); }
+    VM_INLINE float getZ() const { return vgetq_lane_f32(m, 2); }
+    
+    VM_INLINE float3 yzx() const
+    {
+        float32x2_t low = vget_low_f32(m);
+        float32x4_t yzx = vcombine_f32(vext_f32(low, vget_high_f32(m), 1), low);
+        return float3(yzx);
+    }
+    VM_INLINE float3 zxy() const
+    {
+        float32x4_t p = m;
+        p = vuzpq_f32(vreinterpretq_f32_s32(vextq_s32(vreinterpretq_s32_f32(p), vreinterpretq_s32_f32(p), 1)), p).val[1];
+        return float3(p);
+    }
+    
+    VM_INLINE void store(float *p) const { p[0] = getX(); p[1] = getY(); p[2] = getZ(); }
+    
+    void setX(float x)
+    {
+        m = vsetq_lane_f32(x, m, 0);
+    }
+    void setY(float y)
+    {
+        m = vsetq_lane_f32(y, m, 1);
+    }
+    void setZ(float z)
+    {
+        m = vsetq_lane_f32(z, m, 2);
+    }
+    
+    float32x4_t m;
+};
+
+typedef float3 bool3;
+
+VM_INLINE float32x4_t rcp_2(float32x4_t v)
+{
+    float32x4_t e = vrecpeq_f32(v);
+    e = vmulq_f32(vrecpsq_f32(e, v), e);
+    e = vmulq_f32(vrecpsq_f32(e, v), e);
+    return e;
+}
+
+VM_INLINE float3 operator+ (float3 a, float3 b) { a.m = vaddq_f32(a.m, b.m); return a; }
+VM_INLINE float3 operator- (float3 a, float3 b) { a.m = vsubq_f32(a.m, b.m); return a; }
+VM_INLINE float3 operator* (float3 a, float3 b) { a.m = vmulq_f32(a.m, b.m); return a; }
+VM_INLINE float3 operator/ (float3 a, float3 b) { float32x4_t recip = rcp_2(b.m); a.m = vmulq_f32(a.m, recip); return a; }
+VM_INLINE float3 operator* (float3 a, float b) { a.m = vmulq_f32(a.m, vdupq_n_f32(b)); return a; }
+VM_INLINE float3 operator/ (float3 a, float b) { float32x4_t recip = rcp_2(vdupq_n_f32(b)); a.m = vmulq_f32(a.m, recip); return a; }
+VM_INLINE float3 operator* (float a, float3 b) { b.m = vmulq_f32(vdupq_n_f32(a), b.m); return b; }
+VM_INLINE float3 operator/ (float a, float3 b) { float32x4_t recip = rcp_2(b.m); b.m = vmulq_f32(vdupq_n_f32(a), recip); return b; }
+VM_INLINE float3& operator+= (float3 &a, float3 b) { a = a + b; return a; }
+VM_INLINE float3& operator-= (float3 &a, float3 b) { a = a - b; return a; }
+VM_INLINE float3& operator*= (float3 &a, float3 b) { a = a * b; return a; }
+VM_INLINE float3& operator/= (float3 &a, float3 b) { a = a / b; return a; }
+VM_INLINE float3& operator*= (float3 &a, float b) { a = a * b; return a; }
+VM_INLINE float3& operator/= (float3 &a, float b) { a = a / b; return a; }
+VM_INLINE bool3 operator==(float3 a, float3 b) { a.m = vceqq_f32(a.m, b.m); return a; }
+VM_INLINE bool3 operator!=(float3 a, float3 b) { a.m = vmvnq_u32(vceqq_f32(a.m, b.m)); return a; }
+VM_INLINE bool3 operator< (float3 a, float3 b) { a.m = vcltq_f32(a.m, b.m); return a; }
+VM_INLINE bool3 operator> (float3 a, float3 b) { a.m = vcgtq_f32(a.m, b.m); return a; }
+VM_INLINE bool3 operator<=(float3 a, float3 b) { a.m = vcleq_f32(a.m, b.m); return a; }
+VM_INLINE bool3 operator>=(float3 a, float3 b) { a.m = vcgeq_f32(a.m, b.m); return a; }
+VM_INLINE float3 min(float3 a, float3 b) { a.m = vminq_f32(a.m, b.m); return a; }
+VM_INLINE float3 max(float3 a, float3 b) { a.m = vmaxq_f32(a.m, b.m); return a; }
+
+VM_INLINE float3 operator- (float3 a) { a.m = vnegq_f32(a.m); return a; }
+
+VM_INLINE float hmin(float3 v)
+{
+    float32x2_t minOfHalfs = vpmin_f32(vget_low_f32(v.m), vget_high_f32(v.m));
+    float32x2_t minOfMinOfHalfs = vpmin_f32(minOfHalfs, minOfHalfs);
+    return vget_lane_f32(minOfMinOfHalfs, 0);
+}
+VM_INLINE float hmax(float3 v)
+{
+    float32x2_t maxOfHalfs = vpmax_f32(vget_low_f32(v.m), vget_high_f32(v.m));
+    float32x2_t maxOfMaxOfHalfs = vpmax_f32(maxOfHalfs, maxOfHalfs);
+    return vget_lane_f32(maxOfMaxOfHalfs, 0);
+}
+
+VM_INLINE float3 cross(float3 a, float3 b)
+{
+    // x  <-  a.y*b.z - a.z*b.y
+    // y  <-  a.z*b.x - a.x*b.z
+    // z  <-  a.x*b.y - a.y*b.x
+    // We can save a shuffle by grouping it in this wacky order:
+    return (a.zxy()*b - a*b.zxy()).zxy();
+}
+
+// Returns a 3-bit code where bit0..bit2 is X..Z
+VM_INLINE unsigned mask(float3 v)
+{
+    static const uint32x4_t movemask = { 1, 2, 4, 8 };
+    static const uint32x4_t highbit = { 0x80000000, 0x80000000, 0x80000000, 0x80000000 };
+    uint32x4_t t0 = vreinterpretq_u32_f32(v.m);
+    uint32x4_t t1 = vtstq_u32(t0, highbit);
+    uint32x4_t t2 = vandq_u32(t1, movemask);
+    uint32x2_t t3 = vorr_u32(vget_low_u32(t2), vget_high_u32(t2));
+    return vget_lane_u32(t3, 0) | vget_lane_u32(t3, 1);
+}
+// Once we have a comparison, we can branch based on its results:
+VM_INLINE bool any(bool3 v) { return mask(v) != 0; }
+VM_INLINE bool all(bool3 v) { return mask(v) == 7; }
+
+VM_INLINE float3 clamp(float3 t, float3 a, float3 b) { return min(max(t, a), b); }
+VM_INLINE float sum(float3 v) { return v.getX() + v.getY() + v.getZ(); }
+VM_INLINE float dot(float3 a, float3 b) { return sum(a*b); }
+
+
+#endif // #else of #if !defined(__arm__) && !defined(__arm64__)
+
+#else // #if DO_FLOAT3_WITH_SIMD
+
+// ---- Simple scalar C implementation
 
 
 struct float3
@@ -148,7 +283,7 @@ VM_INLINE float3 cross(const float3& a, const float3& b)
                   a.x*b.y - a.y*b.x
                   );
 }
-#endif // #else of #if DO_FLOAT3_WITH_SSE
+#endif // #else of #if DO_FLOAT3_WITH_SIMD
 
 VM_INLINE float length(float3 v) { return sqrtf(dot(v, v)); }
 VM_INLINE float sqLength(float3 v) { return dot(v, v); }
