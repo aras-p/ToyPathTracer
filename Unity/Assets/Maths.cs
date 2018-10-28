@@ -19,7 +19,7 @@ public class MathUtil
         return false;
     }
 
-    public static float PI => 3.1415926f;
+    public static float kPI => 3.1415926f;
 
     public static float Schlick(float cosine, float ri)
     {
@@ -49,7 +49,7 @@ public class MathUtil
         do
         {
             p = 2.0f * new float3(RandomFloat01(ref state), RandomFloat01(ref state), 0) - new float3(1, 1, 0);
-        } while (lengthSquared(p) >= 1.0);
+        } while (lengthsq(p) >= 1.0);
         return p;
     }
 
@@ -59,14 +59,14 @@ public class MathUtil
         do
         {
             p = 2.0f * new float3(RandomFloat01(ref state), RandomFloat01(ref state), RandomFloat01(ref state)) - new float3(1, 1, 1);
-        } while (lengthSquared(p) >= 1.0);
+        } while (lengthsq(p) >= 1.0);
         return p;
     }
 
     public static float3 RandomUnitVector(ref uint state)
     {
         float z = RandomFloat01(ref state) * 2.0f - 1.0f;
-        float a = RandomFloat01(ref state) * 2.0f * PI;
+        float a = RandomFloat01(ref state) * 2.0f * kPI;
         float r = sqrt(1.0f - z * z);
         float x, y;
         sincos(a, out x, out y);
@@ -199,7 +199,7 @@ struct Camera
     public Camera(float3 lookFrom, float3 lookAt, float3 vup, float vfov, float aspect, float aperture, float focusDist)
     {
         lensRadius = aperture / 2;
-        float theta = vfov * MathUtil.PI / 180;
+        float theta = vfov * MathUtil.kPI / 180;
         float halfHeight = tan(theta / 2);
         float halfWidth = aspect * halfHeight;
         origin = lookFrom;
