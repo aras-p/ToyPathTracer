@@ -291,8 +291,8 @@ void UpdateTest(float time, int frameCount, int screenWidth, int screenHeight, u
 {
     if (testFlags & kFlagAnimate)
     {
-        s_Spheres[1].center.y = cosf(time) + 1.0f;
-        s_Spheres[8].center.z = sinf(time)*0.3f;
+        s_Spheres[1].center.setY(cosf(time) + 1.0f);
+        s_Spheres[8].center.setZ(sinf(time)*0.3f);
     }
     float3 lookfrom(0, 2, 3);
     float3 lookat(0, 0, 0);

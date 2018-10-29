@@ -9,6 +9,12 @@
 
 static const NSUInteger kMaxBuffersInFlight = 3;
 
+#if TARGET_OS_IPHONE
+#define kMetalBufferMode MTLResourceStorageModeShared
+#else
+#define kMetalBufferMode MTLResourceStorageModeManaged
+#endif
+
 #if DO_COMPUTE_GPU
 // Metal on Mac needs buffer offsets to be 256-byte aligned
 static int AlignedSize(int sz)
@@ -58,15 +64,23 @@ struct ComputeParams
     float* _backbufferPixels;
 
     mach_timebase_info_data_t _clock_timebase;
+#if !TARGET_OS_IPHONE
     NSTextField* _label;
+#endif
 }
 
+#if TARGET_OS_IPHONE
+-(nonnull instancetype)initWithMetalKitView:(nonnull MTKView *)view;
+#else
 -(nonnull instancetype)initWithMetalKitView:(nonnull MTKView *)view withLabel:(nonnull NSTextField*) label;
+#endif
 {
     self = [super init];
     if(self)
     {
+#if !TARGET_OS_IPHONE
         _label = label;
+#endif
         _device = view.device;
         printf("GPU: %s\n", [[_device name] UTF8String]);
         _inFlightSemaphore = dispatch_semaphore_create(kMaxBuffersInFlight);
@@ -99,10 +113,10 @@ struct ComputeParams
     assert(_objSize == 20);
     assert(_matSize == 36);
     assert(camSize == 88);
-    _computeSpheres = [_device newBufferWithLength:AlignedSize(_sphereCount*_objSize)*kMaxBuffersInFlight options:MTLResourceStorageModeManaged];
-    _computeMaterials = [_device newBufferWithLength:AlignedSize(_sphereCount*_matSize)*kMaxBuffersInFlight options:MTLResourceStorageModeManaged];
-    _computeParams = [_device newBufferWithLength:AlignedSize(sizeof(ComputeParams))*kMaxBuffersInFlight options:MTLResourceStorageModeManaged];
-    _computeEmissives = [_device newBufferWithLength:AlignedSize(_sphereCount*4)*kMaxBuffersInFlight options:MTLResourceStorageModeManaged];
+    _computeSpheres = [_device newBufferWithLength:AlignedSize(_sphereCount*_objSize)*kMaxBuffersInFlight options:kMetalBufferMode];
+    _computeMaterials = [_device newBufferWithLength:AlignedSize(_sphereCount*_matSize)*kMaxBuffersInFlight options:kMetalBufferMode];
+    _computeParams = [_device newBufferWithLength:AlignedSize(sizeof(ComputeParams))*kMaxBuffersInFlight options:kMetalBufferMode];
+    _computeEmissives = [_device newBufferWithLength:AlignedSize(_sphereCount*4)*kMaxBuffersInFlight options:kMetalBufferMode];
     _computeCounter = [_device newBufferWithLength:AlignedSize(4)*kMaxBuffersInFlight options:MTLStorageModeShared];
     _uniformBufferIndex = 0;
 #endif
@@ -193,10 +207,12 @@ unsigned g_TestFlags = kFlagProgressive;
     if (!(g_TestFlags & kFlagProgressive))
         params->lerpFac = 0;
     *(int*)(dataCounter+_uniformBufferIndex*counterSize) = 0;
+#if !TARGET_OS_IPHONE
     [_computeSpheres didModifyRange:NSMakeRange(_uniformBufferIndex*spheresSize, spheresSize)];
     [_computeMaterials didModifyRange:NSMakeRange(_uniformBufferIndex*matsSize, matsSize)];
     [_computeEmissives didModifyRange:NSMakeRange(_uniformBufferIndex*emissivesSize, emissivesSize)];
     [_computeParams didModifyRange:NSMakeRange(_uniformBufferIndex*paramsSize, paramsSize)];
+#endif
 
     id<MTLComputeCommandEncoder> enc = [cmd computeCommandEncoder];
     [enc setComputePipelineState:_computeState];
@@ -213,7 +229,7 @@ unsigned g_TestFlags = kFlagProgressive;
     [enc endEncoding];
 #else
     int rayCount;
-    DrawTest(curT, totalCounter, kBackbufferWidth, kBackbufferHeight, _backbufferPixels, rayCount);
+    DrawTest(curT, totalCounter, kBackbufferWidth, kBackbufferHeight, _backbufferPixels, rayCount, g_TestFlags);
     rayCounter += rayCount;
 #endif
     
@@ -232,8 +248,10 @@ unsigned g_TestFlags = kFlagProgressive;
         char buffer[200];
         snprintf(buffer, 200, "%.2fms (%.1f FPS) %.1fMrays/s %.2fMrays/frame frames %i", s * 1000.0f, 1.f / s, rayCounter / frameCounter / s * 1.0e-6f, rayCounter / frameCounter * 1.0e-6f, totalCounter);
         puts(buffer);
+#if !TARGET_OS_IPHONE
         NSString* str = [[NSString alloc] initWithUTF8String:buffer];
         _label.stringValue = str;
+#endif
         frameCounter = 0;
         frameTime = 0;
         rayCounter = 0;
@@ -253,6 +271,7 @@ unsigned g_TestFlags = kFlagProgressive;
     __block dispatch_semaphore_t block_sema = _inFlightSemaphore;
 #if DO_COMPUTE_GPU
     int counterIndex = (_uniformBufferIndex+1)%kMaxBuffersInFlight;
+    id <MTLBuffer> counterBuffer = _computeCounter;
 #endif
     [cmd addCompletedHandler:^(id<MTLCommandBuffer> buffer)
     {
@@ -263,7 +282,7 @@ unsigned g_TestFlags = kFlagProgressive;
         // what Xcode reports for the GPU duration.
         uint64_t time2 = mach_absolute_time();
         _computeDur = (time2 - _computeStartTime);
-        int rayCount = *(const int*)(((const uint8_t*)[_computeCounter contents]) + counterIndex*AlignedSize(4));
+        int rayCount = *(const int*)(((const uint8_t*)[counterBuffer contents]) + counterIndex*AlignedSize(4));
         rayCounter += rayCount;
         #endif
 

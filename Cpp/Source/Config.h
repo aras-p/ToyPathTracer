@@ -1,4 +1,8 @@
 
+#if defined(__APPLE__) && !defined(__METAL_VERSION__)
+#include <TargetConditionals.h>
+#endif
+
 #define kBackbufferWidth 1280
 #define kBackbufferHeight 720
 
@@ -14,8 +18,8 @@
 #define kCSGroupSizeY 8
 #define kCSMaxObjects 64
 
-// Should float3 struct use SSE?
-#define DO_FLOAT3_WITH_SSE (!(DO_COMPUTE_GPU) && 1)
+// Should float3 struct use SSE/NEON?
+#define DO_FLOAT3_WITH_SIMD (!(DO_COMPUTE_GPU) && 1)
 
-// Should HitSpheres function use SSE?
-#define DO_HIT_SPHERES_SSE 1
+// Should HitSpheres function use SSE/NEON?
+#define DO_HIT_SPHERES_SIMD 1
