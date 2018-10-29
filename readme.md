@@ -32,7 +32,7 @@ Implementations I'm playing with (again, everything is in toy/learning/WIP state
 These are all on a scene with ~50 spheres and two light sources, measured in Mray/s.
 
 * CPU. Testing on "PC" AMD ThreadRipper 1950X 3.4GHz (SMT disabled, 16c/16t) and "Mac" mid-2018 MacBookPro i9 2.9GHz (6c/12t):
-  * C++ w/ some SSE SIMD: PC 187, Mac 74
+  * C++ w/ some SSE SIMD: PC 187, Mac 74, iPhone X (A11) 12.9, iPhone SE (A9) 8.5
   * C++: PC 100, Mac 35.7
   * C# (Unity with Burst compiler w/ some 4-wide SIMD): PC 133, Mac 60. *Note that this is an early version of Burst*.
   * C# (Unity with Burst compiler): PC 82, Mac 36. *Note that this is an early version of Burst*.
@@ -40,8 +40,9 @@ These are all on a scene with ~50 spheres and two light sources, measured in Mra
   * C# (Mono with optimized settings): Mac 22.0
   * C# (Mono defaults): Mac 6.1
 * GPU. Simplistic ports to compute shader:
-  * D3D11. GeForce GTX 1080 Ti: 1854
-  * Metal. AMD Radeon Pro 560X: 246
+  * PC D3D11. GeForce GTX 1080 Ti: 1854
+  * Mac Metal. AMD Radeon Pro 560X: 246
+  * iOS Metal. A11 GPU (iPhone X): 46.6, A9 GPU (iPhone SE): 19.8
   
 A lot of stuff in the implementation is *totally* suboptimal or using the tech in a "wrong" way.
 I know it's just a simple toy, ok :)
