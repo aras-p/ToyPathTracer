@@ -1,5 +1,7 @@
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
+using UnityEngine;
 using static Unity.Mathematics.math;
 
 
@@ -19,7 +21,7 @@ public class MathUtil
         return false;
     }
 
-    public static float PI => 3.1415926f;
+    public static float kPI => 3.1415926f;
 
     public static float Schlick(float cosine, float ri)
     {
@@ -49,7 +51,7 @@ public class MathUtil
         do
         {
             p = 2.0f * new float3(RandomFloat01(ref state), RandomFloat01(ref state), 0) - new float3(1, 1, 0);
-        } while (lengthSquared(p) >= 1.0);
+        } while (lengthsq(p) >= 1.0);
         return p;
     }
 
@@ -59,14 +61,14 @@ public class MathUtil
         do
         {
             p = 2.0f * new float3(RandomFloat01(ref state), RandomFloat01(ref state), RandomFloat01(ref state)) - new float3(1, 1, 1);
-        } while (lengthSquared(p) >= 1.0);
+        } while (lengthsq(p) >= 1.0);
         return p;
     }
 
     public static float3 RandomUnitVector(ref uint state)
     {
         float z = RandomFloat01(ref state) * 2.0f - 1.0f;
-        float a = RandomFloat01(ref state) * 2.0f * PI;
+        float a = RandomFloat01(ref state) * 2.0f * kPI;
         float r = sqrt(1.0f - z * z);
         float x, y;
         sincos(a, out x, out y);
@@ -116,12 +118,20 @@ struct SpheresSoA
 
     public SpheresSoA(int len)
     {
-        centerX = new NativeArray<float>(len, Allocator.Persistent);
-        centerY = new NativeArray<float>(len, Allocator.Persistent);
-        centerZ = new NativeArray<float>(len, Allocator.Persistent);
-        sqRadius = new NativeArray<float>(len, Allocator.Persistent);
-        invRadius = new NativeArray<float>(len, Allocator.Persistent);
-        emissives = new NativeArray<int>(len, Allocator.Persistent);
+        var simdLen = (len + 3) / 4 * 4;
+        centerX = new NativeArray<float>(simdLen, Allocator.Persistent);
+        centerY = new NativeArray<float>(simdLen, Allocator.Persistent);
+        centerZ = new NativeArray<float>(simdLen, Allocator.Persistent);
+        sqRadius = new NativeArray<float>(simdLen, Allocator.Persistent);
+        invRadius = new NativeArray<float>(simdLen, Allocator.Persistent);
+        // set trailing data to "impossible sphere" state
+        for (int i = len; i < simdLen; ++i)
+        {
+            centerX[i] = centerY[i] = centerZ[i] = 10000.0f;
+            sqRadius[i] = 0.0f;
+            invRadius[i] = 0.0f;
+        }
+        emissives = new NativeArray<int>(simdLen, Allocator.Persistent);
         emissiveCount = 0;
     }
 
@@ -153,43 +163,74 @@ struct SpheresSoA
         }
     }
 
-    public int HitSpheres(ref Ray r, float tMin, float tMax, ref Hit outHit)
+    public unsafe int HitSpheres(ref Ray r, float tMin, float tMax, ref Hit outHit)
     {
-        float hitT = tMax;
-        int id = -1;
-        for (int i = 0; i < centerX.Length; ++i)
+        float4 hitT = tMax;
+        int4 id = -1;
+        float4 rOrigX = r.orig.x;
+        float4 rOrigY = r.orig.y;
+        float4 rOrigZ = r.orig.z;
+        float4 rDirX = r.dir.x;
+        float4 rDirY = r.dir.y;
+        float4 rDirZ = r.dir.z;
+        float4 tMin4 = tMin;
+        int4 curId = new int4(0,1,2,3);
+        int simdLen = centerX.Length/4;
+        float4* ptrCenterX = (float4*)centerX.GetUnsafeReadOnlyPtr();
+        float4* ptrCenterY = (float4*)centerY.GetUnsafeReadOnlyPtr();
+        float4* ptrCenterZ = (float4*)centerZ.GetUnsafeReadOnlyPtr();
+        float4* ptrSqRadius = (float4*)sqRadius.GetUnsafeReadOnlyPtr();
+        for (int i = 0; i < simdLen; ++i)
         {
-            float coX = centerX[i] - r.orig.x;
-            float coY = centerY[i] - r.orig.y;
-            float coZ = centerZ[i] - r.orig.z;
-            float nb = coX * r.dir.x + coY * r.dir.y + coZ * r.dir.z;
-            float c = coX * coX + coY * coY + coZ * coZ - sqRadius[i];
-            float discr = nb * nb - c;
-            if (discr > 0)
+            float4 sCenterX = *ptrCenterX;
+            float4 sCenterY = *ptrCenterY;
+            float4 sCenterZ = *ptrCenterZ;
+            float4 sSqRadius = *ptrSqRadius;
+            float4 coX = sCenterX - rOrigX;
+            float4 coY = sCenterY - rOrigY;
+            float4 coZ = sCenterZ - rOrigZ;
+            float4 nb = coX * rDirX + coY * rDirY + coZ * rDirZ;
+            float4 c = coX * coX + coY * coY + coZ * coZ - sSqRadius;
+            float4 discr = nb * nb - c;
+            bool4 discrPos = discr > float4(0.0f);
+            // if ray hits any of the 4 spheres
+            if (any(discrPos))
             {
-                float discrSq = sqrt(discr);
+                float4 discrSq = sqrt(discr);
 
-                // Try earlier t
-                float t = nb - discrSq;
-                if (t <= tMin) // before min, try later t!
-                    t = nb + discrSq;
+                // ray could hit spheres at t0 & t1
+                float4 t0 = nb - discrSq;
+                float4 t1 = nb + discrSq;
 
-                if (t > tMin && t < hitT)
-                {
-                    id = i;
-                    hitT = t;
-                }
+                float4 t = select(t1, t0, t0 > tMin4); // if t0 is above min, take it (since it's the earlier hit); else try t1.
+                bool4 msk = discrPos & (t > tMin4) & (t < hitT);
+                // if hit, take it
+                id = select(id, curId, msk);
+                hitT = select(hitT, t, msk);
             }
+            curId += int4(4);
+            ptrCenterX++;
+            ptrCenterY++;
+            ptrCenterZ++;
+            ptrSqRadius++;
         }
-        if (id != -1)
+        // now we have up to 4 hits, find and return closest one
+        float2 minT2 = min(hitT.xy, hitT.zw);
+        float minT = min(minT2.x, minT2.y);
+        if (minT < tMax) // any actual hits?
         {
-            outHit.pos = r.PointAt(hitT);
-            outHit.normal = (outHit.pos - new float3(centerX[id], centerY[id], centerZ[id])) * invRadius[id];
-            outHit.t = hitT;
-            return id;
+            // get bitmask of which lanes are closest (rarely, but it can happen that more than one at once is closest)
+            int laneMask = csum(int4(hitT == float4(minT)) * int4(1,2,4,8));
+            // get index of first closest lane
+            int lane = tzcnt(laneMask); //if (lane < 0 || lane > 3) Debug.LogError($"invalid lane {lane}");
+            int hitId = id[lane]; //if (hitId < 0 || hitId >= centerX.Length) Debug.LogError($"invalid hitID {hitId}");
+            float finalHitT = hitT[lane];
+            outHit.pos = r.PointAt(finalHitT);
+            outHit.normal = (outHit.pos - float3(centerX[hitId], centerY[hitId], centerZ[hitId])) * invRadius[hitId];
+            outHit.t = finalHitT;
+            return hitId;
         }
-        else
-            return -1;
+        return -1;
     }
 }
 
@@ -199,7 +240,7 @@ struct Camera
     public Camera(float3 lookFrom, float3 lookAt, float3 vup, float vfov, float aspect, float aperture, float focusDist)
     {
         lensRadius = aperture / 2;
-        float theta = vfov * MathUtil.PI / 180;
+        float theta = vfov * MathUtil.kPI / 180;
         float halfHeight = tan(theta / 2);
         float halfWidth = aspect * halfHeight;
         origin = lookFrom;

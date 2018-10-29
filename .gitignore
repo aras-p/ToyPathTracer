@@ -1,12 +1,13 @@
 Cs/Unity/Library/
 Cs/Unity/Temp/
 .vs
+.idea
 bin
 obj
 *.exe
 *.pdb
-Cs/Unity/Unity.sln
-Cs/Unity/*.csproj
+*.vcxproj.user
+*.csproj.user
 Cpp/Windows/x64/
 project.xcworkspace
 xcschememanagement.plist
@@ -17,4 +18,5 @@ Unity/*.sln
 Unity/Library/
 Unity/Temp/
 Unity/Builds
+Unity/Assets/Plugins*
 Cpp/Windows/Compiled*Shader.h

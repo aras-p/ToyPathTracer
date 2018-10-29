@@ -117,12 +117,12 @@ class Test
                 float3 sw = normalize(scenter - rec.pos);
                 float3 su = normalize(cross(abs(sw.x) > 0.01f ? new float3(0, 1, 0) : new float3(1, 0, 0), sw));
                 float3 sv = cross(sw, su);
-                // sample sphere by solid angle
-                float cosAMax = sqrt(max(0.0f, 1.0f - sqRradius / lengthSquared(rec.pos - scenter)));
+                // sample sphere by solid anglePI
+                float cosAMax = sqrt(max(0.0f, 1.0f - sqRradius / lengthsq(rec.pos - scenter)));
                 float eps1 = RandomFloat01(ref randState), eps2 = RandomFloat01(ref randState);
                 float cosA = 1.0f - eps1 + eps1 * cosAMax;
                 float sinA = sqrt(1.0f - cosA * cosA);
-                float phi = 2 * PI * eps2;
+                float phi = 2 * kPI * eps2;
                 float3 l = su * cos(phi) * sinA + sv * sin(phi) * sinA + sw * cosA;
                 l = normalize(l);
 
@@ -132,11 +132,11 @@ class Test
                 ++inoutRayCount;
                 if (HitWorld(new Ray(rec.pos, l), kMinT, kMaxT, ref lightHit, ref hitID, ref spheres) && hitID == i)
                 {
-                    float omega = 2 * PI * (1 - cosAMax);
+                    float omega = 2 * kPI * (1 - cosAMax);
 
                     float3 rdir = r_in.dir;
                     float3 nl = dot(rec.normal, rdir) < 0 ? rec.normal : -rec.normal;
-                    outLightE += (mat.albedo * materials[i].emissive) * (max(0.0f, dot(l, nl)) * omega / PI);
+                    outLightE += (mat.albedo * materials[i].emissive) * (max(0.0f, dot(l, nl)) * omega / kPI);
                 }
             }
 #endif
@@ -228,7 +228,7 @@ class Test
         }
     }
 
-    [ComputeJobOptimization]
+    [Unity.Burst.BurstCompileAttribute]
     struct TraceRowJob : IJobParallelFor
     {
         public int screenWidth, screenHeight, frameCount;
