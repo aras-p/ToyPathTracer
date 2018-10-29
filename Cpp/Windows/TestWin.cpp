@@ -320,8 +320,8 @@ static void RenderFrame()
     float t = float(clock()) / CLOCKS_PER_SEC;
     static size_t s_RayCounter = 0;
     int rayCount;
-    UpdateTest(t, s_FrameCount, kBackbufferWidth, kBackbufferHeight);
-    DrawTest(t, s_FrameCount, kBackbufferWidth, kBackbufferHeight, g_Backbuffer, rayCount);
+    UpdateTest(t, s_FrameCount, kBackbufferWidth, kBackbufferHeight, s_Flags);
+    DrawTest(t, s_FrameCount, kBackbufferWidth, kBackbufferHeight, g_Backbuffer, rayCount, s_Flags);
     s_FrameCount++;
     s_RayCounter += rayCount;
     LARGE_INTEGER time2;
