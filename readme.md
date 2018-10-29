@@ -20,22 +20,25 @@ I decided to write blog posts about things I discover as I do this, currently:
 * [Part 11: Buffer-oriented approach on CPU](http://aras-p.info/blog/2018/04/19/Daily-Pathtracer-11-Buffer-Oriented/)
 * [Part 12: Buffer-oriented approach on GPU D3D11](http://aras-p.info/blog/2018/04/25/Daily-Pathtracer-12-GPU-Buffer-Oriented-D3D11/)
 * [Part 13: GPU thread group data optimization](http://aras-p.info/blog/2018/05/28/Pathtracer-13-GPU-threadgroup-memory-is-useful/)
+* [Part 14: Make it run on iOS](http://aras-p.info/blog/2018/05/30/Pathtracer-14-iOS/)
+* [Part 15: A bunch of path tracing links](http://aras-p.info/blog/2018/08/01/Pathtracer-15-Pause--Links/)
 
 Right now: can only do spheres, no bounding volume hierachy of any sorts, a lot of stuff hardcoded.
 
 Implementations I'm playing with (again, everything is in toy/learning/WIP state; likely suboptimal) are below.
 These are all on a scene with ~50 spheres and two light sources, measured in Mray/s.
 
-* CPU. Testing on "PC" AMD ThreadRipper 1950X 3.4GHz (SMT disabled, 16c/16t) and "Mac" late 2013 MacBookPro 2.3GHz (4c/8t):
-  * C++ w/ some SSE SIMD: PC 187, Mac 41.8
-  * C++: PC 100, Mac 19.6
-  * C# (Unity with Burst compiler): PC 82, Mac 18.7. *Note that this is super early version of Burst*.
-  * C# (.NET Core): PC 53, Mac 13.1
-  * C# (Mono with optimized settings): Mac 12.7
-  * C# (Mono defaults): Mac 5.5
-* GPU. Simple direct ports to compute shader:
+* CPU. Testing on "PC" AMD ThreadRipper 1950X 3.4GHz (SMT disabled, 16c/16t) and "Mac" mid-2018 MacBookPro i9 2.9GHz (6c/12t):
+  * C++ w/ some SSE SIMD: PC 187, Mac 74
+  * C++: PC 100, Mac 35.7
+  * C# (Unity with Burst compiler w/ some 4-wide SIMD): PC 133, Mac 60. *Note that this is an early version of Burst*.
+  * C# (Unity with Burst compiler): PC 82, Mac 36. *Note that this is an early version of Burst*.
+  * C# (.NET Core): PC 53, Mac 23.6
+  * C# (Mono with optimized settings): Mac 22.0
+  * C# (Mono defaults): Mac 6.1
+* GPU. Simplistic ports to compute shader:
   * D3D11. GeForce GTX 1080 Ti: 1854
-  * Metal. Intel Iris Pro: 99
+  * Metal. AMD Radeon Pro 560X: 99
   
 A lot of stuff in the implementation is *totally* suboptimal or using the tech in a "wrong" way.
 I know it's just a simple toy, ok :)
@@ -48,4 +51,4 @@ I know it's just a simple toy, ok :)
   * Windows is DX11 Win32 app that displays result as a fullscreen CPU-updated or GPU-rendered texture.
   * Mac is a Metal app that displays result as a fullscreen CPU-updated or GPU-rendered texture.
 * C# project in `Cs/TestCs.sln`. A command line app that renders some frames and dumps out final TGA screenshot at the end.
-* Unity project in `Unity`. I used [2018.1 beta 12](https://beta.unity3d.com/download/ed1bf90b40e6/public_download.html) version linked to from [ECS samples](https://github.com/Unity-Technologies/EntityComponentSystemSamples).
+* Unity project in `Unity`. I used Unity 2018.2.13.
