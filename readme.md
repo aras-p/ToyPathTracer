@@ -22,6 +22,7 @@ I decided to write blog posts about things I discover as I do this, currently:
 * [Part 13: GPU thread group data optimization](http://aras-p.info/blog/2018/05/28/Pathtracer-13-GPU-threadgroup-memory-is-useful/)
 * [Part 14: Make it run on iOS](http://aras-p.info/blog/2018/05/30/Pathtracer-14-iOS/)
 * [Part 15: A bunch of path tracing links](http://aras-p.info/blog/2018/08/01/Pathtracer-15-Pause--Links/)
+* [Part 16: Unity C# Burst optimization](http://aras-p.info/blog/2018/10/29/Pathtracer-16-Burst-SIMD-Optimization/)
 
 Right now: can only do spheres, no bounding volume hierachy of any sorts, a lot of stuff hardcoded.
 
@@ -38,7 +39,7 @@ These are all on a scene with ~50 spheres and two light sources, measured in Mra
   * C# (Mono defaults): Mac 6.1
 * GPU. Simplistic ports to compute shader:
   * D3D11. GeForce GTX 1080 Ti: 1854
-  * Metal. AMD Radeon Pro 560X: 99
+  * Metal. AMD Radeon Pro 560X: 246
   
 A lot of stuff in the implementation is *totally* suboptimal or using the tech in a "wrong" way.
 I know it's just a simple toy, ok :)
