@@ -48,8 +48,9 @@ I know it's just a simple toy, ok :)
 
 ### Building
 
-* C++ projects: Windows (Visual Studio 2017) in `Cpp/Windows/TestCpu.sln`, Mac (Xcode 9) in `Cpp/Mac/Test.xcodeproj`.
+* C++ projects: Windows (Visual Studio 2017) in `Cpp/Windows/TestCpu.sln`, Mac/iOS (Xcode 9) in `Cpp/Apple/Test.xcodeproj`.
   * Windows is DX11 Win32 app that displays result as a fullscreen CPU-updated or GPU-rendered texture.
   * Mac is a Metal app that displays result as a fullscreen CPU-updated or GPU-rendered texture.
+    Should work on both Mac (`Test Mac` target) and iOS (`Test iOS` target).
 * C# project in `Cs/TestCs.sln`. A command line app that renders some frames and dumps out final TGA screenshot at the end.
 * Unity project in `Unity`. I used Unity 2018.2.13.
