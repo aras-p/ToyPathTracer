@@ -4,6 +4,8 @@ Toy path tracer for my own learning purposes, using various approaches/techs. So
 [Ray Tracing in One Weekend](http://in1weekend.blogspot.lt/) minibook (highly recommended!), and on Kevin Beason's
 [smallpt](http://www.kevinbeason.com/smallpt/).
 
+![Screenshot](/Shots/screenshot.jpg?raw=true "Screenshot")
+
 I decided to write blog posts about things I discover as I do this, currently:
 
 * [Part 0: Intro](http://aras-p.info/blog/2018/03/28/Daily-Pathtracer-Part-0-Intro/)
@@ -43,8 +45,6 @@ These are all on a scene with ~50 spheres and two light sources, measured in Mra
   
 A lot of stuff in the implementation is *totally* suboptimal or using the tech in a "wrong" way.
 I know it's just a simple toy, ok :)
-
-![Screenshot](/Shots/screenshot.jpg?raw=true "Screenshot")
 
 ### Building
 
