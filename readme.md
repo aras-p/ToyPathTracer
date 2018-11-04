@@ -1,4 +1,4 @@
-# Toy Path Tracer [![Build Status](https://api.travis-ci.org/aras-p/ToyPathTracer.svg?branch=master)](https://api.travis-ci.org/aras-p/ToyPathTracer.svg)
+# Toy Path Tracer [![Build Status](https://api.travis-ci.org/aras-p/ToyPathTracer.svg?branch=master)](https://travis-ci.org/aras-p/ToyPathTracer)
 
 Toy path tracer for my own learning purposes, using various approaches/techs. Somewhat based on Peter Shirley's
 [Ray Tracing in One Weekend](http://in1weekend.blogspot.lt/) minibook (highly recommended!), and on Kevin Beason's
