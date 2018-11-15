@@ -1,0 +1,68 @@
+<html>
+<body>
+<canvas id="screen" width="640px" height="360px" style="border: black 1px solid"></canvas>
+<div id="stats">Stats</div>
+<script src="toypathtracer.js"></script>
+<script>
+Module.onRuntimeInitialized = _ =>
+{
+    const api =
+    {
+        create_buffer: Module.cwrap('create_buffer', 'number', ['number', 'number']),
+        destroy_buffer: Module.cwrap('destroy_buffer', '', ['number']),
+        render: Module.cwrap('render', '', ['number', 'number', 'number', 'number']),
+        get_ray_count: Module.cwrap('getRayCount', 'number', []),
+    };
+
+    var width  = 640;
+    var height = 360;
+
+    var stats = document.getElementById('stats');
+    var canvas = document.getElementById('screen');
+    if (canvas.getContext)
+    {
+        var ctx = canvas.getContext('2d');
+
+        var pointer = api.create_buffer(width, height);
+
+        var usub = new Uint8ClampedArray(Module.HEAP8.buffer, pointer, width*height*4);
+        var img = new ImageData(usub, width, height);
+
+        var start = null;
+        function step(timestamp)
+        {
+            var progress;
+            if (start === null) start = timestamp;
+                progress = timestamp - start;
+            if (progress > 100)
+            {
+                var t0 = new Date();
+                api.render(pointer, width, height, timestamp);
+                var t1 = new Date();
+                var ms = t1-t0;
+                var fps = 1000.0 / (t1-t0);
+                var rayCount = api.get_ray_count();
+                var mraysS = rayCount / ((t1-t0)/1000.0) / 1000000.0;
+                var mraysFrame = rayCount / 1000000.0;
+                stats.innerHTML = `${width}x${height}: ${ms.toFixed(1)}ms (${fps.toFixed(2)}FPS) <b>${mraysS.toFixed(2)}Mray/s</b> ${mraysFrame.toFixed(2)}Mray/frame`;
+                start = timestamp
+                window.requestAnimationFrame(draw);
+            }
+            else
+            {
+                window.requestAnimationFrame(step);
+            }
+        }
+
+        function draw()
+        {
+            ctx.putImageData(img, 0, 0);
+            window.requestAnimationFrame(step);
+        }
+
+        window.requestAnimationFrame(step);
+    }
+};
+</script>
+</body>
+</html>

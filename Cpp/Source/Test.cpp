@@ -2,7 +2,9 @@
 #include "Test.h"
 #include "Maths.h"
 #include <algorithm>
+#if CPU_CAN_DO_THREADS
 #include "enkiTS/TaskScheduler_c.h"
+#endif
 #include <atomic>
 
 // 46 spheres (2 emissive) when enabled; 9 spheres (1 emissive) when disabled
@@ -227,17 +229,23 @@ static float3 Trace(const Ray& r, int depth, int& inoutRayCount, uint32_t& state
     }
 }
 
+#if CPU_CAN_DO_THREADS
 static enkiTaskScheduler* g_TS;
+#endif
 
 void InitializeTest()
 {
+    #if CPU_CAN_DO_THREADS
     g_TS = enkiNewTaskScheduler();
     enkiInitTaskScheduler(g_TS);
+    #endif
 }
 
 void ShutdownTest()
 {
+    #if CPU_CAN_DO_THREADS
     enkiDeleteTaskScheduler(g_TS);
+    #endif
 }
 
 struct JobData
@@ -340,11 +348,17 @@ void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, flo
     args.cam = &s_Cam;
     args.testFlags = testFlags;
     args.rayCount = 0;
+
+    #if CPU_CAN_DO_THREADS
     enkiTaskSet* task = enkiCreateTaskSet(g_TS, TraceRowJob);
     bool threaded = true;
     enkiAddTaskSetToPipeMinRange(g_TS, task, &args, screenHeight, threaded ? 4 : screenHeight);
     enkiWaitForTaskSet(g_TS, task);
     enkiDeleteTaskSet(task);
+    #else
+    TraceRowJob(0, screenHeight, 0, &args);
+    #endif
+
     outRayCount = args.rayCount;
 }
 

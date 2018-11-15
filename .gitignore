@@ -20,3 +20,5 @@ Unity/Temp/
 Unity/Builds
 Unity/Assets/Plugins*
 Cpp/Windows/Compiled*Shader.h
+Cpp/Emscripten/toypathtracer.js
+Cpp/Emscripten/toypathtracer.wasm
