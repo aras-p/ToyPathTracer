@@ -8,7 +8,7 @@
 
 #define kSimdWidth 4
 
-#if !defined(__arm__) && !defined(__arm64__)
+#if !defined(__arm__) && !defined(__arm64__) && !defined(__EMSCRIPTEN__)
 
 // ---- SSE implementation
 
@@ -91,7 +91,7 @@ VM_INLINE __m128i select(__m128i a, __m128i b, bool4 cond)
 
 VM_INLINE float4 sqrtf(float4 v) { return float4(_mm_sqrt_ps(v.m)); }
 
-#else
+#elif !defined(__EMSCRIPTEN__)
 
 // ---- NEON implementation
 

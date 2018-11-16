@@ -39,6 +39,7 @@ These are all on a scene with ~50 spheres and two light sources, measured in Mra
   * C# (.NET Core): PC 53, Mac 23.6
   * C# (Mono with optimized settings): Mac 22.0
   * C# (Mono defaults): Mac 6.1
+  * WebAssembly (single threaded, no SIMD): 4.5-5.5 Mray/s on PCs, 2.0-4.0 Mray/s on mobiles.
 * GPU. Simplistic ports to compute shader:
   * PC D3D11. GeForce GTX 1080 Ti: 1854
   * Mac Metal. AMD Radeon Pro 560X: 246
@@ -49,9 +50,10 @@ I know it's just a simple toy, ok :)
 
 ### Building
 
-* C++ projects: Windows (Visual Studio 2017) in `Cpp/Windows/TestCpu.sln`, Mac/iOS (Xcode 9) in `Cpp/Apple/Test.xcodeproj`.
-  * Windows is DX11 Win32 app that displays result as a fullscreen CPU-updated or GPU-rendered texture.
-  * Mac is a Metal app that displays result as a fullscreen CPU-updated or GPU-rendered texture.
+* C++ projects:
+  * Windows (Visual Studio 2017) in `Cpp/Windows/TestCpu.sln`. DX11 Win32 app that displays result as a fullscreen CPU-updated or GPU-rendered texture.
+  * Mac/iOS (Xcode 9) in `Cpp/Apple/Test.xcodeproj`. Metal app that displays result as a fullscreen CPU-updated or GPU-rendered texture.
     Should work on both Mac (`Test Mac` target) and iOS (`Test iOS` target).
+  * WebAssembly in `Cpp/Emscripten/build.sh`. CPU, single threaded, no SIMD.
 * C# project in `Cs/TestCs.sln`. A command line app that renders some frames and dumps out final TGA screenshot at the end.
 * Unity project in `Unity`. I used Unity 2018.2.13.
