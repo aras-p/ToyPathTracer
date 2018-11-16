@@ -1,7 +1,54 @@
 <html>
+<head>
+    <meta charset="utf-8">
+    <style>
+    body { font-family: Arial; margin-left: auto; margin-right: auto; max-width: 720px; }
+    table, th, td { border: 1px solid #888; border-collapse: collapse; }
+    </style>
+</head>
 <body>
+
+<h2>Toy Path Tracer in WebAssembly</h2>
+<p>
+A <a href="https://github.com/aras-p/ToyPathTracer"><b>toy path tracer</b></a>, written in C++ and
+compiled into <a href="https://webassembly.org/">WebAssembly</a> via <a href="http://kripken.github.io/emscripten-site/">Emscripten 1.38.19</a>.
+</p>
+<p>This is running single-threaded, and without SIMD. Performance measured in millions of rays per second; higher number is better.</p>
+
 <canvas id="screen" width="640px" height="360px" style="border: black 1px solid"></canvas>
-<div id="stats">Stats</div>
+<p id="stats">Stats</p>
+
+<p>
+<button id="run" style="width: 60px;">Pause</button>
+<input type="checkbox" id="animate">Animate</input>
+<input type="checkbox" id="progressive" checked="true">Progressive</input>
+</p>
+
+<h3>Performance Results</h3>
+
+<p>
+<table cellpadding="5">
+<tr><th>Device</th><th>OS</th><th>Browser</th><th>Mray/s</th></tr>
+<tr><td rowspan="3">Intel Core i9 8950HK 2.9GHz (MBP 2018)</td><td rowspan="3">macOS 10.13</td><td>Safari 11</td><td>5.8</td></tr>
+<tr><td>Chrome 70</td><td>5.3</td></tr>
+<tr><td>Firefox 63</td><td>5.1</td></tr>
+<tr><td>Intel Xeon W-2145 3.7GHz</td><td>Windows 10</td><td>Chrome 70</td><td>5.3</td></tr>
+<tr><td rowspan="3">AMD ThreadRipper 1950X 3.4GHz</td><td rowspan="3">Windows 10</td><td>Firefox 64</td><td>4.7</td></tr>
+<tr><td>Chrome 70</td><td>4.6</td></tr>
+<tr><td>Edge 17</td><td>4.5</td></tr>
+<tr><td>iPhone XS / XR (A12)</td><td>iOS 12</td><td>Safari</td><td>4.4</td></tr>
+<tr><td>iPhone 8+ (A11)</td><td>iOS 12</td><td>Safari</td><td>4.0</td></tr>
+<tr><td>iPhone SE (A9)</td><td>iOS 12</td><td>Safari</td><td>2.5</td></tr>
+<tr><td>Galaxy Note 9 (Snapdragon 845)</td><td>Android 8.1</td><td>Chrome</td><td>2.0</td></tr>
+<tr><td>iPhone 6 (A8)</td><td>iOS 12</td><td>Safari</td><td>1.7</td></tr>
+</table>
+</p>
+
+
+<p style="margin-top: 3em; padding-top: 1em; border-top: 1px solid #ccc; color: #888;">
+    Made by <a href="https://aras-p.info/">Aras Pranckevičius</a> in 2018.
+</p>
+
 <script src="toypathtracer.js"></script>
 <script>
 Module.onRuntimeInitialized = _ =>
@@ -12,6 +59,8 @@ Module.onRuntimeInitialized = _ =>
         destroy_buffer: Module.cwrap('destroy_buffer', '', ['number']),
         render: Module.cwrap('render', '', ['number', 'number', 'number', 'number']),
         get_ray_count: Module.cwrap('getRayCount', 'number', []),
+        set_flag_animate: Module.cwrap('setFlagAnimate', '', ['number']),
+        set_flag_progressive: Module.cwrap('setFlagProgressive', '', ['number']),
     };
 
     var width  = 640;
@@ -28,13 +77,14 @@ Module.onRuntimeInitialized = _ =>
         var usub = new Uint8ClampedArray(Module.HEAP8.buffer, pointer, width*height*4);
         var img = new ImageData(usub, width, height);
 
+        var running = true;
         var start = null;
         function step(timestamp)
         {
             var progress;
             if (start === null) start = timestamp;
                 progress = timestamp - start;
-            if (progress > 100)
+            if (progress > 100 && running)
             {
                 var t0 = new Date();
                 api.render(pointer, width, height, timestamp);
@@ -48,7 +98,7 @@ Module.onRuntimeInitialized = _ =>
                 start = timestamp
                 window.requestAnimationFrame(draw);
             }
-            else
+            else if (running)
             {
                 window.requestAnimationFrame(step);
             }
@@ -62,6 +112,30 @@ Module.onRuntimeInitialized = _ =>
 
         window.requestAnimationFrame(step);
     }
+    var button = document.getElementById("run");
+    button.addEventListener("click", function(e)
+    {
+        running = !running;
+        if (running)
+        {
+            button.innerText = "Pause";
+            window.requestAnimationFrame(step);
+        }
+        else
+        {
+            button.innerText = "Start";
+        }
+    });
+    var chkAnimate = document.getElementById("animate");
+    chkAnimate.addEventListener("click", function(e)
+    {
+        api.set_flag_animate(chkAnimate.checked);
+    });
+    var chkProg = document.getElementById("progressive");
+    chkProg.addEventListener("click", function(e)
+    {
+        api.set_flag_progressive(chkProg.checked);
+    });
 };
 </script>
 </body>

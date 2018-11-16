@@ -21,11 +21,25 @@ extern "C" void destroy_buffer(uint8_t* p)
 static float* backbuffer;
 static int frameCount;
 static int rayCount;
+static unsigned flags = kFlagProgressive;
 
 EMSCRIPTEN_KEEPALIVE
 extern "C" int getRayCount()
 {
     return rayCount;
+}
+
+EMSCRIPTEN_KEEPALIVE
+extern "C" void setFlagAnimate(int value)
+{
+    flags = (flags & ~kFlagAnimate) | (value ? kFlagAnimate : 0);
+}
+
+EMSCRIPTEN_KEEPALIVE
+extern "C" void setFlagProgressive(int value)
+{
+    flags = (flags & ~kFlagProgressive) | (value ? kFlagProgressive : 0);
+    frameCount = 0;
 }
 
 EMSCRIPTEN_KEEPALIVE
@@ -42,7 +56,6 @@ extern "C" void render(uint8_t* screen, int width, int height, double time)
     // on the web is much slower
     timeS *= 0.2f;
 
-    unsigned flags = kFlagAnimate | kFlagProgressive;
     UpdateTest(timeS, frameCount, width, height, flags);
     DrawTest(timeS, frameCount, width, height, backbuffer, rayCount, flags);
     ++frameCount;
