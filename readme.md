@@ -25,6 +25,7 @@ I decided to write blog posts about things I discover as I do this, currently:
 * [Part 14: Make it run on iOS](http://aras-p.info/blog/2018/05/30/Pathtracer-14-iOS/)
 * [Part 15: A bunch of path tracing links](http://aras-p.info/blog/2018/08/01/Pathtracer-15-Pause--Links/)
 * [Part 16: Unity C# Burst optimization](http://aras-p.info/blog/2018/10/29/Pathtracer-16-Burst-SIMD-Optimization/)
+* [Part 17: WebAssembly](http://aras-p.info/blog/2018/11/16/Pathtracer-17-WebAssembly/)
 
 Right now: can only do spheres, no bounding volume hierachy of any sorts, a lot of stuff hardcoded.
 
