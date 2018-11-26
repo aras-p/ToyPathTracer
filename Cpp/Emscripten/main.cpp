@@ -7,6 +7,18 @@
 #include "../Source/Test.h"
 
 EMSCRIPTEN_KEEPALIVE
+extern "C" void init()
+{
+    InitializeTest();
+}
+
+EMSCRIPTEN_KEEPALIVE
+extern "C" void done()
+{
+    ShutdownTest();
+}
+
+EMSCRIPTEN_KEEPALIVE
 extern "C" uint8_t* create_buffer(int width, int height)
 {
     return (uint8_t*)malloc(width * height * 4);

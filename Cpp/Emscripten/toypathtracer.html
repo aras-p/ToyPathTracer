@@ -55,6 +55,8 @@ Module.onRuntimeInitialized = _ =>
 {
     const api =
     {
+        init: Module.cwrap('init', '', []),
+        done: Module.cwrap('done', '', []),
         create_buffer: Module.cwrap('create_buffer', 'number', ['number', 'number']),
         destroy_buffer: Module.cwrap('destroy_buffer', '', ['number']),
         render: Module.cwrap('render', '', ['number', 'number', 'number', 'number']),
@@ -72,10 +74,17 @@ Module.onRuntimeInitialized = _ =>
     {
         var ctx = canvas.getContext('2d');
 
+        api.init();
         var pointer = api.create_buffer(width, height);
 
         var usub = new Uint8ClampedArray(Module.HEAP8.buffer, pointer, width*height*4);
-        var img = new ImageData(usub, width, height);
+
+        // TODO: better way to detect if threads can be used?
+        if (Module.HEAP8.buffer instanceof SharedArrayBuffer) {
+            var img = new ImageData(width, height);
+        } else {
+            var img = new ImageData(usub, width, height);
+        }
 
         var running = true;
         var start = null;
@@ -106,6 +115,10 @@ Module.onRuntimeInitialized = _ =>
 
         function draw()
         {
+            // TODO: better way to detect if threads can be used?
+            if (Module.HEAP8.buffer instanceof SharedArrayBuffer) {
+                img.data.set(usub);
+            }
             ctx.putImageData(img, 0, 0);
             window.requestAnimationFrame(step);
         }

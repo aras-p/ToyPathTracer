@@ -1,0 +1,1 @@
+emcc -O3 -std=c++11 -s PTHREAD_POOL_SIZE=`nproc` -s USE_PTHREADS=1 -s WASM=1 -s TOTAL_MEMORY=268435456 -s EXTRA_EXPORTED_RUNTIME_METHODS='["cwrap"]' -o toypathtracer.js main.cpp ../Source/Maths.cpp ../Source/Test.cpp ../Source/enkiTS/TaskScheduler.cpp ../Source/enkiTS/TaskScheduler_c.cpp
