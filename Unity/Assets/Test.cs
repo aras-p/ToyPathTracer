@@ -298,9 +298,9 @@ class Test
         job.frameCount = frameCount;
         job.backbuffer = backbuffer;
         job.cam = cam;
-        job.rayCounter = new NativeArray<int>(1, Allocator.Temp);
+        job.rayCounter = new NativeArray<int>(1, Allocator.TempJob);
         job.spheres = s_SpheresSoA;
-        job.materials = new NativeArray<Material>(s_SphereMatsData, Allocator.Temp);
+        job.materials = new NativeArray<Material>(s_SphereMatsData, Allocator.TempJob);
         var fence = job.Schedule(screenHeight, 4);
         fence.Complete();
         rayCount = job.rayCounter[0];

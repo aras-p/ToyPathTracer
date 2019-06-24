@@ -61,7 +61,7 @@ public class TestScript : MonoBehaviour
             m_Stopwatch.Reset();
         }
 
-        unsafe { m_BackbufferTex.LoadRawTextureData((IntPtr)m_Backbuffer.GetUnsafeReadOnlyPtr(), m_Backbuffer.Length * 16); }
+        m_BackbufferTex.LoadRawTextureData(m_Backbuffer);
         m_BackbufferTex.Apply();
     }
 }
