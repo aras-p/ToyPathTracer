@@ -6,6 +6,9 @@
 #include "enkiTS/TaskScheduler_c.h"
 #endif
 #include <atomic>
+#if DO_ISPC
+#include "TestKernels.h"
+#endif
 
 // 46 spheres (2 emissive) when enabled; 9 spheres (1 emissive) when disabled
 #define DO_BIG_SCENE 1
@@ -271,6 +274,13 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
     if (!(data.testFlags & kFlagProgressive))
         lerpFac = 0;
     int rayCount = 0;
+#if DO_ISPC
+    uint32_t randomState = start * 9781 + data.frameCount * 6271 | 1;
+    static_assert(sizeof(Camera) == sizeof(ispc::Camera), "camera data mismatch");
+    static_assert(sizeof(Sphere) == sizeof(ispc::Sphere), "sphere data mismatch");
+    static_assert(sizeof(Material) == sizeof(ispc::Material), "material data mismatch");
+    ispc::TraceRowJobJspc(data.screenWidth, data.screenHeight, start, end, randomState, data.backbuffer, lerpFac, *(ispc::Camera*)data.cam, (ispc::Sphere*)s_Spheres, (ispc::Material*)s_SphereMats, kSphereCount, rayCount);
+#else
     for (uint32_t y = start; y < end; ++y)
     {
         uint32_t state = (y * 9781 + data.frameCount * 6271) | 1;
@@ -292,6 +302,7 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
             backbuffer += 4;
         }
     }
+#endif
     data.rayCount += rayCount;
 }
 

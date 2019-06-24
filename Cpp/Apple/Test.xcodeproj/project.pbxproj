@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		2B22EA3A22C0CAAF0001C0C8 /* TestKernels.ispc in Resources */ = {isa = PBXBuildFile; fileRef = 2B22EA3922C0CAAE0001C0C8 /* TestKernels.ispc */; };
 		2B2B5AA220BE72FD00040BFE /* AppDelegate.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B2B5AA120BE72FD00040BFE /* AppDelegate.m */; };
 		2B2B5AA820BE72FD00040BFE /* GameViewController.m in Sources */ = {isa = PBXBuildFile; fileRef = 2B2B5AA720BE72FD00040BFE /* GameViewController.m */; };
 		2B2B5AAE20BE72FD00040BFE /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 2B2B5AAC20BE72FD00040BFE /* Main.storyboard */; };
@@ -32,6 +33,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		2B22EA3922C0CAAE0001C0C8 /* TestKernels.ispc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = TestKernels.ispc; sourceTree = "<group>"; };
 		2B2B5A9E20BE72FD00040BFE /* Test iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Test iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2B2B5AA020BE72FD00040BFE /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		2B2B5AA120BE72FD00040BFE /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
@@ -41,7 +43,7 @@
 		2B2B5AB220BE72FE00040BFE /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		2B2B5AB420BE72FE00040BFE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		2B2B5AB520BE72FE00040BFE /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
-		2B2D97AE20519C7100520EC1 /* Test.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Test.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		2B2D97AE20519C7100520EC1 /* Test Mac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Test Mac.app"; sourceTree = BUILT_PRODUCTS_DIR; };
 		2B2D97B120519C7100520EC1 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		2B2D97B220519C7100520EC1 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
 		2B2D97B420519C7100520EC1 /* Renderer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Renderer.h; sourceTree = "<group>"; };
@@ -98,6 +100,7 @@
 				2B8065FE207CDB540043116F /* MathSimd.h */,
 				2BE32DC7205BEDA6003C05B4 /* Test.cpp */,
 				2BE32DC8205BEDA6003C05B4 /* Test.h */,
+				2B22EA3922C0CAAE0001C0C8 /* TestKernels.ispc */,
 			);
 			name = Source;
 			path = ../Source;
@@ -159,7 +162,7 @@
 		2B2D97AF20519C7100520EC1 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				2B2D97AE20519C7100520EC1 /* Test.app */,
+				2B2D97AE20519C7100520EC1 /* Test Mac.app */,
 				2B2B5A9E20BE72FD00040BFE /* Test iOS.app */,
 			);
 			name = Products;
@@ -210,6 +213,7 @@
 			isa = PBXNativeTarget;
 			buildConfigurationList = 2B2D97C820519C7100520EC1 /* Build configuration list for PBXNativeTarget "Test Mac" */;
 			buildPhases = (
+				2B22EA3B22C0CAFE0001C0C8 /* Compile ISPC */,
 				2B2D97AA20519C7100520EC1 /* Sources */,
 				2B2D97AB20519C7100520EC1 /* Frameworks */,
 				2B2D97AC20519C7100520EC1 /* Resources */,
@@ -220,7 +224,7 @@
 			);
 			name = "Test Mac";
 			productName = Test;
-			productReference = 2B2D97AE20519C7100520EC1 /* Test.app */;
+			productReference = 2B2D97AE20519C7100520EC1 /* Test Mac.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -281,10 +285,35 @@
 			buildActionMask = 2147483647;
 			files = (
 				2B2D97C120519C7100520EC1 /* Main.storyboard in Resources */,
+				2B22EA3A22C0CAAF0001C0C8 /* TestKernels.ispc in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXResourcesBuildPhase section */
+
+/* Begin PBXShellScriptBuildPhase section */
+		2B22EA3B22C0CAFE0001C0C8 /* Compile ISPC */ = {
+			isa = PBXShellScriptBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			inputFileListPaths = (
+			);
+			inputPaths = (
+				"$(SRCROOT)/../Source/TestKernels.ispc",
+			);
+			name = "Compile ISPC";
+			outputFileListPaths = (
+			);
+			outputPaths = (
+				"$(SRCROOT)/../Source/TestKernels.h",
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+			shellPath = /bin/sh;
+			shellScript = "chmod 755 ../ispc\n../ispc -O2 ../Source/TestKernels.ispc -o \"$OBJROOT/TestKernels.o\" -h ../Source/TestKernels.h --arch=x86-64 --target=sse2 --opt=fast-math --wno-perf\n";
+			showEnvVarsInLog = 0;
+		};
+/* End PBXShellScriptBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
 		2B2B5A9A20BE72FD00040BFE /* Sources */ = {
@@ -503,6 +532,7 @@
 				GCC_FAST_MATH = YES;
 				INFOPLIST_FILE = "$(SRCROOT)/macOS/Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				OTHER_LDFLAGS = $OBJROOT/TestKernels.o;
 				PRODUCT_BUNDLE_IDENTIFIER = com.aras.Test;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
@@ -517,6 +547,7 @@
 				GCC_FAST_MATH = YES;
 				INFOPLIST_FILE = "$(SRCROOT)/macOS/Info.plist";
 				LD_RUNPATH_SEARCH_PATHS = "$(inherited) @executable_path/../Frameworks";
+				OTHER_LDFLAGS = $OBJROOT/TestKernels.o;
 				PRODUCT_BUNDLE_IDENTIFIER = com.aras.Test;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};

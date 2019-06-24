@@ -8,6 +8,7 @@ obj
 *.pdb
 *.vcxproj.user
 *.csproj.user
+TestKernels.h
 Cpp/Windows/x64/
 project.xcworkspace
 xcschememanagement.plist
