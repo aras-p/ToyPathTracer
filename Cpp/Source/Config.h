@@ -20,9 +20,10 @@
 #define DO_LIGHT_SAMPLING 1
 #define DO_MITSUBA_COMPARE 0
 #define DO_DEBUG_NORMALS 0
+#define DO_VERY_SIMPLE 0
 
 // Should CPU path tracing be done via ISPC?
-#define DO_ISPC 0
+#define DO_ISPC 1
 
 // Should path tracing be done on the GPU with a compute shader?
 #define DO_COMPUTE_GPU 0

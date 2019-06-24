@@ -3,6 +3,8 @@
 #define DO_THREADED
 // 46 spheres (2 emissive) when enabled; 9 spheres (1 emissive) when disabled
 #define DO_BIG_SCENE
+//#define DO_DEBUG_NORMALS
+//#define DO_VERY_SIMPLE
 
 using static MathUtil;
 using Unity.Mathematics;
@@ -201,6 +203,9 @@ class Test
         ++inoutRayCount;
         if (HitWorld(r, kMinT, kMaxT, ref rec, ref id, ref spheres))
         {
+#if DO_DEBUG_NORMALS
+            return rec.normal;
+#else            
             Ray scattered;
             float3 attenuation;
             float3 lightE;
@@ -218,6 +223,7 @@ class Test
             {
                 return matE;
             }
+#endif
         }
         else
         {
@@ -253,6 +259,9 @@ class Test
             for (int x = 0; x < screenWidth; ++x)
             {
                 float3 col = new float3(0, 0, 0);
+                #if DO_VERY_SIMPLE
+                backbuffer[backbufferIdx] = new UnityEngine.Color(x * invWidth, y * invHeight, 1, 1);
+                #else
                 for (int s = 0; s < DO_SAMPLES_PER_PIXEL; s++)
                 {
                     float u = (x + RandomFloat01(ref state)) * invWidth;
@@ -265,6 +274,7 @@ class Test
                 UnityEngine.Color prev = backbuffer[backbufferIdx];
                 col = new float3(prev.r, prev.g, prev.b) * lerpFac + col * (1 - lerpFac);
                 backbuffer[backbufferIdx] = new UnityEngine.Color(col.x, col.y, col.z, 1);
+                #endif
                 backbufferIdx++;
             }
             rayCounter[0] += rayCount; //@TODO: how to do atomics add?

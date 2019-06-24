@@ -363,11 +363,11 @@ static float3 Trace(const uniform SpheresSoA& spheres, const uniform Material ma
 }
 
 
-export void TraceRowJobJspc(
+export uniform int TraceRowJobJspc(
     uniform int screenWidth,
-    uniform int screenHeight,
-    uniform int startRow,
-    uniform int endRow,
+    uniform float invWidth,
+    uniform float invHeight,
+    uniform int y,
     uniform uint32_t randomState,
     uniform float backbuffer[],
     uniform float lerpFac,
@@ -376,18 +376,18 @@ export void TraceRowJobJspc(
     uniform Material materials[],
     uniform int sphereCount,
     uniform int emissiveSpheres[],
-    uniform int emissiveSphereCount,
-    uniform int& rayCounter)
+    uniform int emissiveSphereCount)
 {
-    uniform float invWidth = 1.0f / screenWidth;
-    uniform float invHeight = 1.0f / screenHeight;
     int rayCount = 0;
     uint32_t rndState = randomState;
-    foreach(y = startRow ... endRow, x = 0 ... screenWidth)
+    foreach(x = 0 ... screenWidth)
     {
         rndState += programIndex;
         rndState |= 1;
-        int pixelIndex = (y * screenWidth + x) * 4;
+        int pixelIndex = x * 4;
+#if DO_VERY_SIMPLE
+        float3 col = {x * invWidth, y * invHeight, 1.0f};
+#else
         float3 col = {0, 0, 0};
         for (int s = 0; s < DO_SAMPLES_PER_PIXEL; s++)
         {
@@ -400,10 +400,11 @@ export void TraceRowJobJspc(
 
         float3 prev = {backbuffer[pixelIndex+0], backbuffer[pixelIndex+1], backbuffer[pixelIndex+2]};
         col = prev * lerpFac + col * (1-lerpFac);
+#endif
         backbuffer[pixelIndex+0] = col.x;
         backbuffer[pixelIndex+1] = col.y;
         backbuffer[pixelIndex+2] = col.z;
     }
-    atomic_add_global(&rayCounter, rayCount);
+    return reduce_add(rayCount);
 }
 

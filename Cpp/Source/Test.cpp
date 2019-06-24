@@ -278,21 +278,26 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
     if (!(data.testFlags & kFlagProgressive))
         lerpFac = 0;
     int rayCount = 0;
-#if DO_ISPC
-    uint32_t randomState = start * 9781 + data.frameCount * 6271 | 1;
-    static_assert(sizeof(Camera) == sizeof(ispc::Camera), "camera data mismatch");
-    static_assert(sizeof(Material) == sizeof(ispc::Material), "material data mismatch");
-    static_assert(sizeof(SpheresSoA) == sizeof(ispc::SpheresSoA), "spheres SoA data mismatch");
-    ispc::TraceRowJobJspc(
-        data.screenWidth, data.screenHeight, start, end, randomState,
-        data.backbuffer, lerpFac,
-        *(ispc::Camera*)data.cam, *(ispc::SpheresSoA*)&s_SpheresSoA, (ispc::Material*)s_SphereMats, kSphereCount, s_EmissiveSpheres, s_EmissiveSphereCount, rayCount);
-#else
     for (uint32_t y = start; y < end; ++y)
     {
         uint32_t state = (y * 9781 + data.frameCount * 6271) | 1;
+#if DO_ISPC
+        static_assert(sizeof(Camera) == sizeof(ispc::Camera), "camera data mismatch");
+        static_assert(sizeof(Material) == sizeof(ispc::Material), "material data mismatch");
+        static_assert(sizeof(SpheresSoA) == sizeof(ispc::SpheresSoA), "spheres SoA data mismatch");
+        rayCount += ispc::TraceRowJobJspc(
+                              data.screenWidth, invWidth, invHeight, y, state,
+                              backbuffer, lerpFac,
+                              *(ispc::Camera*)data.cam, *(ispc::SpheresSoA*)&s_SpheresSoA, (ispc::Material*)s_SphereMats, kSphereCount, s_EmissiveSpheres, s_EmissiveSphereCount);
+        backbuffer += data.screenWidth * 4;
+#else
+
         for (int x = 0; x < data.screenWidth; ++x)
         {
+#if DO_VERY_SIMPLE
+            float3 col(x * invWidth, y * invHeight, 1.0f);
+#else
+
             float3 col(0, 0, 0);
             for (int s = 0; s < DO_SAMPLES_PER_PIXEL; s++)
             {
@@ -305,11 +310,12 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
 
             float3 prev(backbuffer[0], backbuffer[1], backbuffer[2]);
             col = prev * lerpFac + col * (1-lerpFac);
+#endif
             col.store(backbuffer);
             backbuffer += 4;
         }
-    }
 #endif
+    }
     data.rayCount += rayCount;
 }
 
