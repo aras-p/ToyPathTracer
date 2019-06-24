@@ -277,9 +277,12 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
 #if DO_ISPC
     uint32_t randomState = start * 9781 + data.frameCount * 6271 | 1;
     static_assert(sizeof(Camera) == sizeof(ispc::Camera), "camera data mismatch");
-    static_assert(sizeof(Sphere) == sizeof(ispc::Sphere), "sphere data mismatch");
     static_assert(sizeof(Material) == sizeof(ispc::Material), "material data mismatch");
-    ispc::TraceRowJobJspc(data.screenWidth, data.screenHeight, start, end, randomState, data.backbuffer, lerpFac, *(ispc::Camera*)data.cam, (ispc::Sphere*)s_Spheres, (ispc::Material*)s_SphereMats, kSphereCount, s_EmissiveSpheres, s_EmissiveSphereCount, rayCount);
+    static_assert(sizeof(SpheresSoA) == sizeof(ispc::SpheresSoA), "spheres SoA data mismatch");
+    ispc::TraceRowJobJspc(
+        data.screenWidth, data.screenHeight, start, end, randomState,
+        data.backbuffer, lerpFac,
+        *(ispc::Camera*)data.cam, *(ispc::SpheresSoA*)&s_SpheresSoA, (ispc::Material*)s_SphereMats, kSphereCount, s_EmissiveSpheres, s_EmissiveSphereCount, rayCount);
 #else
     for (uint32_t y = start; y < end; ++y)
     {

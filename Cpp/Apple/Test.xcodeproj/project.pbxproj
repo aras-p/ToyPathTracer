@@ -310,7 +310,7 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 			shellPath = /bin/sh;
-			shellScript = "chmod 755 ../ispc\n../ispc -O2 ../Source/TestKernels.ispc -o \"$OBJROOT/TestKernels.o\" -h ../Source/TestKernels.h --arch=x86-64 --target=sse2 --opt=fast-math --wno-perf\n";
+			shellScript = "chmod 755 ../ispc\n../ispc -O2 ../Source/TestKernels.ispc -o \"$OBJROOT/TestKernels.o\" -h ../Source/TestKernels.h --arch=x86-64 --target=sse2 --opt=fast-math\n";
 			showEnvVarsInLog = 0;
 		};
 /* End PBXShellScriptBuildPhase section */

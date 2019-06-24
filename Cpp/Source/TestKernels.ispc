@@ -61,11 +61,15 @@ struct Hit
     float t;
 };
 
-struct Sphere
+struct SpheresSoA
 {
-    float centerX, centerY, centerZ;
-    float radius;
-    float invRadius;
+    uniform float* centerX;
+    uniform float* centerY;
+    uniform float* centerZ;
+    uniform float* sqRadius;
+    uniform float* invRadius;
+    int simdCount;
+    int count;
 };
 
 struct Camera
@@ -149,38 +153,6 @@ Ray CameraGetRay(const uniform Camera& cam, float s, float t, uint32_t& state)
 
 
 
-bool HitSphere(const Ray& r, const uniform Sphere &s, float tMin, float tMax, Hit& outHit)
-{
-    float3 scenter = f3(s.centerX, s.centerY, s.centerZ);
-    float3 oc = r.orig - scenter;
-    float b = dot(oc, r.dir);
-    float c = dot(oc, oc) - s.radius*s.radius;
-    float discr = b*b - c;
-    cif (discr > 0)
-    {
-        float discrSq = sqrt(discr);
-
-        float t = (-b - discrSq);
-        cif (t < tMax && t > tMin)
-        {
-            outHit.pos = RayPointAt(r, t);
-            outHit.normal = (outHit.pos - scenter) * s.invRadius;
-            outHit.t = t;
-            return true;
-        }
-        t = (-b + discrSq);
-        cif (t < tMax && t > tMin)
-        {
-            outHit.pos = RayPointAt(r, t);
-            outHit.normal = (outHit.pos - scenter) * s.invRadius;
-            outHit.t = t;
-            return true;
-        }
-    }
-    return false;
-}
-
-
 enum Type { MatLambert, MatMetal, MatDielectric };
 struct Material
 {
@@ -196,22 +168,44 @@ const float kMaxT = 1.0e7f;
 const int kMaxDepth = 10;
 
 
-static bool HitWorld(const uniform Sphere spheres[], int sphereCount, const Ray& r, float tMin, float tMax, Hit& outHit, int& outID)
+static int HitWorld(const uniform SpheresSoA& spheres, int sphereCount, const Ray& r, float tMin, float tMax, Hit& outHit)
 {
-    Hit tmpHit;
-    bool anything = false;
-    float closest = tMax;
+    float hitT = tMax;
+    int id = -1;
     for (uniform int i = 0; i < sphereCount; ++i)
     {
-        if (HitSphere(r, spheres[i], tMin, closest, tmpHit))
+        float coX = spheres.centerX[i] - r.orig.x;
+        float coY = spheres.centerY[i] - r.orig.y;
+        float coZ = spheres.centerZ[i] - r.orig.z;
+        float nb = coX * r.dir.x + coY * r.dir.y + coZ * r.dir.z;
+        float c = coX * coX + coY * coY + coZ * coZ - spheres.sqRadius[i];
+        float discr = nb * nb - c;
+        if (discr > 0)
         {
-            anything = true;
-            closest = tmpHit.t;
-            outHit = tmpHit;
-            outID = i;
+            float discrSq = sqrt(discr);
+
+            // Try earlier t
+            float t = nb - discrSq;
+            if (t <= tMin) // before min, try later t!
+                t = nb + discrSq;
+
+            if (t > tMin && t < hitT)
+            {
+                id = i;
+                hitT = t;
+            }
         }
     }
-    return anything;
+
+    if (id != -1)
+    {
+        outHit.pos = RayPointAt(r, hitT);
+        outHit.normal = (outHit.pos - f3(spheres.centerX[id], spheres.centerY[id], spheres.centerZ[id])) * spheres.invRadius[id];
+        outHit.t = hitT;
+        return id;
+    }
+    else
+        return -1;
 }
 
 Ray MakeRay(float3 pos, float3 dir)
@@ -222,7 +216,7 @@ Ray MakeRay(float3 pos, float3 dir)
 
 
 static bool Scatter(int matIndex, const Ray& r_in, const Hit& rec, float3& attenuation, Ray& scattered, float3& outLightE, int& inoutRayCount, uint32_t& randomState,
-    const uniform Sphere spheres[], const uniform Material materials[], uniform int sphereCount,
+    const uniform uniform SpheresSoA& spheres, const uniform Material materials[], uniform int sphereCount,
     const uniform int emissiveSpheres[], uniform int emissiveSphereCount)
 {
     const Material* mat = &materials[matIndex];
@@ -242,16 +236,15 @@ static bool Scatter(int matIndex, const Ray& r_in, const Hit& rec, float3& atten
             if (i == matIndex)
                 continue; // skip self
             const uniform Material& smat = materials[i];
-            const uniform Sphere& s = spheres[i];
 
             // create a random direction towards sphere
             // coord system for sampling: sw, su, sv
-            uniform float3 scenter = {s.centerX,s.centerY,s.centerZ};
+            uniform float3 scenter = {spheres.centerX[i],spheres.centerY[i],spheres.centerZ[i]};
             float3 sw = normalize(scenter - rec.pos);
             float3 su = normalize(cross(abs(sw.x)>0.01f ? f3(0,1,0):f3(1,0,0), sw));
             float3 sv = cross(sw, su);
             // sample sphere by solid angle
-            float cosAMax = sqrt(1.0f - s.radius*s.radius / sqLength(rec.pos-scenter));
+            float cosAMax = sqrt(1.0f - spheres.sqRadius[i] / sqLength(rec.pos-scenter));
             float eps1 = RandomFloat01(randomState), eps2 = RandomFloat01(randomState);
             float cosA = 1.0f - eps1 + eps1 * cosAMax;
             float sinA = sqrt(1.0f - cosA*cosA);
@@ -261,9 +254,9 @@ static bool Scatter(int matIndex, const Ray& r_in, const Hit& rec, float3& atten
 
             // shoot shadow ray
             Hit lightHit;
-            int hitID;
             ++inoutRayCount;
-            if (HitWorld(spheres, sphereCount, MakeRay(rec.pos, l), kMinT, kMaxT, lightHit, hitID) && hitID == i)
+            int hitID = HitWorld(spheres, sphereCount, MakeRay(rec.pos, l), kMinT, kMaxT, lightHit);
+            if (hitID == i)
             {
                 float omega = 2 * 3.1415926 * (1-cosAMax);
 
@@ -326,12 +319,12 @@ static bool Scatter(int matIndex, const Ray& r_in, const Hit& rec, float3& atten
     return true;
 }
 
-static float3 Trace(const uniform Sphere spheres[], const uniform Material materials[], uniform int sphereCount, const Ray& r, int depth, int& inoutRayCount, uint32_t& randomState, const uniform int emissiveSpheres[], uniform int emissiveSphereCount, bool doMaterialE = true)
+static float3 Trace(const uniform SpheresSoA& spheres, const uniform Material materials[], uniform int sphereCount, const Ray& r, int depth, int& inoutRayCount, uint32_t& randomState, const uniform int emissiveSpheres[], uniform int emissiveSphereCount, bool doMaterialE = true)
 {
     Hit rec;
-    int id = 0;
     ++inoutRayCount;
-    if (HitWorld(spheres, sphereCount, r, kMinT, kMaxT, rec, id))
+    int id = HitWorld(spheres, sphereCount, r, kMinT, kMaxT, rec);
+    if (id != -1)
     {
         Ray scattered;
         float3 attenuation;
@@ -374,7 +367,7 @@ export void TraceRowJobJspc(
     uniform float backbuffer[],
     uniform float lerpFac,
     uniform Camera& dataCam,
-    uniform Sphere spheres[],
+    uniform SpheresSoA& spheres,
     uniform Material materials[],
     uniform int sphereCount,
     uniform int emissiveSpheres[],
