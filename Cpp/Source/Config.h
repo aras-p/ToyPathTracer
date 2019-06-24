@@ -1,5 +1,5 @@
 
-#if defined(__APPLE__) && !defined(__METAL_VERSION__)
+#if defined(__APPLE__) && !defined(__METAL_VERSION__) && !defined(ISPC)
 #include <TargetConditionals.h>
 #endif
 

@@ -279,7 +279,7 @@ static void TraceRowJob(uint32_t start, uint32_t end, uint32_t threadnum, void* 
     static_assert(sizeof(Camera) == sizeof(ispc::Camera), "camera data mismatch");
     static_assert(sizeof(Sphere) == sizeof(ispc::Sphere), "sphere data mismatch");
     static_assert(sizeof(Material) == sizeof(ispc::Material), "material data mismatch");
-    ispc::TraceRowJobJspc(data.screenWidth, data.screenHeight, start, end, randomState, data.backbuffer, lerpFac, *(ispc::Camera*)data.cam, (ispc::Sphere*)s_Spheres, (ispc::Material*)s_SphereMats, kSphereCount, rayCount);
+    ispc::TraceRowJobJspc(data.screenWidth, data.screenHeight, start, end, randomState, data.backbuffer, lerpFac, *(ispc::Camera*)data.cam, (ispc::Sphere*)s_Spheres, (ispc::Material*)s_SphereMats, kSphereCount, s_EmissiveSpheres, s_EmissiveSphereCount, rayCount);
 #else
     for (uint32_t y = start; y < end; ++y)
     {

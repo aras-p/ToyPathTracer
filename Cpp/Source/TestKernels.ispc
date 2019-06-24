@@ -222,7 +222,8 @@ Ray MakeRay(float3 pos, float3 dir)
 
 
 static bool Scatter(int matIndex, const Ray& r_in, const Hit& rec, float3& attenuation, Ray& scattered, float3& outLightE, int& inoutRayCount, uint32_t& randomState,
-    const uniform Sphere spheres[], const uniform Material materials[], int sphereCount)
+    const uniform Sphere spheres[], const uniform Material materials[], uniform int sphereCount,
+    const uniform int emissiveSpheres[], uniform int emissiveSphereCount)
 {
     const Material* mat = &materials[matIndex];
     outLightE.x = outLightE.y = outLightE.z = 0;
@@ -235,13 +236,12 @@ static bool Scatter(int matIndex, const Ray& r_in, const Hit& rec, float3& atten
 
         // sample lights
 #if DO_LIGHT_SAMPLING
-        for (uniform int i = 0; i < sphereCount; ++i)
+        for (uniform int j = 0; j < emissiveSphereCount; ++j)
         {
-            const uniform Material& smat = materials[i];
-            if (smat.emissiveX <= 0 && smat.emissiveY <= 0 && smat.emissiveZ <= 0)
-                continue; // skip non-emissive
+            uniform int i = emissiveSpheres[j];
             if (i == matIndex)
                 continue; // skip self
+            const uniform Material& smat = materials[i];
             const uniform Sphere& s = spheres[i];
 
             // create a random direction towards sphere
@@ -326,7 +326,7 @@ static bool Scatter(int matIndex, const Ray& r_in, const Hit& rec, float3& atten
     return true;
 }
 
-static float3 Trace(const uniform Sphere spheres[], const uniform Material materials[], int sphereCount, const Ray& r, int depth, int& inoutRayCount, uint32_t& randomState, bool doMaterialE = true)
+static float3 Trace(const uniform Sphere spheres[], const uniform Material materials[], uniform int sphereCount, const Ray& r, int depth, int& inoutRayCount, uint32_t& randomState, const uniform int emissiveSpheres[], uniform int emissiveSphereCount, bool doMaterialE = true)
 {
     Hit rec;
     int id = 0;
@@ -338,7 +338,7 @@ static float3 Trace(const uniform Sphere spheres[], const uniform Material mater
         float3 lightE;
         const Material* mat = materials + id;
         float3 matE = f3(mat->emissiveX,mat->emissiveY,mat->emissiveZ);
-        if (depth < kMaxDepth && Scatter(id, r, rec, attenuation, scattered, lightE, inoutRayCount, randomState, spheres, materials, sphereCount))
+        if (depth < kMaxDepth && Scatter(id, r, rec, attenuation, scattered, lightE, inoutRayCount, randomState, spheres, materials, sphereCount, emissiveSpheres, emissiveSphereCount))
         {
 #if DO_LIGHT_SAMPLING
             if (!doMaterialE) matE = f3(0,0,0); // don't add material emission if told so
@@ -348,7 +348,7 @@ static float3 Trace(const uniform Sphere spheres[], const uniform Material mater
             doMaterialE = (mat->type != MatLambert);
 #endif
 
-            return matE + lightE + attenuation * Trace(spheres, materials, sphereCount, scattered, depth+1, inoutRayCount, randomState, doMaterialE);
+            return matE + lightE + attenuation * Trace(spheres, materials, sphereCount, scattered, depth+1, inoutRayCount, randomState, emissiveSpheres, emissiveSphereCount, doMaterialE);
         }
         else
         {
@@ -377,6 +377,8 @@ export void TraceRowJobJspc(
     uniform Sphere spheres[],
     uniform Material materials[],
     uniform int sphereCount,
+    uniform int emissiveSpheres[],
+    uniform int emissiveSphereCount,
     uniform int& rayCounter)
 {
     uniform float invWidth = 1.0f / screenWidth;
@@ -394,7 +396,7 @@ export void TraceRowJobJspc(
             float u = (x + RandomFloat01(rndState)) * invWidth;
             float v = (y + RandomFloat01(rndState)) * invHeight;
             Ray r = CameraGetRay(dataCam, u, v, rndState);
-            col += Trace(spheres, materials, sphereCount, r, 0, rayCount, rndState);
+            col += Trace(spheres, materials, sphereCount, r, 0, rayCount, rndState, emissiveSpheres, emissiveSphereCount);
         }
         col *= 1.0f / (float)DO_SAMPLES_PER_PIXEL;
 
