@@ -180,16 +180,16 @@ static int HitWorld(const uniform SpheresSoA& spheres, int sphereCount, const Ra
         float nb = coX * r.dir.x + coY * r.dir.y + coZ * r.dir.z;
         float c = coX * coX + coY * coY + coZ * coZ - spheres.sqRadius[i];
         float discr = nb * nb - c;
-        if (discr > 0)
+        cif (discr > 0)
         {
             float discrSq = sqrt(discr);
 
             // Try earlier t
             float t = nb - discrSq;
-            if (t <= tMin) // before min, try later t!
+            cif (t <= tMin) // before min, try later t!
                 t = nb + discrSq;
 
-            if (t > tMin && t < hitT)
+            cif (t > tMin && t < hitT)
             {
                 id = i;
                 hitT = t;
@@ -197,7 +197,7 @@ static int HitWorld(const uniform SpheresSoA& spheres, int sphereCount, const Ra
         }
     }
 
-    if (id != -1)
+    cif (id != -1)
     {
         outHit.pos = RayPointAt(r, hitT);
         outHit.normal = (outHit.pos - f3(spheres.centerX[id], spheres.centerY[id], spheres.centerZ[id])) * spheres.invRadius[id];
@@ -221,7 +221,8 @@ static bool Scatter(int matIndex, const Ray& r_in, const Hit& rec, float3& atten
 {
     const Material* mat = &materials[matIndex];
     outLightE.x = outLightE.y = outLightE.z = 0;
-    if (mat->type == MatLambert)
+    Type matType = mat->type;
+    if (matType == MatLambert)
     {
         // random point inside unit sphere that is tangent to the hit point
         float3 target = rec.pos + rec.normal + RandomUnitVector(randomState);
@@ -250,7 +251,6 @@ static bool Scatter(int matIndex, const Ray& r_in, const Hit& rec, float3& atten
             float sinA = sqrt(1.0f - cosA*cosA);
             float phi = 2 * 3.14159265 * eps2;
             float3 l = su * cos(phi) * sinA + sv * sin(phi) * sinA + sw * cosA;
-            l = normalize(l);
 
             // shoot shadow ray
             Hit lightHit;
@@ -268,7 +268,7 @@ static bool Scatter(int matIndex, const Ray& r_in, const Hit& rec, float3& atten
 #endif
         return true;
     }
-    else if (mat->type == MatMetal)
+    else if (matType == MatMetal)
     {
         float3 refl = reflect(r_in.dir, rec.normal);
         // reflected ray, and random inside of sphere based on roughness
@@ -276,7 +276,7 @@ static bool Scatter(int matIndex, const Ray& r_in, const Hit& rec, float3& atten
         attenuation = f3(mat->albedoX,mat->albedoY,mat->albedoZ);
         return dot(scattered.dir, rec.normal) > 0;
     }
-    else if (mat->type == MatDielectric)
+    else if (matType == MatDielectric)
     {
         float3 outwardN;
         float3 rdir = r_in.dir;
@@ -286,21 +286,22 @@ static bool Scatter(int matIndex, const Ray& r_in, const Hit& rec, float3& atten
         float3 refr;
         float reflProb;
         float cosine;
+        float matRI = mat->ri;
         if (dot(rdir, rec.normal) > 0)
         {
             outwardN = -rec.normal;
-            nint = mat->ri;
-            cosine = mat->ri * dot(rdir, rec.normal);
+            nint = matRI;
+            cosine = matRI * dot(rdir, rec.normal);
         }
         else
         {
             outwardN = rec.normal;
-            nint = 1.0f / mat->ri;
+            nint = 1.0f / matRI;
             cosine = -dot(rdir, rec.normal);
         }
         if (refract(rdir, outwardN, nint, refr))
         {
-            reflProb = schlick(cosine, mat->ri);
+            reflProb = schlick(cosine, matRI);
         }
         else
         {
@@ -326,6 +327,9 @@ static float3 Trace(const uniform SpheresSoA& spheres, const uniform Material ma
     int id = HitWorld(spheres, sphereCount, r, kMinT, kMaxT, rec);
     if (id != -1)
     {
+#if DO_DEBUG_NORMALS
+        return rec.normal;
+#else
         Ray scattered;
         float3 attenuation;
         float3 lightE;
@@ -347,6 +351,7 @@ static float3 Trace(const uniform SpheresSoA& spheres, const uniform Material ma
         {
             return matE;
         }
+#endif
     }
     else
     {
@@ -378,7 +383,7 @@ export void TraceRowJobJspc(
     uniform float invHeight = 1.0f / screenHeight;
     int rayCount = 0;
     uint32_t rndState = randomState;
-    foreach_tiled(y = startRow ... endRow, x = 0 ... screenWidth)
+    foreach(y = startRow ... endRow, x = 0 ... screenWidth)
     {
         rndState += programIndex;
         rndState |= 1;

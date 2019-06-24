@@ -198,6 +198,9 @@ static float3 Trace(const Ray& r, int depth, int& inoutRayCount, uint32_t& state
     ++inoutRayCount;
     if (HitWorld(r, kMinT, kMaxT, rec, id))
     {
+#if DO_DEBUG_NORMALS
+        return rec.normal;
+#else
         Ray scattered;
         float3 attenuation;
         float3 lightE;
@@ -218,6 +221,7 @@ static float3 Trace(const Ray& r, int depth, int& inoutRayCount, uint32_t& state
         {
             return matE;
         }
+#endif
     }
     else
     {
