@@ -1,3 +1,5 @@
+#define DO_SIMD_HITSPHERES
+
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
@@ -115,9 +117,11 @@ struct SpheresSoA
     [ReadOnly] public NativeArray<float> invRadius;
     [ReadOnly] public NativeArray<int> emissives;
     public int emissiveCount;
+    public int length;
 
     public SpheresSoA(int len)
     {
+        length = len;
         var simdLen = (len + 3) / 4 * 4;
         centerX = new NativeArray<float>(simdLen, Allocator.Persistent);
         centerY = new NativeArray<float>(simdLen, Allocator.Persistent);
@@ -165,6 +169,7 @@ struct SpheresSoA
 
     public unsafe int HitSpheres(ref Ray r, float tMin, float tMax, ref Hit outHit)
     {
+#if DO_SIMD_HITSPHERES
         float4 hitT = tMax;
         int4 id = -1;
         float4 rOrigX = r.orig.x;
@@ -230,6 +235,39 @@ struct SpheresSoA
             outHit.t = finalHitT;
             return hitId;
         }
+#else
+        float hitT = tMax;
+        int id = -1;
+        for (int i = 0; i < length; ++i)
+        {
+            float coX = centerX[i] - r.orig.x;
+            float coY = centerY[i] - r.orig.y;
+            float coZ = centerZ[i] - r.orig.z;
+            float nb = coX * r.dir.x + coY * r.dir.y + coZ * r.dir.z;
+            float c = coX * coX + coY * coY + coZ * coZ - sqRadius[i];
+            float discr = nb * nb - c;
+            if (discr > 0)
+            {
+                float discrSq = sqrt(discr);
+                // Try earlier t
+                float t = nb - discrSq;
+                if (t <= tMin) // before min, try later t!
+                    t = nb + discrSq;
+                if (t > tMin && t < hitT)
+                {
+                    id = i;
+                    hitT = t;                
+                }
+            }
+        }
+        if (id != -1)
+        {
+            outHit.pos = r.PointAt(hitT);
+            outHit.normal = (outHit.pos - new float3(centerX[id], centerY[id], centerZ[id])) * invRadius[id];
+            outHit.t = hitT;
+            return id;        
+        }
+#endif
         return -1;
     }
 }
