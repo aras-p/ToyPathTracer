@@ -1,9 +1,6 @@
-﻿using System;
-using System.Diagnostics;
-using System.Runtime.InteropServices;
+﻿using System.Diagnostics;
 using UnityEngine;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 
 public class TestScript : MonoBehaviour
 {
@@ -17,7 +14,6 @@ public class TestScript : MonoBehaviour
     Stopwatch m_Stopwatch = new Stopwatch();
     int m_UpdateCounter;
     int m_FrameCounter;
-    long m_RayCounter;
 
     void Start ()
     {
@@ -39,11 +35,9 @@ public class TestScript : MonoBehaviour
     void UpdateLoop()
     {
         m_Stopwatch.Start();
-        int rayCount;
-        m_Test.DrawTest(Time.timeSinceLevelLoad, m_FrameCounter++, m_BackbufferTex.width, m_BackbufferTex.height, m_Backbuffer, out rayCount);
+        m_Test.DrawTest(Time.timeSinceLevelLoad, m_FrameCounter++, m_BackbufferTex.width, m_BackbufferTex.height, m_Backbuffer);
         m_Stopwatch.Stop();
         ++m_UpdateCounter;
-        m_RayCounter += rayCount;
     }
 
     void Update ()
@@ -53,11 +47,8 @@ public class TestScript : MonoBehaviour
         {
             var s = (float)((double)m_Stopwatch.ElapsedTicks / (double)Stopwatch.Frequency) / m_UpdateCounter;
             var ms = s * 1000.0f;
-            var mrayS = m_RayCounter / m_UpdateCounter / s * 1.0e-6f;
-            var mrayFr = m_RayCounter / m_UpdateCounter * 1.0e-6f;
-            m_UIPerfText.text = string.Format("{0:F2}ms ({1:F2}FPS) {2:F2}Mrays/s {3:F2}Mrays/frame {4} frames", ms, 1.0f / s, mrayS, mrayFr, m_FrameCounter);
+            m_UIPerfText.text = string.Format("{0:F2}ms ({1:F2}FPS) {2} frames", ms, 1.0f / s, m_FrameCounter);
             m_UpdateCounter = 0;
-            m_RayCounter = 0;
             m_Stopwatch.Reset();
         }
 
