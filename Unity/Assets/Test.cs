@@ -71,7 +71,7 @@ class Test
         [NativeDisableParallelForRestriction] public NativeArray<float> sqRadius;
         [NativeDisableParallelForRestriction] public NativeArray<float> invRadius;
         
-        public NativeArray<UnityEngine.Color> backbuffer;
+        public NativeArray<uint> backbuffer;
 
         public void Execute(int backbufferIdx)
         {
@@ -85,9 +85,13 @@ class Test
                 float u = (x + RandomFloat01(ref state)) * invWidth;
                 float v = (y + RandomFloat01(ref state)) * invHeight;
                 Ray r = cam.GetRay(u, v, ref state);
-                float3 col = Trace(r, 0, ref state);
-
-                backbuffer[backbufferIdx] = new UnityEngine.Color(col.x, col.y, col.z, 1);
+                float3 col = min(sqrt(Trace(r, 0, ref state)), 1.0f) * 255.0f;
+                uint colb =
+                    ((uint)col.x) |
+                    ((uint)col.y << 8) |
+                    ((uint)col.z << 16) |
+                    0xFF000000;
+                backbuffer[backbufferIdx] = colb;
             }
         }
         
@@ -161,7 +165,7 @@ class Test
     }
 
 
-    public void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, NativeArray<UnityEngine.Color> backbuffer)
+    public void DrawTest(int frameCount, int screenWidth, int screenHeight, NativeArray<uint> backbuffer)
     {
         float3 lookfrom = new float3(0, 2, 3);
         float3 lookat = new float3(0, 0, 0);

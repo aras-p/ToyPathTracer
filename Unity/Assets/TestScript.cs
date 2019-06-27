@@ -8,7 +8,7 @@ public class TestScript : MonoBehaviour
     public UnityEngine.UI.RawImage m_UIImage;
     
     Texture2D m_BackbufferTex;
-    NativeArray<Color> m_Backbuffer;
+    NativeArray<uint> m_Backbuffer;
     Test m_Test;
 
     Stopwatch m_Stopwatch = new Stopwatch();
@@ -18,10 +18,10 @@ public class TestScript : MonoBehaviour
     void Start ()
     {
         int width = 1280, height = 720;
-        m_BackbufferTex = new Texture2D(width, height, TextureFormat.RGBAFloat, false);
-        m_Backbuffer = new NativeArray<Color>(width * height, Allocator.Persistent);
+        m_BackbufferTex = new Texture2D(width, height, TextureFormat.RGBA32, false);
+        m_Backbuffer = new NativeArray<uint>(width * height, Allocator.Persistent);
         for (int i = 0; i < m_Backbuffer.Length; i++)
-            m_Backbuffer[i] = new Color(0,0,0,1);
+            m_Backbuffer[i] = 0;
         m_UIImage.texture = m_BackbufferTex;
         m_Test = new Test();
     }
@@ -35,7 +35,7 @@ public class TestScript : MonoBehaviour
     void UpdateLoop()
     {
         m_Stopwatch.Start();
-        m_Test.DrawTest(Time.timeSinceLevelLoad, m_FrameCounter++, m_BackbufferTex.width, m_BackbufferTex.height, m_Backbuffer);
+        m_Test.DrawTest(m_FrameCounter++, m_BackbufferTex.width, m_BackbufferTex.height, m_Backbuffer);
         m_Stopwatch.Stop();
         ++m_UpdateCounter;
     }
