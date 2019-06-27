@@ -19,10 +19,6 @@ class Test
         job.Dispose();
     }
     
-    const float kMinT = 0.001f;
-    const float kMaxT = 1.0e7f;
-    const int kMaxDepth = 10;
-    
     static float3 GetAlbedo(int id)
     {
         return float3(
@@ -79,55 +75,40 @@ class Test
             float invHeight = 1.0f / screenHeight;
 
             uint state = (uint)(backbufferIdx * 9781 + frameCount * 6271) | 1;
-            {
-                int y = backbufferIdx / screenWidth;
-                int x = backbufferIdx % screenWidth;
-                float u = (x + RandomFloat01(ref state)) * invWidth;
-                float v = (y + RandomFloat01(ref state)) * invHeight;
-                Ray r = cam.GetRay(u, v, ref state);
-                float3 col = min(sqrt(Trace(r, 0, ref state)), 1.0f) * 255.0f;
-                uint colb =
-                    ((uint)col.x) |
-                    ((uint)col.y << 8) |
-                    ((uint)col.z << 16) |
-                    0xFF000000;
-                backbuffer[backbufferIdx] = colb;
-            }
+            int y = backbufferIdx / screenWidth;
+            int x = backbufferIdx % screenWidth;
+            float u = (x + RandomFloat01(ref state)) * invWidth;
+            float v = (y + RandomFloat01(ref state)) * invHeight;
+            Ray r = cam.GetRay(u, v, ref state);
+            float3 col = min(sqrt(Trace(r, 0, ref state)), 1.0f) * 255.0f;
+            uint colb =
+                ((uint)col.x) |
+                ((uint)col.y << 8) |
+                ((uint)col.z << 16) |
+                0xFF000000;
+            backbuffer[backbufferIdx] = colb;
         }
         
         float3 Trace(Ray r, int depth, ref uint randState)
         {
             Hit rec = default;
-            int id = HitSpheres(ref r, kMinT, kMaxT, ref rec);
+            int id = HitSpheres(ref r, 0.001f, 1000.0f, ref rec);
             if (id != -1)
             {
-                if (depth < kMaxDepth)
+                if (depth < 10)
                 {
-                    Scatter(GetAlbedo(id), rec, out var attenuation, out var scattered, ref randState);
-                    return attenuation * Trace(scattered, depth + 1, ref randState);
+                    float3 newDir = rec.normal + RandomUnitVector(ref randState);
+                    var scattered = new Ray(rec.pos, normalize(newDir));
+                    return GetAlbedo(id) * Trace(scattered, depth + 1, ref randState);
                 }
-                else
-                {
-                    return float3(0,0,0);
-                }
+                return float3(0,0,0);
             }
-            else
-            {
-                // sky
-                float3 unitDir = r.dir;
-                float t = 0.5f * (unitDir.y + 1.0f);
-                return ((1.0f - t) * new float3(1.0f, 1.0f, 1.0f) + t * new float3(0.5f, 0.7f, 1.0f)) * 0.7f;
-            }
+            // sky
+            float3 unitDir = r.dir;
+            float t = 0.5f * (unitDir.y + 1.0f);
+            return ((1.0f - t) * new float3(1.0f, 1.0f, 1.0f) + t * new float3(0.5f, 0.7f, 1.0f)) * 0.7f;
         }
-        
-        static void Scatter(float3 albedo, Hit rec, out float3 attenuation, out Ray scattered, ref uint randState)
-        {
-            // random point inside unit sphere that is tangent to the hit point
-            float3 target = rec.pos + rec.normal + RandomUnitVector(ref randState);
-            scattered = new Ray(rec.pos, normalize(target - rec.pos));
-            attenuation = albedo;
-        }
-        
+
         int HitSpheres(ref Ray r, float tMin, float tMax, ref Hit outHit)
         {
             float hitT = tMax;
@@ -164,15 +145,11 @@ class Test
         }        
     }
 
-
     public void DrawTest(int frameCount, int screenWidth, int screenHeight, NativeArray<uint> backbuffer)
     {
-        float3 lookfrom = new float3(0, 2, 3);
-        float3 lookat = new float3(0, 0, 0);
         float distToFocus = 3;
         float aperture = 0.1f;
-
-        Camera cam = new Camera(lookfrom, lookat, new float3(0, 1, 0), 60, (float)screenWidth / (float)screenHeight, aperture, distToFocus);
+        Camera cam = new Camera(new float3(0, 2, 3), new float3(0, 0, 0), new float3(0, 1, 0), 60, (float)screenWidth / (float)screenHeight, aperture, distToFocus);
 
         job.screenWidth = screenWidth;
         job.screenHeight = screenHeight;
@@ -183,9 +160,6 @@ class Test
         fence.Complete();
     }
 }
-
-
-
 
 public class MathUtil
 {
@@ -223,7 +197,6 @@ public class MathUtil
         sincos(a, out x, out y);
         return new float3(r * x, r* y, z);
     }
-
 }
 
 public struct Ray
