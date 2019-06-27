@@ -13,7 +13,6 @@ public class TestScript : MonoBehaviour
 
     Stopwatch m_Stopwatch = new Stopwatch();
     int m_UpdateCounter;
-    int m_FrameCounter;
 
     void Start ()
     {
@@ -35,7 +34,7 @@ public class TestScript : MonoBehaviour
     void UpdateLoop()
     {
         m_Stopwatch.Start();
-        m_Test.DrawTest(m_FrameCounter++, m_BackbufferTex.width, m_BackbufferTex.height, m_Backbuffer);
+        m_Test.DrawTest(m_BackbufferTex.width, m_BackbufferTex.height, m_Backbuffer);
         m_Stopwatch.Stop();
         ++m_UpdateCounter;
     }
@@ -47,7 +46,7 @@ public class TestScript : MonoBehaviour
         {
             var s = (float)((double)m_Stopwatch.ElapsedTicks / (double)Stopwatch.Frequency) / m_UpdateCounter;
             var ms = s * 1000.0f;
-            m_UIPerfText.text = string.Format("{0:F2}ms ({1:F2}FPS) {2} frames", ms, 1.0f / s, m_FrameCounter);
+            m_UIPerfText.text = string.Format("{0:F2}ms ({1:F2}FPS)", ms, 1.0f / s);
             m_UpdateCounter = 0;
             m_Stopwatch.Reset();
         }

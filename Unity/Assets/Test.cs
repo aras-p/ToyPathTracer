@@ -1,8 +1,5 @@
-using static MathUtil;
-using static Unity.Mathematics.math;
 using Unity.Collections;
 using Unity.Jobs;
-using float3 = Unity.Mathematics.float3;
 using Unity.Mathematics;
 
 class Test
@@ -17,15 +14,6 @@ class Test
     public void Dispose()
     {
         job.Dispose();
-    }
-    
-    static float3 GetAlbedo(int id)
-    {
-        return float3(
-            (id & 1) != 0 ? 0.8f : 0.4f,
-            (id & 2) != 0 ? 0.8f : 0.4f,
-            (id & 4) != 0 ? 0.8f : 0.4f
-        );
     }
     
     [Unity.Burst.BurstCompileAttribute]
@@ -43,7 +31,6 @@ class Test
 
             backbuffer = default;
             cam = default;
-            frameCount = 0;
             screenWidth = 0;
             screenHeight = 0;
         }
@@ -57,7 +44,7 @@ class Test
             invRadius.Dispose();
         }
 
-        public int screenWidth, screenHeight, frameCount;
+        public int screenWidth, screenHeight;
         public Camera cam;
         int spheresLength;
 
@@ -74,42 +61,34 @@ class Test
             float invWidth = 1.0f / screenWidth;
             float invHeight = 1.0f / screenHeight;
 
-            uint state = (uint)(backbufferIdx * 9781 + frameCount * 6271) | 1;
             int y = backbufferIdx / screenWidth;
             int x = backbufferIdx % screenWidth;
-            float u = (x + RandomFloat01(ref state)) * invWidth;
-            float v = (y + RandomFloat01(ref state)) * invHeight;
-            Ray r = cam.GetRay(u, v, ref state);
-            float3 col = min(sqrt(Trace(r, 0, ref state)), 1.0f) * 255.0f;
+            float u = x * invWidth;
+            float v = y * invHeight;
+            Ray r = cam.GetRay(u, v);
+            int id = HitSpheres(ref r, 0.001f, 1000.0f);
+            float colR, colG, colB;
+            if (id != -1)
+            {
+                colR = (id & 1) != 0 ? 0.8f * 255.0f : 0.4f * 255.0f;
+                colG = (id & 2) != 0 ? 0.8f * 255.0f : 0.4f * 255.0f;
+                colB = (id & 4) != 0 ? 0.8f * 255.0f : 0.4f * 255.0f;
+            }
+            else
+            {
+                colR = 128;
+                colG = 178;
+                colB = 255;
+            }
             uint colb =
-                ((uint)col.x) |
-                ((uint)col.y << 8) |
-                ((uint)col.z << 16) |
+                ((uint)colR) |
+                ((uint)colG << 8) |
+                ((uint)colB << 16) |
                 0xFF000000;
             backbuffer[backbufferIdx] = colb;
         }
-        
-        float3 Trace(Ray r, int depth, ref uint randState)
-        {
-            Hit rec = default;
-            int id = HitSpheres(ref r, 0.001f, 1000.0f, ref rec);
-            if (id != -1)
-            {
-                if (depth < 10)
-                {
-                    float3 newDir = rec.normal + RandomUnitVector(ref randState);
-                    var scattered = new Ray(rec.pos, normalize(newDir));
-                    return GetAlbedo(id) * Trace(scattered, depth + 1, ref randState);
-                }
-                return float3(0,0,0);
-            }
-            // sky
-            float3 unitDir = r.dir;
-            float t = 0.5f * (unitDir.y + 1.0f);
-            return ((1.0f - t) * new float3(1.0f, 1.0f, 1.0f) + t * new float3(0.5f, 0.7f, 1.0f)) * 0.7f;
-        }
 
-        int HitSpheres(ref Ray r, float tMin, float tMax, ref Hit outHit)
+        int HitSpheres(ref Ray r, float tMin, float tMax)
         {
             float hitT = tMax;
             int id = -1;
@@ -123,7 +102,7 @@ class Test
                 float discr = nb * nb - c;
                 if (discr > 0)
                 {
-                    float discrSq = sqrt(discr);
+                    float discrSq = math.sqrt(discr);
                     // Try earlier t
                     float t = nb - discrSq;
                     if (t <= tMin) // before min, try later t!
@@ -135,67 +114,21 @@ class Test
                     }
                 }
             }
-            if (id != -1)
-            {
-                outHit.pos = r.PointAt(hitT);
-                outHit.normal = (outHit.pos - new float3(centerX[id], centerY[id], centerZ[id])) * invRadius[id];
-                return id;        
-            }
-            return -1;
+            return id;
         }        
     }
 
-    public void DrawTest(int frameCount, int screenWidth, int screenHeight, NativeArray<uint> backbuffer)
+    public void DrawTest(int screenWidth, int screenHeight, NativeArray<uint> backbuffer)
     {
         float distToFocus = 3;
-        float aperture = 0.1f;
-        Camera cam = new Camera(new float3(0, 2, 3), new float3(0, 0, 0), new float3(0, 1, 0), 60, (float)screenWidth / (float)screenHeight, aperture, distToFocus);
+        Camera cam = new Camera(new float3(0, 2, 3), new float3(0, 0, 0), new float3(0, 1, 0), 60, (float)screenWidth / (float)screenHeight, distToFocus);
 
         job.screenWidth = screenWidth;
         job.screenHeight = screenHeight;
-        job.frameCount = frameCount;
         job.backbuffer = backbuffer;
         job.cam = cam;
         var fence = job.Schedule(screenWidth * screenHeight, 64);
         fence.Complete();
-    }
-}
-
-public class MathUtil
-{
-    public static float kPI => 3.1415926f;
-
-    static uint XorShift32(ref uint state)
-    {
-        uint x = state;
-        x ^= x << 13;
-        x ^= x >> 17;
-        x ^= x << 15;
-        state = x;
-        return x;
-    }
-
-    public static float RandomFloat01(ref uint state)
-    {
-        return (XorShift32(ref state) & 0xFFFFFF) / 16777216.0f;
-    }
-
-    public static float3 RandomInUnitDisk(ref uint state)
-    {
-        float a = RandomFloat01(ref state) * 2.0f * 3.1415926f;
-        float2 xy = float2(cos(a), sin(a));
-        xy *= sqrt(RandomFloat01(ref state));
-        return float3(xy,0);
-    }
-
-    public static float3 RandomUnitVector(ref uint state)
-    {
-        float z = RandomFloat01(ref state) * 2.0f - 1.0f;
-        float a = RandomFloat01(ref state) * 2.0f * kPI;
-        float r = sqrt(1.0f - z * z);
-        float x, y;
-        sincos(a, out x, out y);
-        return new float3(r * x, r* y, z);
     }
 }
 
@@ -209,44 +142,31 @@ public struct Ray
         orig = orig_;
         dir = dir_;        
     }
-
-    public float3 PointAt(float t) { return orig + dir * t; }
-}
-
-public struct Hit
-{
-    public float3 pos;
-    public float3 normal;
 }
 
 struct Camera
 {
-    public Camera(float3 lookFrom, float3 lookAt, float3 vup, float vfov, float aspect, float aperture, float focusDist)
+    public Camera(float3 lookFrom, float3 lookAt, float3 vup, float vfov, float aspect, float focusDist)
     {
-        lensRadius = aperture / 2;
-        float theta = vfov * MathUtil.kPI / 180;
-        float halfHeight = tan(theta / 2);
+        float theta = vfov * 3.1415926f / 180;
+        float halfHeight = math.tan(theta / 2);
         float halfWidth = aspect * halfHeight;
         origin = lookFrom;
-        w = normalize(lookFrom - lookAt);
-        u = normalize(cross(vup, w));
-        v = cross(w, u);
-        lowerLeftCorner = origin - halfWidth*focusDist*u - halfHeight*focusDist*v - focusDist*w;
-        horizontal = 2*halfWidth * focusDist*u;
-        vertical = 2*halfHeight * focusDist*v;
+        float3 w = math.normalize(lookFrom - lookAt);
+        float3 u = math.normalize(math.cross(vup, w));
+        float3 v = math.cross(w, u);
+        lowerLeftCorner = origin - halfWidth * focusDist * u - halfHeight * focusDist * v - focusDist * w;
+        horizontal = 2 * halfWidth * focusDist * u;
+        vertical = 2 * halfHeight * focusDist * v;
     }
 
-    public Ray GetRay(float s, float t, ref uint state)
+    public Ray GetRay(float s, float t)
     {
-        float3 rd = lensRadius * MathUtil.RandomInUnitDisk(ref state);
-        float3 offset = u * rd.x + v * rd.y;
-        return new Ray(origin + offset, normalize(lowerLeftCorner + s*horizontal + t*vertical - origin - offset));
+        return new Ray(origin, math.normalize(lowerLeftCorner + s * horizontal + t * vertical - origin));
     }
-    
+
     float3 origin;
     float3 lowerLeftCorner;
     float3 horizontal;
     float3 vertical;
-    float3 u, v, w;
-    float lensRadius;
 }
