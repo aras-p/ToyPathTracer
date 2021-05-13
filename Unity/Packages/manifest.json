@@ -1,10 +1,12 @@
 {
   "dependencies": {
-    "com.unity.burst": "1.0.4",
-    "com.unity.mathematics": "1.0.1",
-    "com.unity.package-manager-ui": "2.1.2",
-    "com.unity.textmeshpro": "2.0.1",
+    "com.unity.burst": "1.4.8",
+    "com.unity.ide.rider": "2.0.7",
+    "com.unity.mathematics": "1.2.1",
+    "com.unity.test-framework": "1.1.24",
+    "com.unity.ugui": "1.0.0",
     "com.unity.modules.ai": "1.0.0",
+    "com.unity.modules.androidjni": "1.0.0",
     "com.unity.modules.animation": "1.0.0",
     "com.unity.modules.assetbundle": "1.0.0",
     "com.unity.modules.audio": "1.0.0",
@@ -34,6 +36,5 @@
     "com.unity.modules.vr": "1.0.0",
     "com.unity.modules.wind": "1.0.0",
     "com.unity.modules.xr": "1.0.0"
-  },
-  "registry": "https://staging-packages.unity.com"
+  }
 }
