@@ -234,6 +234,7 @@ unsigned g_TestFlags = kFlagProgressive;
 #endif
     
     uint64_t time2 = mach_absolute_time();
+    (void)time2;
     ++frameCounter;
     ++totalCounter;
 #if !DO_COMPUTE_GPU

@@ -1,5 +1,6 @@
 Cs/Unity/Library/
 Cs/Unity/Temp/
+.DS_Store
 .vs
 .idea
 bin
@@ -18,6 +19,8 @@ Unity/*.sln
 Unity/Library/
 Unity/Temp/
 Unity/Builds
+Unity/Logs
+Unity/UserSettings
 Unity/Assets/Plugins*
 Cpp/Windows/Compiled*Shader.h
 Cpp/Emscripten/toypathtracer.js
