@@ -8,7 +8,11 @@
 
 #if defined(__EMSCRIPTEN__)
 #define CPU_CAN_DO_SIMD 0
+#ifdef __EMSCRIPTEN_PTHREADS__
+#define CPU_CAN_DO_THREADS 1
+#else
 #define CPU_CAN_DO_THREADS 0
+#endif
 #else
 #define CPU_CAN_DO_SIMD 1
 #define CPU_CAN_DO_THREADS 1
