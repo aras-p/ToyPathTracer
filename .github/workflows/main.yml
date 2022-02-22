@@ -1,0 +1,34 @@
+name: build_and_test
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  windows:
+    runs-on: windows-2019
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+    steps:
+    - uses: actions/checkout@v1
+    - name: Windows VS2019
+      run: |
+        call "C:\Program Files (x86)\Microsoft Visual Studio\2019\Enterprise\VC\Auxiliary\Build\vcvars64.bat" && msbuild.exe Cpp/Windows/TestCpu.sln /p:Configuration=Release /p:CL_MPCount=2
+      shell: cmd
+
+  apple:
+    runs-on: macOS-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+    steps:
+    - uses: actions/checkout@v1
+    - name: macOS Xcode 13
+      run: |
+        echo "**** Building for macOS..."
+        xcodebuild -project Cpp/Apple/Test.xcodeproj -configuration Release -scheme 'Test Mac' build
+        echo "**** Building for iOS..."
+        xcodebuild -project Cpp/Apple/Test.xcodeproj -configuration Release -scheme 'Test iOS' build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO"
