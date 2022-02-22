@@ -28,5 +28,7 @@ jobs:
     - uses: actions/checkout@v1
     - name: macOS Xcode 13
       run: |
+        echo "**** Building for macOS..."
         xcodebuild -project Cpp/Apple/Test.xcodeproj -configuration Release -scheme 'Test Mac' build
-        xcodebuild -project Cpp/Apple/Test.xcodeproj -configuration Release -scheme 'Test iOS' build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO
+        echo "**** Building for iOS..."
+        xcodebuild -project Cpp/Apple/Test.xcodeproj -configuration Release -scheme 'Test iOS' build CODE_SIGN_IDENTITY="" CODE_SIGNING_REQUIRED=NO CODE_SIGN_ENTITLEMENTS="" CODE_SIGNING_ALLOWED="NO"
