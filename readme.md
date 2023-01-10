@@ -6,7 +6,7 @@ Toy path tracer for my own learning purposes, using various approaches/techs. So
 
 ![Screenshot](/Shots/screenshot.jpg?raw=true "Screenshot")
 
-I decided to write blog posts about things I discover as I do this, currently:
+I decided to write blog posts about things I discover as I do this, currently (as of year 2018):
 
 * [Part 0: Intro](http://aras-p.info/blog/2018/03/28/Daily-Pathtracer-Part-0-Intro/)
 * [Part 1: Initial C++ and walkthrough](http://aras-p.info/blog/2018/03/28/Daily-Pathtracer-Part-1-Initial-C--/)
