@@ -52,7 +52,7 @@ I know it's just a simple toy, ok :)
 ### Building
 
 * C++ projects:
-  * Windows (Visual Studio 2017) in `Cpp/Windows/TestCpu.sln`. DX11 Win32 app that displays result as a fullscreen CPU-updated or GPU-rendered texture.
+  * Windows (Visual Studio 2017) in `Cpp/Windows/ToyPathTracer.sln`. DX11 Win32 app that displays result as a fullscreen CPU-updated or GPU-rendered texture.
   * Mac/iOS (Xcode 10) in `Cpp/Apple/Test.xcodeproj`. Metal app that displays result as a fullscreen CPU-updated or GPU-rendered texture.
     Should work on both Mac (`Test Mac` target) and iOS (`Test iOS` target).
   * WebAssembly in `Cpp/Emscripten/build.sh`. CPU, single threaded, no SIMD.
