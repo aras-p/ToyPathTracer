@@ -44,7 +44,7 @@ static ID3D11RasterizerState* g_RasterState;
 static int g_BackbufferIndex;
 
 
-#if DO_COMPUTE_GPU
+// GPU tracing things
 #include "CompiledComputeShader.h"
 struct ComputeParams
 {
@@ -66,7 +66,7 @@ static ID3D11Buffer* g_DataEmissives;   static ID3D11ShaderResourceView* g_SRVEm
 static ID3D11Buffer* g_DataCounter;     static ID3D11UnorderedAccessView* g_UAVCounter;
 static int g_SphereCount, g_ObjSize, g_MatSize;
 static ID3D11Query *g_QueryBegin, *g_QueryEnd, *g_QueryDisjoint;
-#endif // #if DO_COMPUTE_GPU
+
 
 int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR, _In_ int nCmdShow)
 {
@@ -89,9 +89,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR,
 
     g_D3D11Device->CreateVertexShader(g_VSBytecode, ARRAYSIZE(g_VSBytecode), NULL, &g_VertexShader);
     g_D3D11Device->CreatePixelShader(g_PSBytecode, ARRAYSIZE(g_PSBytecode), NULL, &g_PixelShader);
-#if DO_COMPUTE_GPU
     g_D3D11Device->CreateComputeShader(g_CSBytecode, ARRAYSIZE(g_CSBytecode), NULL, &g_ComputeShader);
-#endif
 
     D3D11_TEXTURE2D_DESC texDesc = {};
     texDesc.Width = kBackbufferWidth;
@@ -101,15 +99,9 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR,
     texDesc.Format = DXGI_FORMAT_R32G32B32A32_FLOAT;
     texDesc.SampleDesc.Count = 1;
     texDesc.SampleDesc.Quality = 0;
-#if DO_COMPUTE_GPU
     texDesc.Usage = D3D11_USAGE_DEFAULT;
     texDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE | D3D11_BIND_UNORDERED_ACCESS;
     texDesc.CPUAccessFlags = 0;
-#else
-    texDesc.Usage = D3D11_USAGE_DYNAMIC;
-    texDesc.BindFlags = D3D11_BIND_SHADER_RESOURCE;
-    texDesc.CPUAccessFlags = D3D11_CPU_ACCESS_WRITE;
-#endif
     texDesc.MiscFlags = 0;
     g_D3D11Device->CreateTexture2D(&texDesc, NULL, &g_BackbufferTexture);
     g_D3D11Device->CreateTexture2D(&texDesc, NULL, &g_BackbufferTexture2);
@@ -132,7 +124,7 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR,
     rasterDesc.CullMode = D3D11_CULL_NONE;
     g_D3D11Device->CreateRasterizerState(&rasterDesc, &g_RasterState);
 
-#if DO_COMPUTE_GPU
+    // GPU tracing resources
     D3D11_UNORDERED_ACCESS_VIEW_DESC uavDesc = {};
 
     int camSize;
@@ -196,7 +188,6 @@ int APIENTRY wWinMain(_In_ HINSTANCE hInstance, _In_opt_ HINSTANCE, _In_ LPWSTR,
     g_D3D11Device->CreateQuery(&qDesc, &g_QueryEnd);
     qDesc.Query = D3D11_QUERY_TIMESTAMP_DISJOINT;
     g_D3D11Device->CreateQuery(&qDesc, &g_QueryDisjoint);
-#endif // #if DO_COMPUTE_GPU
 
 
     // Main message loop
@@ -255,15 +246,13 @@ BOOL InitInstance(HINSTANCE hInstance, int nCmdShow)
 static uint64_t s_Time;
 static int s_Count;
 static char s_Buffer[200];
-static unsigned s_Flags = kFlagProgressive;
+static unsigned s_Flags = kFlagProgressive | kFlagAnimate;
 static int s_FrameCount = 0;
+static bool s_TraceGPU = true;
 
-
-static void RenderFrame()
+static void RenderFrameGPU()
 {
     LARGE_INTEGER time1;
-
-#if DO_COMPUTE_GPU
     QueryPerformanceCounter(&time1);
     float t = float(clock()) / CLOCKS_PER_SEC;
     UpdateTest(t, s_FrameCount, kBackbufferWidth, kBackbufferHeight, s_Flags);
@@ -309,13 +298,16 @@ static void RenderFrame()
     g_D3D11Ctx->CSSetShader(g_ComputeShader, NULL, 0);
     g_D3D11Ctx->Begin(g_QueryDisjoint);
     g_D3D11Ctx->End(g_QueryBegin);
-    g_D3D11Ctx->Dispatch(kBackbufferWidth/kCSGroupSizeX, kBackbufferHeight/kCSGroupSizeY, 1);
+    g_D3D11Ctx->Dispatch(kBackbufferWidth / kCSGroupSizeX, kBackbufferHeight / kCSGroupSizeY, 1);
     g_D3D11Ctx->End(g_QueryEnd);
     uavs[0] = NULL;
     g_D3D11Ctx->CSSetUnorderedAccessViews(0, ARRAYSIZE(uavs), uavs, NULL);
     ++s_FrameCount;
+}
 
-#else
+static void RenderFrameCPU()
+{
+    LARGE_INTEGER time1;
     QueryPerformanceCounter(&time1);
     float t = float(clock()) / CLOCKS_PER_SEC;
     static size_t s_RayCounter = 0;
@@ -335,7 +327,7 @@ static void RenderFrame()
         QueryPerformanceFrequency(&frequency);
 
         double s = double(s_Time) / double(frequency.QuadPart) / s_Count;
-        sprintf_s(s_Buffer, sizeof(s_Buffer), "%.2fms (%.1f FPS) %.1fMrays/s %.2fMrays/frame frames %i\n", s * 1000.0f, 1.f / s, s_RayCounter / s_Count / s * 1.0e-6f, s_RayCounter / s_Count * 1.0e-6f, s_FrameCount);
+        sprintf_s(s_Buffer, sizeof(s_Buffer), "CPU %.2fms (%.1f FPS) %.1fMrays/s %.2fMrays/frame frames %i [g: toggle GPU, a: toggle animation, p: toggle progressive]\n", s * 1000.0f, 1.f / s, s_RayCounter / s_Count / s * 1.0e-6f, s_RayCounter / s_Count * 1.0e-6f, s_FrameCount);
         SetWindowTextA(g_Wnd, s_Buffer);
         OutputDebugStringA(s_Buffer);
         s_Count = 0;
@@ -343,29 +335,12 @@ static void RenderFrame()
         s_RayCounter = 0;
     }
 
-    D3D11_MAPPED_SUBRESOURCE mapped;
-    g_D3D11Ctx->Map(g_BackbufferTexture, 0, D3D11_MAP_WRITE_DISCARD, 0, &mapped);
-    const uint8_t* src = (const uint8_t*)g_Backbuffer;
-    uint8_t* dst = (uint8_t*)mapped.pData;
-    for (int y = 0; y < kBackbufferHeight; ++y)
-    {
-        memcpy(dst, src, kBackbufferWidth * 16);
-        src += kBackbufferWidth * 16;
-        dst += mapped.RowPitch;
-    }
-    g_D3D11Ctx->Unmap(g_BackbufferTexture, 0);
-#endif
+    g_BackbufferIndex = 0;
+    g_D3D11Ctx->UpdateSubresource(g_BackbufferTexture, 0, NULL, g_Backbuffer, kBackbufferWidth * 16, 0);
+}
 
-    g_D3D11Ctx->VSSetShader(g_VertexShader, NULL, 0);
-    g_D3D11Ctx->PSSetShader(g_PixelShader, NULL, 0);
-    g_D3D11Ctx->PSSetShaderResources(0, 1, g_BackbufferIndex == 0 ? &g_BackbufferSRV : &g_BackbufferSRV2);
-    g_D3D11Ctx->PSSetSamplers(0, 1, &g_SamplerLinear);
-    g_D3D11Ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
-    g_D3D11Ctx->RSSetState(g_RasterState);
-    g_D3D11Ctx->Draw(3, 0);
-    g_D3D11SwapChain->Present(0, 0);
-
-#if DO_COMPUTE_GPU
+static void FrameTimingGPU()
+{
     g_D3D11Ctx->End(g_QueryDisjoint);
 
     // get GPU times
@@ -396,7 +371,7 @@ static void RenderFrame()
         if (s_Count > 150)
         {
             s = s_Time / s_Count;
-            sprintf_s(s_Buffer, sizeof(s_Buffer), "%.2fms (%.1f FPS) %.1fMrays/s %.2fMrays/frame frames %i\n", s * 1000.0f, 1.f / s, s_RayCounter / s_Count / s * 1.0e-6f, s_RayCounter / s_Count * 1.0e-6f, s_FrameCount);
+            sprintf_s(s_Buffer, sizeof(s_Buffer), "GPU %.2fms (%.1f FPS) %.1fMrays/s %.2fMrays/frame frames %i [g: toggle GPU, a: toggle animation, p: toggle progressive]\n", s * 1000.0f, 1.f / s, s_RayCounter / s_Count / s * 1.0e-6f, s_RayCounter / s_Count * 1.0e-6f, s_FrameCount);
             SetWindowTextA(g_Wnd, s_Buffer);
             s_Count = 0;
             s_Time = 0;
@@ -404,7 +379,26 @@ static void RenderFrame()
         }
 
     }
-#endif // #if DO_COMPUTE_GPU
+}
+
+static void RenderFrame()
+{
+    if (s_TraceGPU)
+        RenderFrameGPU();
+    else
+        RenderFrameCPU();
+
+    g_D3D11Ctx->VSSetShader(g_VertexShader, NULL, 0);
+    g_D3D11Ctx->PSSetShader(g_PixelShader, NULL, 0);
+    g_D3D11Ctx->PSSetShaderResources(0, 1, g_BackbufferIndex == 0 ? &g_BackbufferSRV : &g_BackbufferSRV2);
+    g_D3D11Ctx->PSSetSamplers(0, 1, &g_SamplerLinear);
+    g_D3D11Ctx->IASetPrimitiveTopology(D3D11_PRIMITIVE_TOPOLOGY_TRIANGLELIST);
+    g_D3D11Ctx->RSSetState(g_RasterState);
+    g_D3D11Ctx->Draw(3, 0);
+    g_D3D11SwapChain->Present(0, 0);
+
+    if (s_TraceGPU)
+        FrameTimingGPU();
 }
 
 
@@ -430,6 +424,11 @@ LRESULT CALLBACK WndProc(HWND hWnd, UINT message, WPARAM wParam, LPARAM lParam)
             s_Flags = s_Flags ^ kFlagProgressive;
             s_FrameCount = 0;
         }
+        if (wParam == 'g')
+        {
+            s_TraceGPU = !s_TraceGPU;
+            s_FrameCount = 0;
+        }
         break;
     default:
         return DefWindowProc(hWnd, message, wParam, lParam);
@@ -448,7 +447,7 @@ static HRESULT InitD3DDevice()
     UINT height = rc.bottom - rc.top;
 
     UINT createDeviceFlags = 0;
-#ifdef _DEBUG
+#if defined(_DEBUG)
     createDeviceFlags |= D3D11_CREATE_DEVICE_DEBUG;
 #endif
 
