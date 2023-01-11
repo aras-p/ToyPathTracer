@@ -27,7 +27,7 @@
 #define kCSMaxObjects 64
 
 // Should float3 struct use SSE/NEON?
-#define DO_FLOAT3_WITH_SIMD (!(DO_COMPUTE_GPU) && CPU_CAN_DO_SIMD && 1)
+#define DO_FLOAT3_WITH_SIMD (CPU_CAN_DO_SIMD && 1)
 
 // Should HitSpheres function use SSE/NEON?
 #define DO_HIT_SPHERES_SIMD (CPU_CAN_DO_SIMD && 1)
