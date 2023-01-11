@@ -1,12 +1,10 @@
-﻿using System;
-using System.Diagnostics;
-using System.Runtime.InteropServices;
+﻿using System.Diagnostics;
 using UnityEngine;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 
 public class TestScript : MonoBehaviour
 {
+    public bool m_Animate = true;
     public UnityEngine.UI.Text m_UIPerfText;
     public UnityEngine.UI.RawImage m_UIImage;
     
@@ -40,7 +38,7 @@ public class TestScript : MonoBehaviour
     {
         m_Stopwatch.Start();
         int rayCount;
-        m_Test.DrawTest(Time.timeSinceLevelLoad, m_FrameCounter++, m_BackbufferTex.width, m_BackbufferTex.height, m_Backbuffer, out rayCount);
+        m_Test.DrawTest(Time.timeSinceLevelLoad, m_FrameCounter++, m_BackbufferTex.width, m_BackbufferTex.height, m_Backbuffer, m_Animate, out rayCount);
         m_Stopwatch.Stop();
         ++m_UpdateCounter;
         m_RayCounter += rayCount;
