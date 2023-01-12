@@ -35,7 +35,7 @@ Performance numbers in Mray/s on a scene with ~50 spheres and two light sources,
 |:--- |:---                       |   ---:|   ---:|   ---:|  ---:|  ---:|  ---:|  ---:|
 | C++ | SIMD Intrinsics           | 285.0 | 187.0 | 105.4 | 74.0 | 32.3 | 12.9 | 8.5 |
 |     | Scalar                    |       | 100.0 |  84.8 | 35.7 |
-|     | WebAssembly (no threads, no SIMD) |       |   5.0 |       |      |
+|     | WebAssembly (no threads, no SIMD) |       |   5.0 |  8.1   |      |
 | C#  | Unity Burst "manual" SIMD | 200.2 | 133.0 |       | 60.0 |
 |     | Unity Burst               |       |  82.0 |       | 36.0 |
 |     | .NET 6.0                  |  91.5 |  53.0 |       |      |
