@@ -53,7 +53,9 @@ I know it's just a simple toy, ok :)
 
 * C++ projects:
   * Windows (Visual Studio 2017) in `Cpp/Windows/ToyPathTracer.sln`. DX11 Win32 app that displays result as a fullscreen CPU-updated or GPU-rendered texture.
-  * Mac/iOS (Xcode 10) in `Cpp/Apple/Test.xcodeproj`. Metal app that displays result as a fullscreen CPU-updated or GPU-rendered texture.
+    Pressing G toggles between GPU and CPU tracing, A toggles animation, P toggles progressive accumulation.
+  * Mac/iOS (Xcode 10) in `Cpp/Apple/ToyPathTracer.xcodeproj`. Metal app that displays result as a fullscreen CPU-updated or GPU-rendered texture.
+    Pressing G toggles between GPU and CPU tracing, A toggles animation, P toggles progressive accumulation.
     Should work on both Mac (`Test Mac` target) and iOS (`Test iOS` target).
   * WebAssembly in `Cpp/Emscripten/build.sh`. CPU, single threaded, no SIMD.
 * C# project in `Cs/TestCs.sln`. A command line app that renders some frames and dumps out final TGA screenshot at the end.

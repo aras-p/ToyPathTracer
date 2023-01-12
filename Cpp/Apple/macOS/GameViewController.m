@@ -24,4 +24,8 @@
     _view.delegate = _renderer;
 }
 
+- (IBAction)menuToggleGPU:(id)sender { [_renderer toggleGPU]; }
+- (IBAction)menuToggleAnimation:(id)sender { [_renderer toggleAnimation]; }
+- (IBAction)menuToggleProgressive:(id)sender { [_renderer toggleProgressive]; }
+
 @end

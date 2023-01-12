@@ -8,4 +8,8 @@
 -(nonnull instancetype)initWithMetalKitView:(nonnull MTKView *)view withLabel:(nonnull NSTextField*) label;
 #endif
 
+-(void)toggleGPU;
+-(void)toggleAnimation;
+-(void)toggleProgressive;
+
 @end
