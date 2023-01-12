@@ -2,7 +2,7 @@
 
   <PropertyGroup>
     <OutputType>Exe</OutputType>
-    <TargetFramework>netcoreapp2.0</TargetFramework>
+    <TargetFramework>net6.0</TargetFramework>
     <StartupObject>Program</StartupObject>
     <ApplicationIcon />
   </PropertyGroup>
@@ -14,6 +14,7 @@
   </PropertyGroup>
   <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
     <DebugType></DebugType>
+    <DefineConstants />
   </PropertyGroup>
   <ItemGroup>
     <None Remove=".DS_Store" />
