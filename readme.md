@@ -1,12 +1,12 @@
 # Toy Path Tracer [![Build Status](https://github.com/aras-p/ToyPathTracer/workflows/build_and_test/badge.svg)](https://github.com/aras-p/ToyPathTracer/actions)
 
-Toy path tracer for my own learning purposes, using various approaches/techs. Somewhat based on Peter Shirley's
-[Ray Tracing in One Weekend](http://in1weekend.blogspot.lt/) minibook (highly recommended!), and on Kevin Beason's
+Toy path tracer I did in 2018 for my own learning purposes. Somewhat based on Peter Shirley's
+[Ray Tracing in One Weekend](https://raytracing.github.io/) minibook (highly recommended!), and on Kevin Beason's
 [smallpt](http://www.kevinbeason.com/smallpt/).
 
 ![Screenshot](/Shots/screenshot.jpg?raw=true "Screenshot")
 
-I decided to write blog posts about things I discover as I do this, currently (as of year 2018):
+I decided to write blog posts about things I discover as I do this:
 
 * [Part 0: Intro](http://aras-p.info/blog/2018/03/28/Daily-Pathtracer-Part-0-Intro/)
 * [Part 1: Initial C++ and walkthrough](http://aras-p.info/blog/2018/03/28/Daily-Pathtracer-Part-1-Initial-C--/)
@@ -27,25 +27,46 @@ I decided to write blog posts about things I discover as I do this, currently (a
 * [Part 16: Unity C# Burst optimization](http://aras-p.info/blog/2018/10/29/Pathtracer-16-Burst-SIMD-Optimization/)
 * [Part 17: WebAssembly](http://aras-p.info/blog/2018/11/16/Pathtracer-17-WebAssembly/)
 
-Right now: can only do spheres, no bounding volume hierachy of any sorts, a lot of stuff hardcoded.
+Note: it can only do spheres, no bounding volume hierachy of any sorts, a lot of stuff hardcoded.
 
-Implementations I'm playing with (again, everything is in toy/learning/WIP state; likely suboptimal) are below.
-These are all on a scene with ~50 spheres and two light sources, measured in Mray/s.
+Performance numbers in Mray/s on a scene with ~50 spheres and two light sources, running on the CPU:
 
-* CPU. Testing on "PC" AMD ThreadRipper 1950X 3.4GHz (SMT disabled, 16c/16t) and "Mac" mid-2018 MacBookPro i9 2.9GHz (6c/12t):
-  * C++ w/ some SSE SIMD: PC 187, Mac 74, iPhone X (A11) 12.9, iPhone SE (A9) 8.5
-  * C++: PC 100, Mac 35.7
-  * C# (Unity with Burst compiler w/ some 4-wide SIMD): PC 133, Mac 60. *Note that this is an early version of Burst*.
-  * C# (Unity with Burst compiler): PC 82, Mac 36. *Note that this is an early version of Burst*.
-  * C# (.NET Core): PC 53, Mac 23.6
-  * C# (Mono with optimized settings): Mac 22.0
-  * C# (Mono defaults): Mac 6.1
-  * WebAssembly (single threaded, no SIMD): 4.5-5.5 Mray/s on PCs, 2.0-4.0 Mray/s on mobiles.
-* GPU. Simplistic ports to compute shader:
-  * PC D3D11. GeForce GTX 1080 Ti: 1854
-  * Mac Metal. AMD Radeon Pro 560X: 246
-  * iOS Metal. A11 GPU (iPhone X): 46.6, A9 GPU (iPhone SE): 19.8
-  
+| Language | Approach | Ryzen 5950 | AMD TR19xx | MBP 2021 | MBP 2018 | MBA 2020 | iPhone X | iPhone SE |
+|:--- |:---                       |   ---:|   ---:|   ---:|  ---:|  ---:|  ---:|  ---:|
+| C++ | SIMD Intrinsics           | 285.0 | 187.0 | 105.4 | 74.0 | 32.3 | 12.9 | 8.5 |
+|     | Scalar                    |       | 100.0 |  84.8 | 35.7 |
+|     | WebAssembly               |       |   5.0 |       |      |
+| C#  | Unity Burst "manual" SIMD | 200.2 | 133.0 |       | 60.0 |
+|     | Unity Burst               |       |  82.0 |       | 36.0 |
+|     | .NET 6.0                  |  91.5 |  53.0 |       |      |
+|     | .NET Core 2.0             |       |  53.0 |       | 23.6 |
+|     | Mono optimized settings   |       |       |       | 22.0 |
+|     | Mono defaults             |       |       |       |  6.1 |
+
+More detailed specs of the machines above are:
+* `Ryzen 5950`: AMD Ryzen 5950X (3.4GHz, 16c/32t), Visual Studio 2022.
+* `AMD TR19xx`: AMD ThreadRipper 1950X (3.4GHz, SMT disabled - 16c/16t), Visual Studio 2017.
+* `MBP 2021`: Apple MacBook Pro M1 Max (8+2 cores), Xcode 13.2.
+* `MBP 2018`: Apple MacBook Pro mid-2018 (Core i9 2.9GHz, 6c/12t).
+* `MBA 2020`: Apple MacBook Air 2020 (Core i7 1.2GHz, 4c/8t).
+* `iPhone X`: A11 chip.
+* `iPhone SE`: A9 chip.
+
+And on the GPU, via a compute shader in D3D11 or Metal depending on the platform:
+
+| GPU | Perf |
+|:--- |  ---:|
+| D3D11 | |
+| GeForce RTX 3080Ti         | 3920 |
+| GeForce GTX 1080Ti         | 1854 |
+| Metal | |
+| MBP 2021 (M1 Max)          | 1065 |
+| MBP 2018 (Radeon Pro 560X) | 246 |
+| MBA 2020 (Iris Plus)       | 201 |
+| iPhone X (A11)             | 46 |
+| iPhone SE (A9)             | 20 |
+
+
 A lot of stuff in the implementation is *totally* suboptimal or using the tech in a "wrong" way.
 I know it's just a simple toy, ok :)
 
