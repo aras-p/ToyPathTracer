@@ -6,7 +6,6 @@
 #include "../Source/Maths.h"
 #include "../Source/Test.h"
 
-
 static const NSUInteger kMaxBuffersInFlight = 3;
 
 #if TARGET_OS_IPHONE
@@ -15,7 +14,6 @@ static const NSUInteger kMaxBuffersInFlight = 3;
 #define kMetalBufferMode MTLResourceStorageModeManaged
 #endif
 
-#if DO_COMPUTE_GPU
 // Metal on Mac needs buffer offsets to be 256-byte aligned
 static int AlignedSize(int sz)
 {
@@ -34,7 +32,6 @@ struct ComputeParams
     float lerpFac;
     int emissiveCount;
 };
-#endif
 
 
 @implementation Renderer
@@ -45,7 +42,8 @@ struct ComputeParams
 
     id <MTLRenderPipelineState> _pipelineState;
     id <MTLDepthStencilState> _depthState;
-#if DO_COMPUTE_GPU
+    
+    // GPU tracing things:
     id <MTLComputePipelineState> _computeState;
     // all the data in separate buffers
     id <MTLBuffer> _computeSpheres;
@@ -57,20 +55,21 @@ struct ComputeParams
     int _objSize;
     int _matSize;
     int _uniformBufferIndex;
-#endif
     
     id <MTLTexture> _backbuffer, _backbuffer2;
     int _backbufferIndex;
     float* _backbufferPixels;
 
     mach_timebase_info_data_t _clock_timebase;
-#if !TARGET_OS_IPHONE
+#if TARGET_OS_IPHONE
+    UILabel* _label;
+#else
     NSTextField* _label;
 #endif
 }
 
 #if TARGET_OS_IPHONE
--(nonnull instancetype)initWithMetalKitView:(nonnull MTKView *)view;
+-(nonnull instancetype)initWithMetalKitView:(nonnull MTKView *)view withLabel:(nonnull UILabel*) label;
 #else
 -(nonnull instancetype)initWithMetalKitView:(nonnull MTKView *)view withLabel:(nonnull NSTextField*) label;
 #endif
@@ -78,9 +77,7 @@ struct ComputeParams
     self = [super init];
     if(self)
     {
-#if !TARGET_OS_IPHONE
         _label = label;
-#endif
         _device = view.device;
         printf("GPU: %s\n", [[_device name] UTF8String]);
         _inFlightSemaphore = dispatch_semaphore_create(kMaxBuffersInFlight);
@@ -102,12 +99,12 @@ struct ComputeParams
     id<MTLLibrary> defaultLibrary = [_device newDefaultLibrary];
     id <MTLFunction> vertexFunction = [defaultLibrary newFunctionWithName:@"vertexShader"];
     id <MTLFunction> fragmentFunction = [defaultLibrary newFunctionWithName:@"fragmentShader"];
-#if DO_COMPUTE_GPU
+
+    // GPU tracing things:
     id <MTLFunction> computeFunction = [defaultLibrary newFunctionWithName:@"TraceGPU"];
     _computeState = [_device newComputePipelineStateWithFunction:computeFunction error:&error];
     if (!_computeState)
         NSLog(@"Failed to created compute pipeline state, error %@", error);
-
     int camSize;
     GetObjectCount(_sphereCount, _objSize, _matSize, camSize);
     assert(_objSize == 20);
@@ -119,7 +116,6 @@ struct ComputeParams
     _computeEmissives = [_device newBufferWithLength:AlignedSize(_sphereCount*4)*kMaxBuffersInFlight options:kMetalBufferMode];
     _computeCounter = [_device newBufferWithLength:AlignedSize(4)*kMaxBuffersInFlight options:MTLStorageModeShared];
     _uniformBufferIndex = 0;
-#endif
 
     MTLRenderPipelineDescriptor *pipelineStateDescriptor = [[MTLRenderPipelineDescriptor alloc] init];
     pipelineStateDescriptor.sampleCount = view.sampleCount;
@@ -144,10 +140,7 @@ struct ComputeParams
     
     MTLTextureDescriptor* desc = [MTLTextureDescriptor texture2DDescriptorWithPixelFormat:MTLPixelFormatRGBA32Float width:kBackbufferWidth height:kBackbufferHeight mipmapped:NO];
     desc.usage = MTLTextureUsageShaderRead;
-#if DO_COMPUTE_GPU
     desc.usage |= MTLTextureUsageShaderWrite;
-    desc.storageMode = MTLStorageModePrivate;
-#endif
 
     _backbuffer = [_device newTextureWithDescriptor:desc];
     _backbuffer2 = [_device newTextureWithDescriptor:desc];
@@ -165,22 +158,13 @@ struct ComputeParams
 static uint64_t _computeStartTime;
 static uint64_t _computeDur;
 static size_t rayCounter = 0;
-unsigned g_TestFlags = kFlagProgressive;
+unsigned g_TestFlags = kFlagProgressive | kFlagAnimate;
+static bool g_UseGPU = true;
+static int totalCounter = 0;
+static int frameCounter = 0;
 
-- (void)_doRenderingWith:(id <MTLCommandBuffer>) cmd;
+- (void)_drawTestGpu:(id <MTLCommandBuffer>) cmd;
 {
-    static int totalCounter = 0;
-    static int frameCounter = 0;
-    static uint64_t frameTime = 0;
-    uint64_t time1 = mach_absolute_time();
-    _computeStartTime = time1;
-    
-    uint64_t curNs = (time1 * _clock_timebase.numer) / _clock_timebase.denom;
-    float curT = float(curNs * 1.0e-9f);
-
-    UpdateTest(curT, totalCounter, kBackbufferWidth, kBackbufferHeight, g_TestFlags);
-    
-#if DO_COMPUTE_GPU
     _backbufferIndex = 1-_backbufferIndex;
     _uniformBufferIndex = (_uniformBufferIndex + 1) % kMaxBuffersInFlight;
     uint8_t* dataSpheres = (uint8_t*)[_computeSpheres contents];
@@ -227,40 +211,62 @@ unsigned g_TestFlags = kFlagProgressive;
     MTLSize groupCount = {kBackbufferWidth/groupSize.width, kBackbufferHeight/groupSize.height, 1};
     [enc dispatchThreadgroups:groupCount threadsPerThreadgroup:groupSize];
     [enc endEncoding];
-#else
-    int rayCount;
-    DrawTest(curT, totalCounter, kBackbufferWidth, kBackbufferHeight, _backbufferPixels, rayCount, g_TestFlags);
-    rayCounter += rayCount;
-#endif
+}
+
+- (void)_doRenderingWith:(id <MTLCommandBuffer>) cmd;
+{
+    static uint64_t frameTime = 0;
+    uint64_t time1 = mach_absolute_time();
+    _computeStartTime = time1;
+    
+    uint64_t curNs = (time1 * _clock_timebase.numer) / _clock_timebase.denom;
+    float curT = float(curNs * 1.0e-9f);
+
+    UpdateTest(curT, totalCounter, kBackbufferWidth, kBackbufferHeight, g_TestFlags);
+    
+    if (g_UseGPU)
+    {
+        [self _drawTestGpu: cmd];
+    }
+    else
+    {
+        int rayCount;
+        DrawTest(curT, totalCounter, kBackbufferWidth, kBackbufferHeight, _backbufferPixels, rayCount, g_TestFlags);
+        rayCounter += rayCount;
+    }
     
     uint64_t time2 = mach_absolute_time();
     (void)time2;
     ++frameCounter;
     ++totalCounter;
-#if !DO_COMPUTE_GPU
-    frameTime += (time2-time1);
-#else
-    frameTime += _computeDur;
-#endif
+    if (g_UseGPU)
+        frameTime += _computeDur;
+    else
+        frameTime += (time2-time1);
     if (frameCounter > 10)
     {
         uint64_t ns = (frameTime * _clock_timebase.numer) / _clock_timebase.denom;
         float s = (float)(ns * 1.0e-9) / frameCounter;
-        char buffer[200];
-        snprintf(buffer, 200, "%.2fms (%.1f FPS) %.1fMrays/s %.2fMrays/frame frames %i", s * 1000.0f, 1.f / s, rayCounter / frameCounter / s * 1.0e-6f, rayCounter / frameCounter * 1.0e-6f, totalCounter);
+        char buffer[500];
+        snprintf(buffer, 200, "%s: %.2fms (%.1f FPS) %.1fMrays/s %.2fMrays/frame frames %i",
+                 g_UseGPU ? "GPU" : "CPU",
+                 s * 1000.0f, 1.f / s, rayCounter / frameCounter / s * 1.0e-6f, rayCounter / frameCounter * 1.0e-6f, totalCounter);
         puts(buffer);
-#if !TARGET_OS_IPHONE
         NSString* str = [[NSString alloc] initWithUTF8String:buffer];
+#if TARGET_OS_IPHONE
+        _label.text = str;
+#else
         _label.stringValue = str;
 #endif
         frameCounter = 0;
         frameTime = 0;
         rayCounter = 0;
     }
-    
-#if !DO_COMPUTE_GPU
-    [_backbuffer replaceRegion:MTLRegionMake2D(0,0,kBackbufferWidth,kBackbufferHeight) mipmapLevel:0 withBytes:_backbufferPixels bytesPerRow:kBackbufferWidth*16];
-#endif
+
+    if (!g_UseGPU)
+    {
+        [_backbuffer replaceRegion:MTLRegionMake2D(0,0,kBackbufferWidth,kBackbufferHeight) mipmapLevel:0 withBytes:_backbufferPixels bytesPerRow:kBackbufferWidth*16];
+    }
 }
 
 - (void)drawInMTKView:(nonnull MTKView *)view
@@ -270,22 +276,21 @@ unsigned g_TestFlags = kFlagProgressive;
     id <MTLCommandBuffer> cmd = [_commandQueue commandBuffer];
 
     __block dispatch_semaphore_t block_sema = _inFlightSemaphore;
-#if DO_COMPUTE_GPU
     int counterIndex = (_uniformBufferIndex+1)%kMaxBuffersInFlight;
     id <MTLBuffer> counterBuffer = _computeCounter;
-#endif
     [cmd addCompletedHandler:^(id<MTLCommandBuffer> buffer)
     {
-        #if DO_COMPUTE_GPU
-        // There's no easy/proper way to do GPU timing on Metal (or at least I couldn't find any),
-        // so I'm timing CPU side, from beginning of command buffer invocation to when we get the
-        // callback that the GPU is done with it. Not 100% proper, but gets similar results to
-        // what Xcode reports for the GPU duration.
-        uint64_t time2 = mach_absolute_time();
-        _computeDur = (time2 - _computeStartTime);
-        int rayCount = *(const int*)(((const uint8_t*)[counterBuffer contents]) + counterIndex*AlignedSize(4));
-        rayCounter += rayCount;
-        #endif
+        if (g_UseGPU)
+        {
+            // There's no easy/proper way to do GPU timing on Metal (or at least I couldn't find any),
+            // so I'm timing CPU side, from beginning of command buffer invocation to when we get the
+            // callback that the GPU is done with it. Not 100% proper, but gets similar results to
+            // what Xcode reports for the GPU duration.
+            uint64_t time2 = mach_absolute_time();
+            _computeDur = (time2 - _computeStartTime);
+            int rayCount = *(const int*)(((const uint8_t*)[counterBuffer contents]) + counterIndex*AlignedSize(4));
+            rayCounter += rayCount;
+        }
 
         dispatch_semaphore_signal(block_sema);
     }];
@@ -314,5 +319,25 @@ unsigned g_TestFlags = kFlagProgressive;
 {
     //printf("View size %ix%i\n", (int)size.width, (int)size.height);
 }
+
+-(void)toggleGPU
+{
+    g_UseGPU = !g_UseGPU;
+    frameCounter = 0;
+    totalCounter = 0;
+}
+-(void)toggleAnimation
+{
+    g_TestFlags ^= kFlagAnimate;
+    frameCounter = 0;
+    totalCounter = 0;
+}
+-(void)toggleProgressive
+{
+    g_TestFlags ^= kFlagProgressive;
+    frameCounter = 0;
+    totalCounter = 0;
+}
+
 
 @end

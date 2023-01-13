@@ -3,7 +3,6 @@
 #import <MetalKit/MetalKit.h>
 #import "Renderer.h"
 
-// Our iOS view controller
 @interface GameViewController : UIViewController
-
+@property (weak) IBOutlet UILabel *perfText;
 @end

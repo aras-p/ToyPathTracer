@@ -1,9 +1,9 @@
 {
   "dependencies": {
-    "com.unity.burst": "1.4.8",
-    "com.unity.ide.rider": "2.0.7",
-    "com.unity.mathematics": "1.2.1",
-    "com.unity.test-framework": "1.1.24",
+    "com.unity.burst": "1.6.6",
+    "com.unity.ide.rider": "3.0.18",
+    "com.unity.mathematics": "1.2.6",
+    "com.unity.test-framework": "1.1.33",
     "com.unity.ugui": "1.0.0",
     "com.unity.modules.ai": "1.0.0",
     "com.unity.modules.androidjni": "1.0.0",

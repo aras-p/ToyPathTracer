@@ -37,8 +37,8 @@ struct Material
 {
     enum Type { Lambert, Metal, Dielectric };
     Type type;
-    float3 albedo;
-    float3 emissive;
+    float3pack albedo;
+    float3pack emissive;
     float roughness;
     float ri;
 };
@@ -88,7 +88,8 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
         // random point on unit sphere that is tangent to the hit point
         float3 target = rec.pos + rec.normal + RandomUnitVector(state);
         scattered = Ray(rec.pos, normalize(target - rec.pos));
-        attenuation = mat.albedo;
+        float3 matAlbedo = mat.albedo.toFloat3();
+        attenuation = matAlbedo;
 
         // sample lights
 #if DO_LIGHT_SAMPLING
@@ -102,11 +103,12 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
 
             // create a random direction towards sphere
             // coord system for sampling: sw, su, sv
-            float3 sw = normalize(s.center - rec.pos);
+            float3 sc = s.center.toFloat3();
+            float3 sw = normalize(sc - rec.pos);
             float3 su = normalize(cross(fabs(sw.getX())>0.01f ? float3(0,1,0):float3(1,0,0), sw));
             float3 sv = cross(sw, su);
             // sample sphere by solid angle
-            float cosAMax = sqrtf(1.0f - s.radius*s.radius / sqLength(rec.pos-s.center));
+            float cosAMax = sqrtf(1.0f - s.radius*s.radius / sqLength(rec.pos-sc));
             float eps1 = RandomFloat01(state), eps2 = RandomFloat01(state);
             float cosA = 1.0f - eps1 + eps1 * cosAMax;
             float sinA = sqrtf(1.0f - cosA*cosA);
@@ -125,7 +127,8 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
                 float3 rdir = r_in.dir;
                 AssertUnit(rdir);
                 float3 nl = dot(rec.normal, rdir) < 0 ? rec.normal : -rec.normal;
-                outLightE += (mat.albedo * smat.emissive) * (std::max(0.0f, dot(l, nl)) * omega / kPI);
+                float3 smatEmissive = smat.emissive.toFloat3();
+                outLightE += (matAlbedo * smatEmissive) * (std::max(0.0f, dot(l, nl)) * omega / kPI);
             }
         }
 #endif
@@ -141,7 +144,8 @@ static bool Scatter(const Material& mat, const Ray& r_in, const Hit& rec, float3
         roughness = 0; // until we get better BRDF for metals
 #endif
         scattered = Ray(rec.pos, normalize(refl + roughness*RandomInUnitSphere(state)));
-        attenuation = mat.albedo;
+        float3 matAlbedo = mat.albedo.toFloat3();
+        attenuation = matAlbedo;
         return dot(scattered.dir, rec.normal) > 0;
     }
     else if (mat.type == Material::Dielectric)
@@ -199,7 +203,7 @@ static float3 Trace(const Ray& r, int depth, int& inoutRayCount, uint32_t& state
         float3 attenuation;
         float3 lightE;
         const Material& mat = s_SphereMats[id];
-        float3 matE = mat.emissive;
+        float3 matE = mat.emissive.toFloat3();
         if (depth < kMaxDepth && Scatter(mat, r, rec, attenuation, scattered, lightE, inoutRayCount, state))
         {
 #if DO_LIGHT_SAMPLING
@@ -299,8 +303,8 @@ void UpdateTest(float time, int frameCount, int screenWidth, int screenHeight, u
 {
     if (testFlags & kFlagAnimate)
     {
-        s_Spheres[1].center.setY(cosf(time) + 1.0f);
-        s_Spheres[8].center.setZ(sinf(time)*0.3f);
+        s_Spheres[1].center.y = cosf(time) + 1.0f;
+        s_Spheres[8].center.z = sinf(time) * 0.3f;
     }
     float3 lookfrom(0, 2, 3);
     float3 lookat(0, 0, 0);
@@ -319,15 +323,15 @@ void UpdateTest(float time, int frameCount, int screenWidth, int screenHeight, u
     {
         Sphere& s = s_Spheres[i];
         s.UpdateDerivedData();
-        s_SpheresSoA.centerX[i] = s.center.getX();
-        s_SpheresSoA.centerY[i] = s.center.getY();
-        s_SpheresSoA.centerZ[i] = s.center.getZ();
+        s_SpheresSoA.centerX[i] = s.center.x;
+        s_SpheresSoA.centerY[i] = s.center.y;
+        s_SpheresSoA.centerZ[i] = s.center.z;
         s_SpheresSoA.sqRadius[i] = s.radius * s.radius;
         s_SpheresSoA.invRadius[i] = s.invRadius;
 
         // Remember IDs of emissive spheres (light sources)
         const Material& smat = s_SphereMats[i];
-        if (smat.emissive.getX() > 0 || smat.emissive.getY() > 0 || smat.emissive.getZ() > 0)
+        if (smat.emissive.x > 0 || smat.emissive.y > 0 || smat.emissive.z > 0)
         {
             s_EmissiveSpheres[s_EmissiveSphereCount] = i;
             s_EmissiveSphereCount++;

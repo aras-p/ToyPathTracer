@@ -22,8 +22,8 @@
     <VCProjectVersion>15.0</VCProjectVersion>
     <ProjectGuid>{4F84B756-87F5-4B92-827B-DA087DAE1900}</ProjectGuid>
     <Keyword>Win32Proj</Keyword>
-    <RootNamespace>TestCpu</RootNamespace>
-    <WindowsTargetPlatformVersion>10.0.16299.0</WindowsTargetPlatformVersion>
+    <RootNamespace>ToyPathTracer</RootNamespace>
+    <WindowsTargetPlatformVersion>10.0.19041.0</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">

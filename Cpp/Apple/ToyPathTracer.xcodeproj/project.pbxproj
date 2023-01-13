@@ -32,7 +32,7 @@
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
-		2B2B5A9E20BE72FD00040BFE /* Test iOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Test iOS.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		2B2B5A9E20BE72FD00040BFE /* ToyPathTraceriOS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ToyPathTraceriOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2B2B5AA020BE72FD00040BFE /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		2B2B5AA120BE72FD00040BFE /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
 		2B2B5AA620BE72FD00040BFE /* GameViewController.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GameViewController.h; sourceTree = "<group>"; };
@@ -41,7 +41,7 @@
 		2B2B5AB220BE72FE00040BFE /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		2B2B5AB420BE72FE00040BFE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		2B2B5AB520BE72FE00040BFE /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
-		2B2D97AE20519C7100520EC1 /* Test Mac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "Test Mac.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		2B2D97AE20519C7100520EC1 /* ToyPathTracerMac.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ToyPathTracerMac.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		2B2D97B120519C7100520EC1 /* AppDelegate.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = AppDelegate.h; sourceTree = "<group>"; };
 		2B2D97B220519C7100520EC1 /* AppDelegate.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = AppDelegate.m; sourceTree = "<group>"; };
 		2B2D97B420519C7100520EC1 /* Renderer.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = Renderer.h; sourceTree = "<group>"; };
@@ -52,7 +52,7 @@
 		2B2D97C020519C7100520EC1 /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/Main.storyboard; sourceTree = "<group>"; };
 		2B2D97C220519C7100520EC1 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		2B2D97C320519C7100520EC1 /* main.m */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.objc; path = main.m; sourceTree = "<group>"; };
-		2B2D97C520519C7100520EC1 /* Test.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = Test.entitlements; sourceTree = "<group>"; };
+		2B2D97C520519C7100520EC1 /* ToyPathTracer.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = ToyPathTracer.entitlements; sourceTree = "<group>"; };
 		2B6AD0DB20736FF70025F674 /* Config.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Config.h; sourceTree = "<group>"; };
 		2B8065FE207CDB540043116F /* MathSimd.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = MathSimd.h; path = ../Source/MathSimd.h; sourceTree = "<group>"; };
 		2BB9041D2064EB6D00C0A0EA /* MetalKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = MetalKit.framework; path = System/Library/Frameworks/MetalKit.framework; sourceTree = SDKROOT; };
@@ -159,8 +159,8 @@
 		2B2D97AF20519C7100520EC1 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				2B2D97AE20519C7100520EC1 /* Test Mac.app */,
-				2B2B5A9E20BE72FD00040BFE /* Test iOS.app */,
+				2B2D97AE20519C7100520EC1 /* ToyPathTracerMac.app */,
+				2B2B5A9E20BE72FD00040BFE /* ToyPathTraceriOS.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -173,7 +173,7 @@
 				2B2D97B420519C7100520EC1 /* Renderer.h */,
 				2B2D97B520519C7100520EC1 /* Renderer.mm */,
 				2B2D97BA20519C7100520EC1 /* Shaders.metal */,
-				2B2D97C520519C7100520EC1 /* Test.entitlements */,
+				2B2D97C520519C7100520EC1 /* ToyPathTracer.entitlements */,
 			);
 			name = Apple;
 			sourceTree = "<group>";
@@ -189,9 +189,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		2B2B5A9D20BE72FD00040BFE /* Test iOS */ = {
+		2B2B5A9D20BE72FD00040BFE /* ToyPathTraceriOS */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 2B2B5AB720BE72FE00040BFE /* Build configuration list for PBXNativeTarget "Test iOS" */;
+			buildConfigurationList = 2B2B5AB720BE72FE00040BFE /* Build configuration list for PBXNativeTarget "ToyPathTraceriOS" */;
 			buildPhases = (
 				2B2B5A9A20BE72FD00040BFE /* Sources */,
 				2B2B5A9B20BE72FD00040BFE /* Frameworks */,
@@ -201,14 +201,14 @@
 			);
 			dependencies = (
 			);
-			name = "Test iOS";
-			productName = "Test iOS";
-			productReference = 2B2B5A9E20BE72FD00040BFE /* Test iOS.app */;
+			name = ToyPathTraceriOS;
+			productName = ToyPathTraceriOS;
+			productReference = 2B2B5A9E20BE72FD00040BFE /* ToyPathTraceriOS.app */;
 			productType = "com.apple.product-type.application";
 		};
-		2B2D97AD20519C7100520EC1 /* Test Mac */ = {
+		2B2D97AD20519C7100520EC1 /* ToyPathTracerMac */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 2B2D97C820519C7100520EC1 /* Build configuration list for PBXNativeTarget "Test Mac" */;
+			buildConfigurationList = 2B2D97C820519C7100520EC1 /* Build configuration list for PBXNativeTarget "ToyPathTracerMac" */;
 			buildPhases = (
 				2B2D97AA20519C7100520EC1 /* Sources */,
 				2B2D97AB20519C7100520EC1 /* Frameworks */,
@@ -218,9 +218,9 @@
 			);
 			dependencies = (
 			);
-			name = "Test Mac";
-			productName = Test;
-			productReference = 2B2D97AE20519C7100520EC1 /* Test Mac.app */;
+			name = ToyPathTracerMac;
+			productName = ToyPathTracer;
+			productReference = 2B2D97AE20519C7100520EC1 /* ToyPathTracerMac.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -247,7 +247,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 2B2D97A920519C7100520EC1 /* Build configuration list for PBXProject "Test" */;
+			buildConfigurationList = 2B2D97A920519C7100520EC1 /* Build configuration list for PBXProject "ToyPathTracer" */;
 			compatibilityVersion = "Xcode 10.0";
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
@@ -260,8 +260,8 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				2B2D97AD20519C7100520EC1 /* Test Mac */,
-				2B2B5A9D20BE72FD00040BFE /* Test iOS */,
+				2B2D97AD20519C7100520EC1 /* ToyPathTracerMac */,
+				2B2B5A9D20BE72FD00040BFE /* ToyPathTraceriOS */,
 			);
 		};
 /* End PBXProject section */
@@ -362,7 +362,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.aras.Test-iOS";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.aras.ToyPathTracer-iOS";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -382,7 +382,7 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = "com.aras.Test-iOS";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.aras.ToyPathTracer-iOS";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
 				TARGETED_DEVICE_FAMILY = "1,2";
@@ -515,7 +515,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.aras.Test;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aras.ToyPathTracer;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Debug;
@@ -533,7 +533,7 @@
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = com.aras.Test;
+				PRODUCT_BUNDLE_IDENTIFIER = com.aras.ToyPathTracer;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 			};
 			name = Release;
@@ -541,7 +541,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		2B2B5AB720BE72FE00040BFE /* Build configuration list for PBXNativeTarget "Test iOS" */ = {
+		2B2B5AB720BE72FE00040BFE /* Build configuration list for PBXNativeTarget "ToyPathTraceriOS" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				2B2B5AB820BE72FE00040BFE /* Debug */,
@@ -550,7 +550,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		2B2D97A920519C7100520EC1 /* Build configuration list for PBXProject "Test" */ = {
+		2B2D97A920519C7100520EC1 /* Build configuration list for PBXProject "ToyPathTracer" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				2B2D97C620519C7100520EC1 /* Debug */,
@@ -559,7 +559,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		2B2D97C820519C7100520EC1 /* Build configuration list for PBXNativeTarget "Test Mac" */ = {
+		2B2D97C820519C7100520EC1 /* Build configuration list for PBXNativeTarget "ToyPathTracerMac" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				2B2D97C920519C7100520EC1 /* Debug */,

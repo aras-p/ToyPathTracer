@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <Scheme
-   LastUpgradeVersion = "1220"
+   LastUpgradeVersion = "1320"
    version = "1.3">
    <BuildAction
       parallelizeBuildables = "YES"
@@ -14,10 +14,10 @@
             buildForAnalyzing = "YES">
             <BuildableReference
                BuildableIdentifier = "primary"
-               BlueprintIdentifier = "2B2D97AD20519C7100520EC1"
-               BuildableName = "Test Mac.app"
-               BlueprintName = "Test Mac"
-               ReferencedContainer = "container:Test.xcodeproj">
+               BlueprintIdentifier = "2B2B5A9D20BE72FD00040BFE"
+               BuildableName = "ToyPathTraceriOS.app"
+               BlueprintName = "ToyPathTraceriOS"
+               ReferencedContainer = "container:ToyPathTracer.xcodeproj">
             </BuildableReference>
          </BuildActionEntry>
       </BuildActionEntries>
@@ -39,17 +39,15 @@
       ignoresPersistentStateOnLaunch = "NO"
       debugDocumentVersioning = "YES"
       debugServiceExtension = "internal"
-      enableGPUFrameCaptureMode = "3"
-      enableGPUValidationMode = "1"
       allowLocationSimulation = "YES">
       <BuildableProductRunnable
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "2B2D97AD20519C7100520EC1"
-            BuildableName = "Test Mac.app"
-            BlueprintName = "Test Mac"
-            ReferencedContainer = "container:Test.xcodeproj">
+            BlueprintIdentifier = "2B2B5A9D20BE72FD00040BFE"
+            BuildableName = "ToyPathTraceriOS.app"
+            BlueprintName = "ToyPathTraceriOS"
+            ReferencedContainer = "container:ToyPathTracer.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </LaunchAction>
@@ -63,10 +61,10 @@
          runnableDebuggingMode = "0">
          <BuildableReference
             BuildableIdentifier = "primary"
-            BlueprintIdentifier = "2B2D97AD20519C7100520EC1"
-            BuildableName = "Test Mac.app"
-            BlueprintName = "Test Mac"
-            ReferencedContainer = "container:Test.xcodeproj">
+            BlueprintIdentifier = "2B2B5A9D20BE72FD00040BFE"
+            BuildableName = "ToyPathTraceriOS.app"
+            BlueprintName = "ToyPathTraceriOS"
+            ReferencedContainer = "container:ToyPathTracer.xcodeproj">
          </BuildableReference>
       </BuildableProductRunnable>
    </ProfileAction>

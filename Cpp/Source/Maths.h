@@ -285,6 +285,17 @@ VM_INLINE float3 cross(const float3& a, const float3& b)
 }
 #endif // #else of #if DO_FLOAT3_WITH_SIMD
 
+
+struct float3pack
+{
+    float3pack() : x(0), y(0), z(0) {}
+    float3pack(float x_, float y_, float z_) : x(x_), y(y_), z(z_) {}
+    float3pack(const float3& o) : x(o.getX()), y(o.getY()), z(o.getZ()) {}
+    float3 toFloat3() const { return float3(x, y, z); }
+    float x, y, z;
+};
+
+
 VM_INLINE float length(float3 v) { return sqrtf(dot(v, v)); }
 VM_INLINE float sqLength(float3 v) { return dot(v, v); }
 VM_INLINE float3 normalize(float3 v) { return v * (1.0f / length(v)); }
@@ -347,7 +358,7 @@ struct Sphere
 
     void UpdateDerivedData() { invRadius = 1.0f/radius; }
 
-    float3 center;
+    float3pack center;
     float radius;
     float invRadius;
 };
@@ -410,11 +421,15 @@ struct Camera
         float theta = vfov*kPI/180;
         float halfHeight = tanf(theta/2);
         float halfWidth = aspect * halfHeight;
-        origin = lookFrom;
-        w = normalize(lookFrom - lookAt);
-        u = normalize(cross(vup, w));
-        v = cross(w, u);
-        lowerLeftCorner = origin - halfWidth*focusDist*u - halfHeight*focusDist*v - focusDist*w;
+        float3 org = lookFrom;
+        origin = org;
+        float3 w = normalize(lookFrom - lookAt);
+        float3 u = normalize(cross(vup, w));
+        float3 v = cross(w, u);
+        ww = w;
+        uu = u;
+        vv = v;
+        lowerLeftCorner = org - halfWidth*focusDist*u - halfHeight*focusDist*v - focusDist*w;
         horizontal = 2*halfWidth*focusDist*u;
         vertical = 2*halfHeight*focusDist*v;
     }
@@ -422,15 +437,15 @@ struct Camera
     Ray GetRay(float s, float t, uint32_t& state) const
     {
         float3 rd = lensRadius * RandomInUnitDisk(state);
-        float3 offset = u * rd.getX() + v * rd.getY();
-        return Ray(origin + offset, normalize(lowerLeftCorner + s*horizontal + t*vertical - origin - offset));
+        float3 offset = uu.toFloat3() * rd.getX() + vv.toFloat3() * rd.getY();
+        return Ray(origin.toFloat3() + offset, normalize(lowerLeftCorner.toFloat3() + s*horizontal.toFloat3() + t*vertical.toFloat3() - origin.toFloat3() - offset));
     }
 
-    float3 origin;
-    float3 lowerLeftCorner;
-    float3 horizontal;
-    float3 vertical;
-    float3 u, v, w;
+    float3pack origin;
+    float3pack lowerLeftCorner;
+    float3pack horizontal;
+    float3pack vertical;
+    float3pack uu, vv, ww;
     float lensRadius;
 };
 

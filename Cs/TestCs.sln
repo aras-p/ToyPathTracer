@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio 2012
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestCs", "TestCs.csproj", "{76222C72-2F16-4960-BB48-F922BE568BAD}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestCsRegular", "TestCsRegular.csproj", "{3B78555B-83CA-47F3-AF74-84E5057933C4}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TestCsNet46", "TestCsNet46.csproj", "{3B78555B-83CA-47F3-AF74-84E5057933C4}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -1,4 +1,3 @@
-//#define DO_ANIMATE
 #define DO_LIGHT_SAMPLING
 #define DO_THREADED
 // 46 spheres (2 emissive) when enabled; 9 spheres (1 emissive) when disabled
@@ -199,7 +198,14 @@ class Test
         Hit rec = default(Hit);
         int id = 0;
         ++inoutRayCount;
-        if (HitWorld(r, kMinT, kMaxT, ref rec, ref id, ref spheres))
+        bool isHit = HitWorld(r, kMinT, kMaxT, ref rec, ref id, ref spheres);
+        // in some cases we hit SIMD-padded "impossible" spheres? only seems to happen with Burst
+        if (id >= materials.Length)
+        {
+            id = -1;
+            isHit = false;
+        }
+        if (isHit)
         {
             Ray scattered;
             float3 attenuation;
@@ -238,6 +244,7 @@ class Test
         [NativeDisableParallelForRestriction] public NativeArray<int> rayCounter;
         [NativeDisableParallelForRestriction] public SpheresSoA spheres;
         [NativeDisableParallelForRestriction] public NativeArray<Material> materials;
+        public bool animate;
 
         public void Execute(int y)
         {
@@ -245,9 +252,8 @@ class Test
             float invWidth = 1.0f / screenWidth;
             float invHeight = 1.0f / screenHeight;
             float lerpFac = (float)frameCount / (float)(frameCount + 1);
-#if DO_ANIMATE
-            lerpFac *= DO_ANIMATE_SMOOTHING;
-#endif
+            if (animate)
+                lerpFac *= DO_ANIMATE_SMOOTHING;
             uint state = (uint)(y * 9781 + frameCount * 6271) | 1;
             int rayCount = 0;
             for (int x = 0; x < screenWidth; ++x)
@@ -272,13 +278,14 @@ class Test
     }
 
 
-    public void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, NativeArray<UnityEngine.Color> backbuffer, out int outRayCount)
+    public void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, NativeArray<UnityEngine.Color> backbuffer, bool animate, out int outRayCount)
     {
         int rayCount = 0;
-#if DO_ANIMATE
-        s_SpheresData[1].center.y = cos(time)+1.0f;
-        s_SpheresData[8].center.z = sin(time)*0.3f;
-#endif
+        if (animate)
+        {
+            s_SpheresData[1].center.y = cos(time)+1.0f;
+            s_SpheresData[8].center.z = sin(time)*0.3f;
+        }
         float3 lookfrom = new float3(0, 2, 3);
         float3 lookat = new float3(0, 0, 0);
         float distToFocus = 3;
@@ -301,6 +308,7 @@ class Test
         job.rayCounter = new NativeArray<int>(1, Allocator.TempJob);
         job.spheres = s_SpheresSoA;
         job.materials = new NativeArray<Material>(s_SphereMatsData, Allocator.TempJob);
+        job.animate = animate;
         var fence = job.Schedule(screenHeight, 4);
         fence.Complete();
         rayCount = job.rayCounter[0];

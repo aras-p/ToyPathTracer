@@ -11,7 +11,7 @@
 <h2>Toy Path Tracer in WebAssembly</h2>
 <p>
 A <a href="https://github.com/aras-p/ToyPathTracer"><b>toy path tracer</b></a>, written in C++ and
-compiled into <a href="https://webassembly.org/">WebAssembly</a> via <a href="http://kripken.github.io/emscripten-site/">Emscripten 1.38.19</a>.
+compiled into <a href="https://webassembly.org/">WebAssembly</a> via <a href="http://kripken.github.io/emscripten-site/">Emscripten 3.1.30</a>.
 </p>
 <p>This is running single-threaded, and without SIMD. Performance measured in millions of rays per second; higher number is better.</p>
 
@@ -29,6 +29,11 @@ compiled into <a href="https://webassembly.org/">WebAssembly</a> via <a href="ht
 <p>
 <table cellpadding="5">
 <tr><th>Device</th><th>OS</th><th>Browser</th><th>Mray/s</th></tr>
+<tr><td rowspan="2">AMD Ryzen 5950X 3.4GHz</td><td rowspan="2">Windows 10</td><td>Firefox 108</td><td>7.6</td></tr>
+<tr><td>Chrome 108</td><td>8.4</td></tr>
+<tr><td rowspan="3">Apple M1 Max (MBP 2021)</td><td rowspan="3">macOS 12.6</td><td>Safari 15</td><td>8.3</td></tr>
+<tr><td>Chrome 108</td><td>8.1</td></tr>
+<tr><td>Firefox 108</td><td>8.0</td></tr>
 <tr><td rowspan="3">Intel Core i9 8950HK 2.9GHz (MBP 2018)</td><td rowspan="3">macOS 10.13</td><td>Safari 11</td><td>5.8</td></tr>
 <tr><td>Chrome 70</td><td>5.3</td></tr>
 <tr><td>Firefox 63</td><td>5.1</td></tr>
@@ -36,6 +41,7 @@ compiled into <a href="https://webassembly.org/">WebAssembly</a> via <a href="ht
 <tr><td rowspan="3">AMD ThreadRipper 1950X 3.4GHz</td><td rowspan="3">Windows 10</td><td>Firefox 64</td><td>4.7</td></tr>
 <tr><td>Chrome 70</td><td>4.6</td></tr>
 <tr><td>Edge 17</td><td>4.5</td></tr>
+<tr><td>iPhone 11 Pro (A13)</td><td>iOS 16</td><td>Safari</td><td>5.6</td></tr>
 <tr><td>iPhone XS / XR (A12)</td><td>iOS 12</td><td>Safari</td><td>4.4</td></tr>
 <tr><td>iPhone 8+ (A11)</td><td>iOS 12</td><td>Safari</td><td>4.0</td></tr>
 <tr><td>iPhone SE (A9)</td><td>iOS 12</td><td>Safari</td><td>2.5</td></tr>
