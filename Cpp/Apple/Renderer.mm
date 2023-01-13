@@ -61,13 +61,15 @@ struct ComputeParams
     float* _backbufferPixels;
 
     mach_timebase_info_data_t _clock_timebase;
-#if !TARGET_OS_IPHONE
+#if TARGET_OS_IPHONE
+    UILabel* _label;
+#else
     NSTextField* _label;
 #endif
 }
 
 #if TARGET_OS_IPHONE
--(nonnull instancetype)initWithMetalKitView:(nonnull MTKView *)view;
+-(nonnull instancetype)initWithMetalKitView:(nonnull MTKView *)view withLabel:(nonnull UILabel*) label;
 #else
 -(nonnull instancetype)initWithMetalKitView:(nonnull MTKView *)view withLabel:(nonnull NSTextField*) label;
 #endif
@@ -75,9 +77,7 @@ struct ComputeParams
     self = [super init];
     if(self)
     {
-#if !TARGET_OS_IPHONE
         _label = label;
-#endif
         _device = view.device;
         printf("GPU: %s\n", [[_device name] UTF8String]);
         _inFlightSemaphore = dispatch_semaphore_create(kMaxBuffersInFlight);
@@ -252,8 +252,10 @@ static int frameCounter = 0;
                  g_UseGPU ? "GPU" : "CPU",
                  s * 1000.0f, 1.f / s, rayCounter / frameCounter / s * 1.0e-6f, rayCounter / frameCounter * 1.0e-6f, totalCounter);
         puts(buffer);
-#if !TARGET_OS_IPHONE
         NSString* str = [[NSString alloc] initWithUTF8String:buffer];
+#if TARGET_OS_IPHONE
+        _label.text = str;
+#else
         _label.stringValue = str;
 #endif
         frameCounter = 0;

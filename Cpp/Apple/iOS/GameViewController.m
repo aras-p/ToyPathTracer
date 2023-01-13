@@ -4,7 +4,6 @@
 @implementation GameViewController
 {
     MTKView *_view;
-
     Renderer *_renderer;
 }
 
@@ -24,11 +23,15 @@
         return;
     }
 
-    _renderer = [[Renderer alloc] initWithMetalKitView:_view];
+    _renderer = [[Renderer alloc] initWithMetalKitView:_view withLabel:self.perfText];
 
     [_renderer mtkView:_view drawableSizeWillChange:_view.bounds.size];
 
     _view.delegate = _renderer;
 }
+
+- (IBAction)menuToggleGPU:(id)sender { [_renderer toggleGPU]; }
+- (IBAction)menuToggleAnimation:(id)sender { [_renderer toggleAnimation]; }
+- (IBAction)menuToggleProgressive:(id)sender { [_renderer toggleProgressive]; }
 
 @end
