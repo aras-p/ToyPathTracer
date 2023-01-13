@@ -33,13 +33,16 @@ Performance numbers in Mray/s on a scene with ~50 spheres and two light sources,
 
 | Language | Approach | Ryzen 5950 | AMD TR1950 | MBP 2021 | MBP 2018 | MBA 2020 | iPhone X | iPhone SE |
 |:--- |:---                       |   ---:|   ---:|   ---:|  ---:|  ---:|  ---:|  ---:|
-| C++ | SIMD Intrinsics           | 285.0 | 187.0 | 105.4 | 74.0 | 32.3 | 12.9 | 8.5 |
-|     | Scalar                    |       | 100.0 |  84.8 | 35.7 |
-|     | WebAssembly (no threads, no SIMD) |       |   5.0 |  8.1   |      |
-| C#  | Unity Burst "manual" SIMD | 200.2 | 133.0 |       | 60.0 |
+| C++ | SIMD Intrinsics           | 281.0 | 187.0 | 105.4 | 74.0 | 32.3 | 12.9 | 8.5 |
+|     | Scalar                    | 141.2 | 100.0 |  84.8 | 35.7 |
+|     | WebAssembly (no threads, no SIMD) |   8.4 |   5.0 |  8.1 |
+| C#  | Unity Burst "manual" SIMD | 227.2 | 133.0 |       | 60.0 |
 |     | Unity Burst               |       |  82.0 |       | 36.0 |
+|     | Unity (Editor)            |   6.5 |       |       |      |
+|     | Unity (player Mono)       |   6.7 |       |       |      |
+|     | Unity (player IL2CPP)     |  39.1 |       |       |      |
 |     | .NET 6.0                  |  91.5 |  53.0 |       |      |
-|     | .NET Core 2.0             |       |  53.0 |       | 23.6 |
+|     | .NET Core 2.0             |  86.1 |  53.0 |       | 23.6 |
 |     | Mono optimized settings   |       |       |       | 22.0 |
 |     | Mono defaults             |       |       |       |  6.1 |
 
@@ -51,6 +54,9 @@ More detailed specs of the machines above are:
 * `MBA 2020`: Apple MacBook Air 2020 (Core i7 1.2GHz, 4c/8t).
 * `iPhone X`: A11 chip.
 * `iPhone SE`: A9 chip.
+
+Software versions:
+* Unity 2020.3.43. Burst 1.6.6 (safety checks off). C# testing in editor, Release mode.
 
 And on the GPU, via a compute shader in D3D11 or Metal depending on the platform:
 
