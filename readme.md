@@ -44,7 +44,7 @@ Performance numbers in Mray/s on a scene with ~50 spheres and two light sources,
 |     | .NET 6.0                  |  91.5 |  53.0 |       |      |
 |     | .NET Core 2.0             |  86.1 |  53.0 |       | 23.6 |
 |     | Mono optimized settings   |       |       |       | 22.0 |
-|     | Mono defaults             |       |       |       |  6.1 |
+|     | Mono defaults             |  23.6 |       |       |  6.1 |
 
 More detailed specs of the machines above are:
 * `Ryzen 5950`: AMD Ryzen 5950X (3.4GHz, 16c/32t), Visual Studio 2022.
@@ -57,6 +57,8 @@ More detailed specs of the machines above are:
 
 Software versions:
 * Unity 2020.3.43. Burst 1.6.6 (safety checks off). C# testing in editor, Release mode.
+* Mono 6.12. "optimized settings" is with `MONO_INLINELIMIT=100` environment variable,
+  and `--llvm` argument to `mono`.
 
 And on the GPU, via a compute shader in D3D11 or Metal depending on the platform:
 
