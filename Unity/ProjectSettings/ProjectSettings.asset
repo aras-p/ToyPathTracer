@@ -156,6 +156,7 @@ PlayerSettings:
   androidMaxAspectRatio: 2.1
   applicationIdentifier:
     Standalone: com.Aras.TestPathTracer
+    iPhone: com.Aras.TestPathTracer
   buildNumber:
     Standalone: 0
     iPhone: 0

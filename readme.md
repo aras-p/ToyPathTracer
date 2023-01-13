@@ -31,20 +31,20 @@ Note: it can only do spheres, no bounding volume hierachy of any sorts, a lot of
 
 Performance numbers in Mray/s on a scene with ~50 spheres and two light sources, running on the CPU:
 
-| Language | Approach | Ryzen 5950 | AMD TR1950 | MBP 2021 | MBP 2018 | MBA 2020 | iPhone X | iPhone SE |
-|:--- |:---                       |   ---:|   ---:|   ---:|  ---:|  ---:|  ---:|  ---:|
-| C++ | SIMD Intrinsics           | 281.0 | 187.0 | 105.4 | 74.0 | 32.3 | 12.9 | 8.5 |
-|     | Scalar                    | 141.2 | 100.0 |  84.8 | 35.7 |
-|     | WebAssembly (no threads, no SIMD) |   8.4 |   5.0 |  8.1 |
-| C#  | Unity Burst "manual" SIMD | 227.2 | 133.0 | 103.7 | 60.0 |
-|     | Unity Burst               |       |  82.0 |       | 36.0 |
-|     | Unity (Editor)            |   6.5 |       |   3.4 |      |
-|     | Unity (player Mono)       |   6.7 |       |   3.5 |      |
-|     | Unity (player IL2CPP)     |  39.1 |       |  63.8 |      |
-|     | .NET 6.0                  |  91.5 |  53.0 |  40.9 |      |
-|     | .NET Core 2.0             |  86.1 |  53.0 |       | 23.6 |
-|     | Mono --llvm               |       |       |  35.1 | 22.0 |
-|     | Mono                      |  23.6 |       |   3.6 |  6.1 |
+| Language | Approach                | Ryzen 5950 | AMD TR1950 | MBP 2021   | MBP 2018  | MBA 2020 | iPhone 11 | iPhone X | iPhone SE |
+|:--- |:---                          |        ---:|        ---:|        ---:|       ---:|      ---:|       ---:|      ---:|       ---:|
+| C++ | SIMD Intrinsics              |   281.0    |   187.0    |   105.4    |   74.0    |     32.3 |      26.4 |     12.9 |       8.5 |
+|     | Scalar                       |   141.2    |   100.0    |    84.8    |   35.7    |          |      15.9 |
+|     | WebAssembly (no threads, no SIMD) | 8.4   |     5.0    |     8.1    |           |          |       5.6 |
+| C#  | Unity Burst "manual" SIMD    |   227.2    |   133.0    |   103.7    |   60.0    |          |      29.7 |
+|     | Unity Burst                  |            |    82.0    |            |   36.0    |          |           |
+|     | Unity (Editor)               |     6.5    |            |     3.4    |           |          |           |
+|     | Unity (player Mono)          |     6.7    |            |     3.5    |           |          |           |
+|     | Unity (player IL2CPP)        |    39.1    |            |    63.8    |           |          |      17.2 |
+|     | .NET 6.0                     |    91.5    |    53.0    |    40.9    |           |
+|     | .NET Core 2.0                |    86.1    |    53.0    |            |   23.6    |
+|     | Mono --llvm                  |            |            |    35.1    |   22.0    |
+|     | Mono                         |    23.6    |            |     3.6    |    6.1    |
 
 More detailed specs of the machines above are:
 * `Ryzen 5950`: AMD Ryzen 5950X (3.4GHz, 16c/32t), Visual Studio 2022.
@@ -52,6 +52,7 @@ More detailed specs of the machines above are:
 * `MBP 2021`: Apple MacBook Pro M1 Max (8+2 cores), Xcode 13.2.
 * `MBP 2018`: Apple MacBook Pro mid-2018 (Core i9 2.9GHz, 6c/12t).
 * `MBA 2020`: Apple MacBook Air 2020 (Core i7 1.2GHz, 4c/8t).
+* `iPhone 11`: A13 chip.
 * `iPhone X`: A11 chip.
 * `iPhone SE`: A9 chip.
 
@@ -70,6 +71,7 @@ And on the GPU, via a compute shader in D3D11 or Metal depending on the platform
 | MBP 2021 (M1 Max)          | 1065 |
 | MBP 2018 (Radeon Pro 560X) | 246 |
 | MBA 2020 (Iris Plus)       | 201 |
+| iPhone 11 Pro (A13)        | 80 |
 | iPhone X (A11)             | 46 |
 | iPhone SE (A9)             | 20 |
 
