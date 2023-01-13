@@ -36,15 +36,15 @@ Performance numbers in Mray/s on a scene with ~50 spheres and two light sources,
 | C++ | SIMD Intrinsics           | 281.0 | 187.0 | 105.4 | 74.0 | 32.3 | 12.9 | 8.5 |
 |     | Scalar                    | 141.2 | 100.0 |  84.8 | 35.7 |
 |     | WebAssembly (no threads, no SIMD) |   8.4 |   5.0 |  8.1 |
-| C#  | Unity Burst "manual" SIMD | 227.2 | 133.0 |       | 60.0 |
+| C#  | Unity Burst "manual" SIMD | 227.2 | 133.0 | 103.7 | 60.0 |
 |     | Unity Burst               |       |  82.0 |       | 36.0 |
-|     | Unity (Editor)            |   6.5 |       |       |      |
-|     | Unity (player Mono)       |   6.7 |       |       |      |
-|     | Unity (player IL2CPP)     |  39.1 |       |       |      |
-|     | .NET 6.0                  |  91.5 |  53.0 |       |      |
+|     | Unity (Editor)            |   6.5 |       |   3.4 |      |
+|     | Unity (player Mono)       |   6.7 |       |   3.5 |      |
+|     | Unity (player IL2CPP)     |  39.1 |       |  63.8 |      |
+|     | .NET 6.0                  |  91.5 |  53.0 |  40.9 |      |
 |     | .NET Core 2.0             |  86.1 |  53.0 |       | 23.6 |
-|     | Mono optimized settings   |       |       |       | 22.0 |
-|     | Mono defaults             |  23.6 |       |       |  6.1 |
+|     | Mono --llvm               |       |       |  35.1 | 22.0 |
+|     | Mono                      |  23.6 |       |   3.6 |  6.1 |
 
 More detailed specs of the machines above are:
 * `Ryzen 5950`: AMD Ryzen 5950X (3.4GHz, 16c/32t), Visual Studio 2022.
@@ -56,9 +56,8 @@ More detailed specs of the machines above are:
 * `iPhone SE`: A9 chip.
 
 Software versions:
-* Unity 2020.3.43. Burst 1.6.6 (safety checks off). C# testing in editor, Release mode.
-* Mono 6.12. "optimized settings" is with `MONO_INLINELIMIT=100` environment variable,
-  and `--llvm` argument to `mono`.
+* Unity 2021.3.16. Burst 1.6.6 (safety checks off). C# testing in editor, Release mode.
+* Mono 6.12.
 
 And on the GPU, via a compute shader in D3D11 or Metal depending on the platform:
 
