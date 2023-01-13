@@ -87,4 +87,4 @@ I know it's just a simple toy, ok :)
     Should work on both Mac (`Test Mac` target) and iOS (`Test iOS` target).
   * WebAssembly in `Cpp/Emscripten/build.sh`. CPU, single threaded, no SIMD.
 * C# project in `Cs/TestCs.sln`. A command line app that renders some frames and dumps out final TGA screenshot at the end.
-* Unity project in `Unity`. I used Unity 2020.3.43.
+* Unity project in `Unity`. I used Unity 2021.3.16.
