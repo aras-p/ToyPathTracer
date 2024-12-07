@@ -68,6 +68,7 @@ And on the GPU, via a compute shader in D3D11 or Metal depending on the platform
 | GeForce RTX 3080Ti         | 3920 |
 | GeForce GTX 1080Ti         | 1854 |
 | Metal | |
+| MBP 2024 (M4 Max)          | 1680 |
 | MBP 2021 (M1 Max)          | 1065 |
 | MBP 2018 (Radeon Pro 560X) | 246 |
 | MBA 2020 (Iris Plus)       | 201 |
