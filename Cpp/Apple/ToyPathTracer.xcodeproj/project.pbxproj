@@ -60,9 +60,7 @@
 		2BE32DC8205BEDA6003C05B4 /* Test.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = Test.h; path = ../Source/Test.h; sourceTree = "<group>"; };
 		2BE32DCB205BFC31003C05B4 /* TaskScheduler_c.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TaskScheduler_c.h; sourceTree = "<group>"; };
 		2BE32DCC205BFC31003C05B4 /* LockLessMultiReadPipe.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = LockLessMultiReadPipe.h; sourceTree = "<group>"; };
-		2BE32DCD205BFC31003C05B4 /* Threads.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Threads.h; sourceTree = "<group>"; };
 		2BE32DCE205BFC31003C05B4 /* TaskScheduler_c.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TaskScheduler_c.cpp; sourceTree = "<group>"; };
-		2BE32DCF205BFC31003C05B4 /* Atomics.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = Atomics.h; sourceTree = "<group>"; };
 		2BE32DD0205BFC31003C05B4 /* TaskScheduler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = TaskScheduler.cpp; sourceTree = "<group>"; };
 		2BE32DD1205BFC31003C05B4 /* TaskScheduler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = TaskScheduler.h; sourceTree = "<group>"; };
 		2BFC4E1420614A7B0007766C /* Maths.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = Maths.cpp; path = ../Source/Maths.cpp; sourceTree = "<group>"; };
@@ -106,13 +104,11 @@
 		2B2B5A9720BE6F8E00040BFE /* enkiTS */ = {
 			isa = PBXGroup;
 			children = (
-				2BE32DCF205BFC31003C05B4 /* Atomics.h */,
 				2BE32DCC205BFC31003C05B4 /* LockLessMultiReadPipe.h */,
 				2BE32DCE205BFC31003C05B4 /* TaskScheduler_c.cpp */,
 				2BE32DCB205BFC31003C05B4 /* TaskScheduler_c.h */,
 				2BE32DD0205BFC31003C05B4 /* TaskScheduler.cpp */,
 				2BE32DD1205BFC31003C05B4 /* TaskScheduler.h */,
-				2BE32DCD205BFC31003C05B4 /* Threads.h */,
 			);
 			path = enkiTS;
 			sourceTree = "<group>";

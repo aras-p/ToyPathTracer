@@ -356,9 +356,9 @@ void DrawTest(float time, int frameCount, int screenWidth, int screenHeight, flo
     #if CPU_CAN_DO_THREADS
     enkiTaskSet* task = enkiCreateTaskSet(g_TS, TraceRowJob);
     bool threaded = true;
-    enkiAddTaskSetToPipeMinRange(g_TS, task, &args, screenHeight, threaded ? 4 : screenHeight);
+    enkiAddTaskSetMinRange(g_TS, task, &args, screenHeight, threaded ? 4 : screenHeight);
     enkiWaitForTaskSet(g_TS, task);
-    enkiDeleteTaskSet(task);
+    enkiDeleteTaskSet(g_TS, task);
     #else
     TraceRowJob(0, screenHeight, 0, &args);
     #endif
