@@ -30,9 +30,6 @@
     <ClInclude Include="..\Source\stb_image.h">
       <Filter>Source</Filter>
     </ClInclude>
-    <ClInclude Include="..\Source\enkiTS\Atomics.h">
-      <Filter>Source\enkiTS</Filter>
-    </ClInclude>
     <ClInclude Include="..\Source\enkiTS\LockLessMultiReadPipe.h">
       <Filter>Source\enkiTS</Filter>
     </ClInclude>
@@ -40,9 +37,6 @@
       <Filter>Source\enkiTS</Filter>
     </ClInclude>
     <ClInclude Include="..\Source\enkiTS\TaskScheduler_c.h">
-      <Filter>Source\enkiTS</Filter>
-    </ClInclude>
-    <ClInclude Include="..\Source\enkiTS\Threads.h">
       <Filter>Source\enkiTS</Filter>
     </ClInclude>
     <ClInclude Include="..\Source\Maths.h">

@@ -19,11 +19,13 @@
 #pragma once
 
 #include <stdint.h>
-#include <assert.h>
-
-#include "Atomics.h"
+#include <atomic>
 #include <string.h>
 
+#ifndef ENKI_ASSERT
+#include <assert.h>
+#define ENKI_ASSERT(x) assert(x)
+#endif
 
 namespace enki
 {
@@ -56,7 +58,7 @@ namespace enki
         // Should only be used very prudently.
         bool IsPipeEmpty() const
         {
-            return 0 == m_WriteIndex - m_ReadCount;
+            return 0 == m_WriteIndex.load( std::memory_order_relaxed ) - m_ReadCount.load( std::memory_order_relaxed );
         }
 
         void Clear()
@@ -78,19 +80,19 @@ namespace enki
 
         // read and write indexes allow fast access to the pipe, but actual access
         // controlled by the access flags. 
-        volatile uint32_t BASE_ALIGN(4) m_WriteIndex;
-        volatile uint32_t BASE_ALIGN(4) m_ReadCount;
-        volatile uint32_t               m_Flags[  ms_cSize ];
-        volatile uint32_t BASE_ALIGN(4) m_ReadIndex;
+        std::atomic<uint32_t>            m_WriteIndex;
+        std::atomic<uint32_t>            m_ReadCount;
+        std::atomic<uint32_t>            m_Flags[  ms_cSize ];
+        std::atomic<uint32_t>            m_ReadIndex;
     };
 
     template<uint8_t cSizeLog2, typename T> inline
         LockLessMultiReadPipe<cSizeLog2,T>::LockLessMultiReadPipe()
         : m_WriteIndex(0)
-        , m_ReadIndex(0)
         , m_ReadCount(0)
+        , m_ReadIndex(0)
     {
-        assert( cSizeLog2 < 32 );
+        ENKI_ASSERT( cSizeLog2 < 32 );
         memset( (void*)m_Flags, 0, sizeof( m_Flags ) );
     }
 
@@ -99,18 +101,15 @@ namespace enki
     {
 
         uint32_t actualReadIndex;
+        uint32_t readCount  = m_ReadCount.load( std::memory_order_relaxed );
 
-        uint32_t readCount  = m_ReadCount;
-
-        // We get hold of read index for consistency,
+        // We get hold of read index for consistency
         // and do first pass starting at read count
         uint32_t readIndexToUse  = readCount;
-
-
         while(true)
         {
 
-            uint32_t writeIndex = m_WriteIndex;
+            uint32_t writeIndex = m_WriteIndex.load( std::memory_order_relaxed );
             // power of two sizes ensures we can use a simple calc without modulus
             uint32_t numInPipe = writeIndex - readCount;
             if( 0 == numInPipe )
@@ -119,37 +118,35 @@ namespace enki
             }
             if( readIndexToUse >= writeIndex )
             {
-                // move back to start
-                readIndexToUse = m_ReadIndex;
+                readIndexToUse = m_ReadIndex.load( std::memory_order_relaxed );
             }
-
 
             // power of two sizes ensures we can perform AND for a modulus
             actualReadIndex    = readIndexToUse & ms_cIndexMask;
 
             // Multiple potential readers mean we should check if the data is valid,
             // using an atomic compare exchange
-            uint32_t previous = AtomicCompareAndSwap( &m_Flags[  actualReadIndex ], FLAG_INVALID, FLAG_CAN_READ );
-            if( FLAG_CAN_READ == previous )
+            uint32_t previous = FLAG_CAN_READ;
+            bool bSuccess = m_Flags[  actualReadIndex ].compare_exchange_strong( previous, FLAG_INVALID, std::memory_order_acq_rel, std::memory_order_relaxed );
+            if( bSuccess )
             {
                 break;
             }
             ++readIndexToUse;
 
-            //update known readcount
-            readCount  = m_ReadCount;
+            // Update read count
+            readCount  = m_ReadCount.load( std::memory_order_relaxed );
         }
 
         // we update the read index using an atomic add, as we've only read one piece of data.
         // this ensure consistency of the read index, and the above loop ensures readers
         // only read from unread data
-        AtomicAdd(  (volatile int32_t*)&m_ReadCount, 1 );
+        m_ReadCount.fetch_add(1, std::memory_order_relaxed );
 
-        BASE_MEMORYBARRIER_ACQUIRE();
         // now read data, ensuring we do so after above reads & CAS
         *pOut = m_Buffer[ actualReadIndex ];
 
-        m_Flags[  actualReadIndex ] = FLAG_CAN_WRITE;
+        m_Flags[  actualReadIndex ].store( FLAG_CAN_WRITE, std::memory_order_release );
 
         return true;
     }
@@ -157,32 +154,31 @@ namespace enki
     template<uint8_t cSizeLog2, typename T> inline
         bool LockLessMultiReadPipe<cSizeLog2,T>::WriterTryReadFront(  T* pOut )
     {
-        uint32_t writeIndex = m_WriteIndex;
+        uint32_t writeIndex = m_WriteIndex.load( std::memory_order_relaxed );
         uint32_t frontReadIndex  = writeIndex;
 
         // Multiple potential readers mean we should check if the data is valid,
         // using an atomic compare exchange - which acts as a form of lock (so not quite lockless really).
-        uint32_t previous = FLAG_INVALID;
-        uint32_t actualReadIndex = 0;
-        while( true )
+        uint32_t actualReadIndex    = 0;
+        while(true)
         {
+            uint32_t readCount  = m_ReadCount.load( std::memory_order_relaxed );
             // power of two sizes ensures we can use a simple calc without modulus
-            uint32_t readCount = m_ReadCount;
             uint32_t numInPipe = writeIndex - readCount;
-            if( 0 == numInPipe || 0 == frontReadIndex )
+            if( 0 == numInPipe )
             {
-                // frontReadIndex can get to 0 here if that item was just being read by another thread.
-                m_ReadIndex = readCount;
+                m_ReadIndex.store( readCount, std::memory_order_release );
                 return false;
             }
             --frontReadIndex;
-            actualReadIndex = frontReadIndex & ms_cIndexMask;
-            previous = AtomicCompareAndSwap( &m_Flags[  actualReadIndex ], FLAG_INVALID, FLAG_CAN_READ );
-            if( FLAG_CAN_READ == previous )
+            actualReadIndex    = frontReadIndex & ms_cIndexMask;
+            uint32_t previous = FLAG_CAN_READ;
+            bool success = m_Flags[  actualReadIndex ].compare_exchange_strong( previous, FLAG_INVALID, std::memory_order_acq_rel, std::memory_order_relaxed );
+            if( success )
             {
                 break;
             }
-            else if( m_ReadIndex >= frontReadIndex  )
+            else if( m_ReadIndex.load( std::memory_order_acquire ) >= frontReadIndex  )
             {
                 return false;
             }
@@ -191,13 +187,9 @@ namespace enki
         // now read data, ensuring we do so after above reads & CAS
         *pOut = m_Buffer[ actualReadIndex ];
 
-        m_Flags[  actualReadIndex ] = FLAG_CAN_WRITE;
+        m_Flags[  actualReadIndex ].store( FLAG_CAN_WRITE, std::memory_order_relaxed );
 
-        BASE_MEMORYBARRIER_RELEASE();
-
-        // 32-bit aligned stores are atomic, and writer owns the write index
-        // we only move one back as this is as many as we have read, not where we have read from.
-        --m_WriteIndex;
+        m_WriteIndex.store(writeIndex-1, std::memory_order_relaxed);
         return true;
     }
 
@@ -211,30 +203,81 @@ namespace enki
         // impacting more than one access
         uint32_t writeIndex = m_WriteIndex;
 
-
         // power of two sizes ensures we can perform AND for a modulus
         uint32_t actualWriteIndex    = writeIndex & ms_cIndexMask;
 
         // a reader may still be reading this item, as there are multiple readers
-        if( m_Flags[ actualWriteIndex ] != FLAG_CAN_WRITE ) 
+        if( m_Flags[ actualWriteIndex ].load(std::memory_order_acquire)  != FLAG_CAN_WRITE ) 
         {
             return false; // still being read, so have caught up with tail. 
         }
 
-
         // as we are the only writer we can update the data without atomics
         //  whilst the write index has not been updated
         m_Buffer[ actualWriteIndex ] = in;
-        m_Flags[  actualWriteIndex ] = FLAG_CAN_READ;
+        m_Flags[  actualWriteIndex ].store( FLAG_CAN_READ, std::memory_order_release );
 
-        // We need to ensure the above writes occur prior to updating the write index,
-        // otherwise another thread might read before it's finished
-        BASE_MEMORYBARRIER_RELEASE();
-
-        // 32-bit aligned stores are atomic, and the writer controls the write index
-        ++writeIndex;
-        m_WriteIndex = writeIndex;
+        m_WriteIndex.fetch_add(1, std::memory_order_relaxed);
         return true;
     }
+
+
+    // Lockless multiwriter intrusive list
+    // Type T must implement T* volatile pNext;
+    template<typename T> class  LocklessMultiWriteIntrusiveList
+    {
+
+        std::atomic<T*> pHead;
+        T               tail;
+    public:
+        LocklessMultiWriteIntrusiveList() : pHead( &tail )
+        {
+            tail.pNext = NULL;
+        }
+
+        bool IsListEmpty() const
+        {
+            return pHead == &tail;
+        }
+
+        // Add - safe to perform from any thread
+        void WriterWriteFront( T* pNode_ )
+        {
+            ENKI_ASSERT( pNode_ );
+            pNode_->pNext = NULL;
+            T* pPrev = pHead.exchange( pNode_ );
+            pPrev->pNext = pNode_;
+        }
+
+        // Remove - only thread safe for owner
+        T* ReaderReadBack()
+        {
+            T* pTailPlus1 = tail.pNext;
+            if( pTailPlus1 )
+            {
+                T* pTailPlus2 = pTailPlus1->pNext;
+                if( pTailPlus2 )
+                {
+                    //not head
+                    tail.pNext = pTailPlus2;
+                }
+                else
+                {
+                    tail.pNext = NULL;
+                    T* pCompare = pTailPlus1; // we need preserve pTailPlus1 as compare will alter it on failure
+                    // pTailPlus1 is the head, attempt swap with tail
+                    if( !pHead.compare_exchange_strong( pCompare, &tail ) )
+                    {
+                        // pCompare receives the revised pHead on failure.
+                        // pTailPlus1 is no longer the head, so pTailPlus1->pNext should be non NULL
+                        while( (T*)NULL == pTailPlus1->pNext ) {;} // wait for pNext to be updated as head may have just changed.
+                        tail.pNext = pTailPlus1->pNext.load();
+                        pTailPlus1->pNext = NULL;
+                    }
+                }
+            }
+            return pTailPlus1;
+        }
+    };
 
 }
